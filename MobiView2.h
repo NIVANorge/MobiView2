@@ -514,9 +514,21 @@ public :
 };
 */
 
-struct Mobius_Model;
-struct Model_Application;
-struct Data_Set;
+
+#include "model_application.h"
+
+// TODO: should also have a checkbox.
+class Series_Node : public Upp::Label {
+public:
+	typedef Series_Node CLASSNAME;
+	
+	Series_Node(Var_Id var_id, std::string &name) : var_id(var_id) {
+		SetText(name.data());
+	}
+	
+	Var_Id var_id;
+};
+
 
 class MobiView2 : public Upp::TopWindow
 {
@@ -545,6 +557,7 @@ public:
 	Upp::TreeCtrl   result_selecter;
 	Upp::Option     show_favorites;
 	Upp::TreeCtrl   input_selecter;
+	Array<Series_Node> series_nodes;
 	
 	Upp::ToolBar    tool_bar;
 	
@@ -584,6 +597,7 @@ public:
 	void store_settings(bool store_favorites = true);
 	
 	void plot_rebuild();
+	void plot_change();
 	
 	/*
 	StatisticsSettings StatSettings;

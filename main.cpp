@@ -10,8 +10,6 @@
 
 #include <iomanip>
 
-#include "model_application.h"
-
 std::stringstream global_error_stream;
 std::stringstream global_warning_stream;
 
@@ -69,6 +67,7 @@ MobiView2::MobiView2() {
 	
 	
 	par_group_selecter.SetRoot(Null, String("Parameter groups"));
+	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
 	
 	params.ParameterView.AddColumn("Name");
 	params.ParameterView.AddColumn("Value");
@@ -146,19 +145,23 @@ MobiView2::MobiView2() {
 	//result_selecter.AddColumn("Equation");
 	//result_selecter.AddColumn("F.");
 	//result_selecter.AddColumn();
-	//result_selecter.WhenSel = THISBACK(PlotModeChange);
+	result_selecter.WhenSel = THISBACK(plot_change);
 	result_selecter.MultiSelect();
 	//result_selecter.ColumnWidths("85 15 0");
 	//result_selecter.HeaderObject().HideTab(2);
 	result_selecter.SetRoot(Null, String("Results"));
+	result_selecter.HighlightCtrl(true);
+	result_selecter.SetNode(0, result_selecter.GetNode(0).CanSelect(false));
 	
 	//input_selecter.AddColumn("Input");
 	//input_selecter.AddColumn();
-	//input_selecter.WhenSel = THISBACK(PlotModeChange);
+	input_selecter.WhenSel = THISBACK(plot_change);
 	input_selecter.MultiSelect();
 	//input_selecter.NoGrid();
 	//input_selecter.HeaderObject().HideTab(1);
 	input_selecter.SetRoot(Null, String("Input time series"));
+	input_selecter.HighlightCtrl(true);
+	input_selecter.SetNode(0, input_selecter.GetNode(0).CanSelect(false));
 	
 	//ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
@@ -445,6 +448,14 @@ void MobiView2::plot_rebuild() {
 	//TODO
 }
 
+void MobiView2::plot_change() {
+	Vector<int> result_sel = result_selecter.GetSel();
+	Vector<int> input_sel  = input_selecter.GetSel();
+	
+	log(Format("Plot change activated with %d results and %d inputs", result_sel.size(), input_sel.size()));
+	//TODO!
+}
+
 void MobiView2::run_model() {
 	if(!app || !model) {
 		log("The model can only be run if it is loaded along with a data file.", true);
@@ -565,7 +576,7 @@ void MobiView2::clean_interface() {
 	//TODO
 }
 
-void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
+void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
 	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, bool is_input = false) {
 		
 	//TODO: We should make our own ctrl. for the nodes to store the var_id and have the
@@ -618,7 +629,9 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 			if(find == nodes_compartment.end()) {
 				auto comp = model->find_entity<Reg_Type::compartment>(loc.compartment);
 				std::string name = std::string(comp->name);
-				parent_id = selecter.Add(top_node, IconImg::Compartment(), name.data(), false);
+				window->series_nodes.Create(invalid_var, name);
+				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
+				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
 				nodes_compartment[loc.compartment] = parent_id;
 			} else
 				parent_id = find->second;
@@ -667,7 +680,8 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		img = flux_to ? &IconImg::FluxTo() : &IconImg::Flux();
 	}
 	
-	int id = selecter.Add(parent_id, *img, name.data(), false);
+	window->series_nodes.Create(var_id, name);
+	int id = selecter.Add(parent_id, *img, window->series_nodes.Top());//, false);
 	
 	if(var->type == Decl_Type::quantity && is_located(loc))
 		nodes_quantity[loc] = id;
@@ -691,6 +705,7 @@ void MobiView2::build_interface() {
 				+ std::to_string(mod->version.minor) + "."
 				+ std::to_string(mod->version.revision);
 			id = par_group_selecter.Add(0, Null, name.data(), false);
+			par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
 		}
 		
 		for(auto par_group_id : mod->par_groups) {
@@ -711,19 +726,19 @@ void MobiView2::build_interface() {
 		for(Var_Id var_id : model->state_vars) {
 			auto var = model->state_vars[var_id];
 			if(var->type == Decl_Type::quantity)
-				add_series_node(this, result_selecter, model, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
 		for(Var_Id var_id : model->state_vars) {
 			auto var = model->state_vars[var_id];
 			if(var->type == Decl_Type::property)
-				add_series_node(this, result_selecter, model, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
 		for(Var_Id var_id : model->state_vars) {
 			auto var = model->state_vars[var_id];
 			if(var->type == Decl_Type::flux)
-				add_series_node(this, result_selecter, model, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
 		nodes_compartment.clear();
@@ -732,15 +747,18 @@ void MobiView2::build_interface() {
 		int input_id = input_selecter.Add(0, Null, "Model inputs", false);
 		int additional_id = input_selecter.Add(0, Null, "Additional series", false);
 		
+		input_selecter.SetNode(input_id, input_selecter.GetNode(input_id).CanSelect(false));
+		input_selecter.SetNode(additional_id, input_selecter.GetNode(additional_id).CanSelect(false));
+		
 		for(Var_Id var_id : model->series) {
 			auto var = model->series[var_id];
-			add_series_node(this, input_selecter, model, var, input_id, nodes_compartment, nodes_quantity, true);
+			add_series_node(this, input_selecter, model, var_id, var, input_id, nodes_compartment, nodes_quantity, true);
 		}
 		
 		
 		for(Var_Id var_id : app->additional_series) {
 			auto var = app->additional_series[var_id];
-			add_series_node(this, input_selecter, model, var, additional_id, nodes_compartment, nodes_quantity, true);
+			add_series_node(this, input_selecter, model, var_id, var, additional_id, nodes_compartment, nodes_quantity, true);
 		}
 		
 	} catch (int) {}
