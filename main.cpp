@@ -19,27 +19,6 @@ using namespace Upp;
 
 MobiView2::MobiView2() {
 	
-	/*
-	try {
-		auto model_file = "another_simple.txt";
-		auto data_file  = "another_simple_data.dat";
-		
-		Mobius_Model *model = load_model(model_file);
-		model->compose();
-		
-		auto app = new Model_Application(model);
-			
-		Data_Set *data_set = new Data_Set;
-		data_set->read_from_file(data_file);
-		
-		app->build_from_data_set(data_set);
-	
-		app->compile();
-	} catch(int) {
-		PromptOK(global_error_stream.str());
-	}
-	*/
-	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
 	SetDateFormat("%d-%02d-%02d");
@@ -689,8 +668,6 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	}
 	
 	int id = selecter.Add(parent_id, *img, name.data(), false);
-	
-	if(is_input) PromptOK("Plong");
 	
 	if(var->type == Decl_Type::quantity && is_located(loc))
 		nodes_quantity[loc] = id;
