@@ -10,29 +10,19 @@
 #include <map>
 #include <vector>
 
-
-constexpr int MAX_INDEX_SETS = 6;    //NOTE: This has to match the number of (currently) hard coded index set displays in the main window.
-
-
 #include "StarOption.h"
-
-//#include "Plotting.h"
 #include "MyRichView.h"
 
 
-//#include "PlotCtrl.h"
-//#include "ParameterEditing.h"
 //#include "MCMC.h"
-
-using MyPlot = Upp::ScatterCtrl; //TODO!
-
-#define LAYOUTFILE <MobiView2/MobiView2.lay>
-#include <CtrlCore/lay.h>
-
 
 //class MobiView2;
 
 #include "ParameterCtrl.h"
+#include "PlotCtrl.h"
+
+//#define LAYOUTFILE <MobiView2/MobiView2.lay>
+//#include <CtrlCore/lay.h>
 
 /*
 class SearchWindow : public WithSearchLayout<TopWindow>
@@ -517,16 +507,36 @@ public :
 
 #include "model_application.h"
 
+inline Upp::String str(const String_View &str) {
+	return Upp::String(str.data, str.data+str.count);
+}
+
+inline Upp::Time convert_time(const Date_Time &dt) {
+	s32 year, month, day, hour, minute, second;
+	dt.year_month_day(&year, &month, &day);
+	dt.hour_minute_second(&hour, &minute, &second);
+	return Upp::Time(year, month, day, hour, minute, second);
+}
+
+inline Date_Time convert_time(const Upp::Time &tm) {
+	Date_Time result(tm.year, tm.month, tm.day);
+	result.add_timestamp(tm.hour, tm.minute, tm.second);
+	return result;
+}
+
+
 // TODO: should also have a checkbox.
-class Series_Node : public Upp::Label {
+class Entity_Node : public Upp::Label {
 public:
-	typedef Series_Node CLASSNAME;
+	typedef Entity_Node CLASSNAME;
 	
-	Series_Node(Var_Id var_id, std::string &name) : var_id(var_id) {
-		SetText(name.data());
-	}
+	Entity_Node(Var_Id var_id, const Upp::String &name) : var_id(var_id) { SetText(name); }
+	Entity_Node(Entity_Id entity_id, const Upp::String &name) : entity_id(entity_id) { SetText(name); }
 	
-	Var_Id var_id;
+	union {
+		Var_Id var_id;
+		Entity_Id entity_id;
+	};
 };
 
 
@@ -544,6 +554,8 @@ public:
 	Upp::TreeCtrl par_group_selecter;
 	ParameterCtrl params;
 	
+	Array<Entity_Node> par_group_nodes;
+	
 	Upp::ParentCtrl plot_info_rect;
 	Upp::EditTime   calib_start;
 	Upp::EditTime   calib_end;
@@ -557,21 +569,18 @@ public:
 	Upp::TreeCtrl   result_selecter;
 	Upp::Option     show_favorites;
 	Upp::TreeCtrl   input_selecter;
-	Array<Series_Node> series_nodes;
+	Array<Entity_Node> series_nodes;
 	
 	Upp::ToolBar    tool_bar;
 	
-	//PlotCtrl Plotter;
-	Upp::ScatterCtrl plotter;  //TODO: replace with PlotCtrl again!
+	PlotCtrl        plotter;
 	
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;
 	
-	
-	
-	
+
 	void sub_bar(Upp::Bar &bar);
 	
 	void log(Upp::String msg, bool error = false);
@@ -598,6 +607,8 @@ public:
 	
 	void plot_rebuild();
 	void plot_change();
+	
+	bool model_is_loaded() { return app && model; }
 	
 	/*
 	StatisticsSettings StatSettings;
@@ -659,8 +670,6 @@ public:
 	
 	indexed_parameter CurrentSelectedParameter = {};
 	
-	int ExpandedSetLocal;
-	int SecondExpandedSetLocal;
 	//void RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentIndexes, const indexed_parameter &Parameter, void *DataSet, Value Val);
 	void ParameterEditAccepted(const indexed_parameter &Parameter, void *DataSet, Value Val, bool UpdateLock=false);
 	
@@ -671,24 +680,13 @@ public:
 	void GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut);
 	void GetGofOffsetsBase(const Time &AttemptBegin, const Time &AttemptEnd, const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut);
 	*/
-
-	
-	
-	// TODO: These should probably be owned by ParameterCtrl instead??
-	//Array<Ctrl> ParameterControls;
-	//std::vector<parameter_type> CurrentParameterTypes;
 	
 	//Array<Ctrl> EquationSelecterFavControls;
 	
 	//model_dll_interface ModelDll;
 	//timestep_size TimestepSize;
 	
-	Upp::Label     *index_set_name[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
-	Upp::DropList  *index_list[MAX_INDEX_SETS];
-	Upp::Option    *index_lock[MAX_INDEX_SETS];
-	Upp::Option    *index_expand[MAX_INDEX_SETS];
-	
-	std::map<std::string, size_t> index_set_name_to_pos;
+	//std::map<std::string, size_t> index_set_name_to_pos;
 	
 	
 	//void *DataSet = nullptr;

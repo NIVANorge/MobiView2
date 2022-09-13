@@ -3,23 +3,6 @@ LAYOUT(SearchLayout, 388, 248)
 	ITEM(Upp::LineEdit, SearchField, HSizePosZ(4, 4).TopPosZ(4, 24))
 END_LAYOUT
 
-LAYOUT(PlotCtrlLayout, 792, 308)
-	ITEM(Upp::ArrayCtrl, EIndexList1, LeftPosZ(4, 88).BottomPosZ(44, 116))
-	ITEM(Upp::ArrayCtrl, EIndexList2, LeftPosZ(96, 88).BottomPosZ(44, 116))
-	ITEM(Upp::ArrayCtrl, EIndexList3, LeftPosZ(188, 88).BottomPosZ(44, 116))
-	ITEM(Upp::ArrayCtrl, EIndexList4, LeftPosZ(280, 88).BottomPosZ(44, 116))
-	ITEM(Upp::ArrayCtrl, EIndexList5, LeftPosZ(372, 88).BottomPosZ(44, 116))
-	ITEM(Upp::ArrayCtrl, EIndexList6, LeftPosZ(464, 88).BottomPosZ(44, 116))
-	ITEM(MyPlot, MainPlot, HSizePosZ(0, 0).VSizePosZ(0, 188))
-	ITEM(Upp::Option, ScatterInputs, NotNull(true).SetLabel(t_("Scatter inputs")).RightPosZ(8, 112).BottomPosZ(144, 16))
-	ITEM(Upp::Switch, TimeIntervals, SetLabel(t_("No aggr.")).RightPosZ(56, 64).BottomPosZ(12, 76))
-	ITEM(Upp::Switch, Aggregation, SetLabel(t_("Mean\nSum\nMin\nMax")).RightPosZ(4, 48).BottomPosZ(12, 76))
-	ITEM(Upp::Switch, PlotMajorMode, SetLabel(t_("Regular\nStacked\nStacked share\nHistogram\nProfile\nProfile2D\nCompare baseline\nResiduals\nResidual histogram\nQ-Q")).RightPosZ(124, 112).BottomPosZ(12, 148))
-	ITEM(Upp::SliderCtrl, TimestepSlider, HSizePosZ(4, 124).BottomPosZ(160, 24))
-	ITEM(Upp::EditTimeNotNull, TimestepEdit, RightPosZ(36, 84).BottomPosZ(165, 19))
-	ITEM(Upp::Switch, YAxisMode, SetLabel(t_("Regular Y axis\nNormalized\nLogaritmic")).RightPosZ(28, 92).BottomPosZ(92, 48))
-END_LAYOUT
-
 LAYOUT(StructureViewLayout, 316, 484)
 	ITEM(Upp::DocEdit, StructureViewBox, SetEditable(false).HSizePosZ(4, 4).VSizePosZ(32, 4))
 	ITEM(Upp::Label, dv___1, SetLabel(t_("Index set dependencies and order of evaluation for equations")).LeftPosZ(8, 304).TopPosZ(8, 19))
@@ -104,7 +87,7 @@ LAYOUT(MiniPlotLayout, 568, 100)
 END_LAYOUT
 
 LAYOUT(SensitivityStatPlotLayout, 116, 152)
-	ITEM(Upp::ScatterCtrl, Plot, HSizePosZ(4, 4).VSizePosZ(32, 4))
+	ITEM(ScatterCtrl, Plot, HSizePosZ(4, 4).VSizePosZ(32, 4))
 	ITEM(Upp::DropList, SelectStat, HSizePosZ(4, 4).TopPosZ(4, 24))
 END_LAYOUT
 

@@ -15,7 +15,7 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() {
+MobiView2::MobiView2() : params(this), plotter(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -68,43 +68,8 @@ MobiView2::MobiView2() {
 	
 	par_group_selecter.SetRoot(Null, String("Parameter groups"));
 	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
+	par_group_selecter.HighlightCtrl(true);
 	
-	params.ParameterView.AddColumn("Name");
-	params.ParameterView.AddColumn("Value");
-	params.ParameterView.AddColumn("Min");
-	params.ParameterView.AddColumn("Max");
-	params.ParameterView.AddColumn("Unit");
-	params.ParameterView.AddColumn("Description");
-	
-	params.ParameterView.ColumnWidths("20 12 10 10 10 38");
-	
-	index_set_name[0] = &params.IndexSetName1;
-	index_set_name[1] = &params.IndexSetName2;
-	index_set_name[2] = &params.IndexSetName3;
-	index_set_name[3] = &params.IndexSetName4;
-	index_set_name[4] = &params.IndexSetName5;
-	index_set_name[5] = &params.IndexSetName6;
-	
-	index_list[0]    = &params.IndexList1;
-	index_list[1]    = &params.IndexList2;
-	index_list[2]    = &params.IndexList3;
-	index_list[3]    = &params.IndexList4;
-	index_list[4]    = &params.IndexList5;
-	index_list[5]    = &params.IndexList6;
-	
-	index_lock[0]    = &params.IndexLock1;
-	index_lock[1]    = &params.IndexLock2;
-	index_lock[2]    = &params.IndexLock3;
-	index_lock[3]    = &params.IndexLock4;
-	index_lock[4]    = &params.IndexLock5;
-	index_lock[5]    = &params.IndexLock6;
-	
-	index_expand[0]    = &params.IndexExpand1;
-	index_expand[1]    = &params.IndexExpand2;
-	index_expand[2]    = &params.IndexExpand3;
-	index_expand[3]    = &params.IndexExpand4;
-	index_expand[4]    = &params.IndexExpand5;
-	index_expand[5]    = &params.IndexExpand6;
 	
 	//CurrentSelectedParameter.Valid = false;
 	
@@ -125,49 +90,29 @@ MobiView2::MobiView2() {
 	// doesn't work either! Maybe we have to set one on each individual control?
 	//Params.ParameterView.WhenSel << SensitivityWindowUpdate;
 	
-	//ParameterGroupSelecter.WhenSel << [this](){ RefreshParameterView(false); };
+	par_group_selecter.WhenSel << [this](){ params.refresh(false); };
 	//ParameterGroupSelecter.WhenSel << SensitivityWindowUpdate;
 	
-	for(size_t idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_set_name[idx]->Hide();
-		index_list[idx]->Hide();
-		index_list[idx]->Disable();
-		//index_list[idx]->WhenAction << [this](){ RefreshParameterView(false); };
-		
-		index_lock[idx]->Hide();
-		//index_lock[idx]->WhenAction << SensitivityWindowUpdate;
-		index_expand[idx]->Hide();
-		//IndexExpand[Idx]->WhenAction << [this, Idx](){ ExpandIndexSetClicked(Idx); };
-	}
 	
-	//result_selecter.NoGrid();
+	
 	result_selecter.Disable();
-	//result_selecter.AddColumn("Equation");
-	//result_selecter.AddColumn("F.");
-	//result_selecter.AddColumn();
 	result_selecter.WhenSel = THISBACK(plot_change);
 	result_selecter.MultiSelect();
-	//result_selecter.ColumnWidths("85 15 0");
-	//result_selecter.HeaderObject().HideTab(2);
 	result_selecter.SetRoot(Null, String("Results"));
 	result_selecter.HighlightCtrl(true);
 	result_selecter.SetNode(0, result_selecter.GetNode(0).CanSelect(false));
 	
-	//input_selecter.AddColumn("Input");
-	//input_selecter.AddColumn();
 	input_selecter.WhenSel = THISBACK(plot_change);
 	input_selecter.MultiSelect();
-	//input_selecter.NoGrid();
-	//input_selecter.HeaderObject().HideTab(1);
 	input_selecter.SetRoot(Null, String("Input time series"));
 	input_selecter.HighlightCtrl(true);
 	input_selecter.SetNode(0, input_selecter.GetNode(0).CanSelect(false));
 	
 	//ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
-	//calib_start.WhenAction = THISBACK(plot_rebuild);
-	//calib_end.WhenAction   = THISBACK(plot_rebuild);
-	//gof_option.WhenAction  = THISBACK(plot_rebuild);
+	calib_start.WhenAction = THISBACK(plot_rebuild);
+	calib_end.WhenAction   = THISBACK(plot_rebuild);
+	gof_option.WhenAction  = THISBACK(plot_rebuild);
 	
 	
 	//Load in some settings
@@ -437,11 +382,52 @@ void MobiView2::load() {
 }
 
 void MobiView2::save_parameters() {
-	//TODO!!
+	if(!model_is_loaded() || data_file.size()==0) {
+		log("Parameters can only be saved once a model and data file is loaded.", true);
+		return;
+	}
+	
+	try {
+		app->save_to_data_set();
+		data_set->write_to_file(data_file);
+		
+		log(Format("Parameters saved to %s", data_file.data()));
+		params.changed_since_last_save = false;
+	} catch(int) {
+		log("Data file saving may have been unsuccessful.", true);
+	}
+	log_warnings_and_errors();
 }
 
 void MobiView2::save_parameters_as() {
-	//TODO
+	if(!model_is_loaded()) {
+		log("Parameters can only be saved once a model and data files is loaded.", true);
+		return;
+	}
+	FileSel sel;
+	sel.Type("Data .dat files", "*.dat");
+	if(data_file.size() > 0) {
+		String existing_file = data_file.data();
+		sel.PreSelect(existing_file);
+	}
+	sel.ExecuteSaveAs("Save data file as");
+	
+	std::string new_file = sel.Get().ToStd();
+	if(new_file.size() == 0) return;
+	
+	try {
+		app->save_to_data_set();
+		data_set->write_to_file(new_file);
+		
+		log(Format("Parameters saved to %s", new_file.data()));
+		params.changed_since_last_save = false;
+		data_file = new_file;
+		
+		store_settings(); // NOTE: so that it records the new file as the data file.
+	} catch(int) {
+		log("Data file saving may have been unsuccessful.", true);
+	}
+	log_warnings_and_errors();
 }
 
 void MobiView2::plot_rebuild() {
@@ -457,7 +443,7 @@ void MobiView2::plot_change() {
 }
 
 void MobiView2::run_model() {
-	if(!app || !model) {
+	if(!model_is_loaded()) {
 		log("The model can only be run if it is loaded along with a data file.", true);
 		return;
 	}
@@ -479,7 +465,7 @@ void MobiView2::run_model() {
 	plot_rebuild();
 	
 	// TODO: This will probably not be needed any more:
-	//RefreshParameterView(true); //NOTE: In case there are computed parameters that are displayed, we need to refresh their values in the view
+	//params.refresh(true); //NOTE: In case there are computed parameters that are displayed, we need to refresh their values in the view
 }
 
 void MobiView2::store_settings(bool store_favorites) {
@@ -573,6 +559,15 @@ void MobiView2::store_settings(bool store_favorites) {
 }
 
 void MobiView2::clean_interface() {
+	par_group_selecter.Clear();
+	par_group_nodes.Clear();
+	
+	result_selecter.Clear();
+	input_selecter.Clear();
+	series_nodes.Clear();
+	
+	params.clean();
+	plotter.clean();
 	//TODO
 }
 
@@ -617,8 +612,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	}
 	
 	if(!is_located(loc) && !is_input) {
-		std::string name = std::string(var->name);
-		window->log(Format("Unable to identify why a variable \"%s\" was not located.", name.data()), true);
+		window->log(Format("Unable to identify why a variable \"%s\" was not located.", str(var->name)), true);
 		return;
 	}
 	
@@ -628,8 +622,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 			auto find = nodes_compartment.find(loc.compartment);
 			if(find == nodes_compartment.end()) {
 				auto comp = model->find_entity<Reg_Type::compartment>(loc.compartment);
-				std::string name = std::string(comp->name);
-				window->series_nodes.Create(invalid_var, name);
+				window->series_nodes.Create(invalid_var, str(comp->name));
 				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
 				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
 				nodes_compartment[loc.compartment] = parent_id;
@@ -651,10 +644,10 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		}
 	}
 	
-	std::string name;
+	String name;
 	
 	if(is_input) {
-		name = std::string(var->name);
+		name = str(var->name);
 	} else if(diss_conc) {
 		name = "concentration";
 	} else if(var->type == Decl_Type::flux) {
@@ -663,14 +656,13 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		while(var2->flags & State_Variable::Flags::f_dissolved_flux)
 			var2 = model->state_vars[var2->dissolved_flux];
 		
-		name = std::string(var2->name);
+		name = str(var2->name);
 		//TODO: aggregate fluxes!
 	} else {
 		auto quant = model->find_entity<Reg_Type::property_or_quantity>(loc.property_or_quantity);
-		name = std::string(quant->name);
+		name = str(quant->name);
 	}
-	//std::string name = std::string(var->name);    // TODO: we should use this name
-	//somehow though. (?)
+
 	Image *img;
 	if(var->type == Decl_Type::quantity) {
 		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
@@ -688,31 +680,26 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 }
 
 void MobiView2::build_interface() {
-	if(!model || !app) {
+	if(!model_is_loaded()) {
 		log("Tried to build the interface without a model having been loaded", true);
 		return;
 	}
 	
-	par_group_selecter.Set(0, std::string(model->model_name).data());
+	par_group_selecter.Set(0, str(model->model_name));
 	
 	int module_idx = 0;
 	for(auto mod : model->modules) {
 		int id = 0;
 		if(module_idx > 0) {
-			std::string name =
-				std::string(mod->module_name) + " v. "
-				+ std::to_string(mod->version.major) + "."
-				+ std::to_string(mod->version.minor) + "."
-				+ std::to_string(mod->version.revision);
-			id = par_group_selecter.Add(0, Null, name.data(), false);
-			par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
+			String name = Format("%s v. %d.%d.%d", str(mod->module_name), mod->version.major, mod->version.minor, mod->version.revision);
+			id = par_group_selecter.Add(0, Null, name, false);
+			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 		}
 		
 		for(auto par_group_id : mod->par_groups) {
 			auto par_group = mod->par_groups[par_group_id];
-			
-			std::string name = std::string(par_group->name);
-			par_group_selecter.Add(id, Null, name.data(), false);
+			par_group_nodes.Create(par_group_id, str(par_group->name));
+			par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
 		}
 		
 		++module_idx;
@@ -766,12 +753,17 @@ void MobiView2::build_interface() {
 	
 	result_selecter.OpenDeep(0, true);
 	input_selecter.OpenDeep(0, true);
+	
+	params.build_index_set_selecters(app);
+	plotter.build_index_set_selecters(app);
+	
+	plot_change();
 }
 
 void MobiView2::closing_checks() {
 	int close = 1;
 	if(params.changed_since_last_save)
-		close = PromptYesNo("Parameters have been edited since the last save. If you exit now you will loose any changes. Do you still want to exit MobiView?");
+		close = PromptYesNo("Parameters have been edited since the last save. If you exit now you will loose any changes. Do you still want to exit MobiView2?");
 	if(!close) return;
 	
 	store_settings();

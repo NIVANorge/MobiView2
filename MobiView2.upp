@@ -11,6 +11,9 @@ file
 	ParameterCtrl.h,
 	ParameterCtrl.cpp,
 	MyRichView.h,
+	PlotCtrl.cpp,
+	MyPlot.cpp,
+	PlotCtrl.h,
 	main.cpp,
 	StarOption.cpp,
 	StarOption.h,
@@ -23,6 +26,7 @@ file
 	MobiView2.upp,
 	MobiView2.lay,
 	ParameterCtrl.lay,
+	PlotCtrl.lay,
 	C:\Data\Mobius2\src\ast.cpp,
 	C:\Data\Mobius2\src\ast.h,
 	C:\Data\Mobius2\src\common_types.h,
@@ -59,7 +63,9 @@ file
 	C:\Data\Mobius2\src\run_model.h,
 	C:\Data\Mobius2\src\spreadsheet_inputs.cpp,
 	C:\Data\Mobius2\src\units.cpp,
-	C:\Data\Mobius2\src\units.h;
+	C:\Data\Mobius2\src\units.h,
+	C:\Data\Mobius2\src\parameter_editing.cpp,
+	C:\Data\Mobius2\src\parameter_editing.h;
 
 mainconfig
 	"" = "GUI";
