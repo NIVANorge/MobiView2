@@ -6,6 +6,9 @@
 PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
 	
+	main_plot.parent = parent;
+	main_plot.plot_info = &parent->plot_info;
+	
 	index_list[0] = &index_list1;
 	index_list[1] = &index_list2;
 	index_list[2] = &index_list3;
@@ -57,15 +60,89 @@ void PlotCtrl::time_step_edit_event() {
 }
 
 void PlotCtrl::plot_change() {
-	//TODO
+	if(!parent->model_is_loaded()) return;
+	
+	get_plot_setup(main_plot.setup);
+	
+	Plot_Mode mode = main_plot.setup.mode;
+	
+	scatter_inputs.Disable();
+	y_axis_mode.Disable();
+	time_intervals.Disable();
+	time_step_edit.Hide();
+	time_step_slider.Hide();
+	time_step_slider.Disable();
+	
+	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
+		scatter_inputs.Enable();
+		y_axis_mode.Enable();
+		time_intervals.Enable();
+	} else if (mode == Plot_Mode::residuals) {
+		scatter_inputs.Enable();
+		time_intervals.Enable();
+	} else if (mode == Plot_Mode::profile) {
+		time_step_slider.Show();
+		time_step_edit.Show();
+		time_intervals.Enable();
+	}
+	
+	if(time_intervals.IsEnabled()) {
+		if(main_plot.setup.aggregation_period == Aggregation_Period::none)
+			aggregation.Disable();
+		else {
+			aggregation.Enable();
+			y_axis_mode.Disable();
+			time_step_edit.Disable();
+		}
+	} else
+		aggregation.Disable();
+	
+	// If the calibration interval is not set, set it based on the last model run.
+	s64 time_steps = parent->app->result_data.time_steps;
+	if(time_steps > 0) {
+		Time start_time = parent->calib_start.GetData();
+		Time end_time   = parent->calib_end.GetData();
+		if (IsNull(start_time))
+			parent->calib_start.SetData(convert_time(parent->app->result_data.start_date));
+		if (IsNull(end_time)) {
+			Date_Time end_date = advance(parent->app->result_data.start_date, parent->app->time_step_size, time_steps-1);
+			parent->calib_end.SetData(convert_time(end_date));
+		}
+	}
+	
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
+		index_list[idx]->Enable(main_plot.setup.index_set_is_active[idx]);
+	
+	main_plot.build_plot();
 }
 
 void PlotCtrl::re_plot(bool caused_by_run) {
-	//TODO
+	get_plot_setup(main_plot.setup);
+	main_plot.build_plot(caused_by_run);
 }
 
 void PlotCtrl::build_time_intervals_ctrl() {
-	//TODO
+	
+	time_intervals.Reset();
+	time_intervals.Add((int)Aggregation_Period::none, "No aggr.");
+	time_intervals.SetData((int)Aggregation_Period::none);
+	
+	if(!parent->model_is_loaded()) return;
+	
+	auto ts = parent->app->time_step_size;
+	
+	if(ts.unit == Time_Step_Size::second) {
+		if(ts.magnitude < 7*86400)
+			time_intervals.Add((int)Aggregation_Period::weekly, "Weekly");
+		if(ts.magnitude < 30*86400)
+			time_intervals.Add((int)Aggregation_Period::monthly, "Monthly");
+		if(ts.magnitude < 365*86400)
+			time_intervals.Add((int)Aggregation_Period::yearly, "Yearly");
+	} else if(ts.unit == Time_Step_Size::month) {
+		if(ts.magnitude < 12)
+			time_intervals.Add((int)Aggregation_Period::yearly, "Yearly");
+	} else
+		parent->log("Unhandled time step unit type.", true);
 }
 
 void PlotCtrl::clean() {
@@ -104,6 +181,8 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 			break;
 		}
 	}
+	
+	plot_major_mode.Enable();
 }
 	
 void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
@@ -120,7 +199,7 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	} else
 		ps.aggregation_period = Aggregation_Period::none;
 	
-	ps.major_mode = (Plot_Major_Mode)(int)plot_major_mode.GetData();
+	ps.mode = (Plot_Mode)(int)plot_major_mode.GetData();
 	
 	if(y_axis_mode.IsEnabled())
 		ps.y_axis_mode = (Y_Axis_Mode)(int)y_axis_mode.GetData();
@@ -183,7 +262,7 @@ void recursive_select(TreeCtrl &tree, int node, std::vector<Var_Id> &select) {
 }
 
 void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
-	plot_major_mode.SetData((int)ps.major_mode);
+	plot_major_mode.SetData((int)ps.mode);
 	scatter_inputs.SetData((int)ps.scatter_inputs);
 	y_axis_mode.SetData((int)ps.y_axis_mode);
 	time_intervals.SetData((int)ps.aggregation_period);

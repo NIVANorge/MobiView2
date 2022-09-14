@@ -96,13 +96,13 @@ MobiView2::MobiView2() : params(this), plotter(this) {
 	
 	
 	result_selecter.Disable();
-	result_selecter.WhenSel = THISBACK(plot_change);
+	result_selecter.WhenSel << [this]() { plotter.plot_change(); };
 	result_selecter.MultiSelect();
 	result_selecter.SetRoot(Null, String("Results"));
 	result_selecter.HighlightCtrl(true);
 	result_selecter.SetNode(0, result_selecter.GetNode(0).CanSelect(false));
 	
-	input_selecter.WhenSel = THISBACK(plot_change);
+	input_selecter.WhenSel << [this]() { plotter.plot_change(); };
 	input_selecter.MultiSelect();
 	input_selecter.SetRoot(Null, String("Input time series"));
 	input_selecter.HighlightCtrl(true);
@@ -235,7 +235,7 @@ void MobiView2::log(String msg, bool error) {
 	if(error)
 		format_msg = String("[@R ") + format_msg + "]";
 	
-	log_box.Append(format_msg);
+	log_box.append(format_msg);
 	log_box.ScrollEnd();
 }
 
@@ -431,15 +431,11 @@ void MobiView2::save_parameters_as() {
 }
 
 void MobiView2::plot_rebuild() {
-	//TODO
-}
-
-void MobiView2::plot_change() {
-	Vector<int> result_sel = result_selecter.GetSel();
-	Vector<int> input_sel  = input_selecter.GetSel();
-	
-	log(Format("Plot change activated with %d results and %d inputs", result_sel.size(), input_sel.size()));
+	plotter.re_plot(true);
 	//TODO!
+	//if(OtherPlots.IsOpen())
+	//	OtherPlots.BuildAll(true);
+	//BaselineWasJustSaved = false;
 }
 
 void MobiView2::run_model() {
@@ -757,7 +753,9 @@ void MobiView2::build_interface() {
 	params.build_index_set_selecters(app);
 	plotter.build_index_set_selecters(app);
 	
-	plot_change();
+	plotter.build_time_intervals_ctrl();
+	
+	plotter.plot_change();
 }
 
 void MobiView2::closing_checks() {
@@ -776,6 +774,9 @@ void MobiView2::closing_checks() {
 	
 	Close();
 }
+
+
+
 
 GUI_APP_MAIN
 {

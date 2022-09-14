@@ -15,9 +15,9 @@ public:
 	double zoomlevel;
 	bool is_log_window;
 	
-	void Append(const Upp::String &ToAppend) {
+	void append(const Upp::String &to_append) {
 		Upp::String data = GetQTF();
-		data += ToAppend;
+		data += to_append;
 		SetQTF(data);
 	}
 	

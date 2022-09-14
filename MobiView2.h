@@ -606,7 +606,6 @@ public:
 	void store_settings(bool store_favorites = true);
 	
 	void plot_rebuild();
-	void plot_change();
 	
 	bool model_is_loaded() { return app && model; }
 	
