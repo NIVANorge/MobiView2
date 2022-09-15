@@ -31,6 +31,7 @@ void MyPlot::clean(bool full_clean) {
 	
 	series_data.Clear();
 	x_data.clear();
+	data_stacked.clear();
 	
 	RemoveSurf();
 	//surf_x.Clear();
@@ -40,7 +41,6 @@ void MyPlot::clean(bool full_clean) {
 	SetTitle("");
 	SetLabelX(" ");
 	SetLabelY(" ");
-	//cached_stack_y.clear();
 	
 	if(full_clean)
 		was_auto_resized = false;
@@ -74,12 +74,24 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		//TODO: add indexes to name in legend
 		
-		draw->series_data.Create(app, var_id.type, offset, x_offset, y_offset, time_steps, x_data);
+		draw->series_data.Create(app, var_id.type, offset, x_offset, y_offset, time_steps-1, x_data);
 		
 		//TODO: different formatting for series
 		//TODO: aggregation etc.
 		Color graph_color = draw->colors.next();
-		draw->AddSeries(draw->series_data.Top()).NoMark().Stroke(1.5, graph_color).Dash("").Legend(legend).Units(unit);
+		if(var_id.type == 0 && (setup.mode == Plot_Mode::stacked || setup.mode == Plot_Mode::stacked_share)) {
+			draw->data_stacked.Add(draw->series_data.Top());
+			draw->AddSeries(draw->data_stacked.top()).Fill(graph_color);
+		} else
+			draw->AddSeries(draw->series_data.Top());
+		if(var_id.type == 0 || !setup.scatter_inputs)
+			draw->NoMark().Stroke(1.5, graph_color).Dash("").Legend(legend).Units(unit);
+		else {
+			draw->MarkBorderColor(graph_color).Stroke(0.0, graph_color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
+			int index = draw->GetCount()-1;
+			draw->SetMarkColor(index, Null); //NOTE: Calling draw->MarkColor(Null) does not make it transparent, so we have to do it like this.
+		}
+			
 		// TODO: compute and display stats
 	} else {
 		bool loop = false;
@@ -210,7 +222,7 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		
 		if(step > 30) res_type = 1;    //The plot is too wide to do secondly resolution, try minutely instead
 		else
-			iter_time -= (iter_time % step);
+			iter_time -= (iter_time % step); //TODO: may not work if iter_time is negative. Likewise for the next two. Fix this. (make round_down_by function.)
 	}
 	
 	if(res_type == 1) {
@@ -256,7 +268,7 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 	first_d.year_month_day(&fy, &fm, &fd);
 	last_d.year_month_day(&ly, &lm, &ld);
 	
-	RLOG(Format("f %d-%d l %d-%d first %d last %d", fy, fm, ly, lm, (int)first, (int)last));
+	//RLOG(Format("f %d-%d l %d-%d first %d last %d", fy, fm, ly, lm, (int)first, (int)last));
 	
 	if(res_type == 3) {
 		s64 day_range = sec_range / 86400;   // +1 ??
@@ -466,12 +478,15 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				plot->was_auto_resized = true;
 			}
 			
+			// TODO: This is still bug prone!!
 			// Position of x grid lines
+			/*
 			plot->SetGridLinesX << [plot, input_start, res_type](Vector<double> &vec){
 				double x_min = plot->GetXMin();
 				double x_range = plot->GetXRange();
 				set_date_grid_line_positions_x(x_min, x_range, vec, input_start, res_type);
 			};
+			*/
 			
 			// Format to be displayed for x values at grid lines and data view
 			plot->cbModifFormatX << [res_type, input_start] (String &str, int i, double r) {
@@ -608,8 +623,13 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 	
 	
 	
-	if(mode == Plot_Mode::regular) {
-		//NOTE: test code.
+	if(mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share) {
+		
+		if(mode != Plot_Mode::regular) {
+			bool is_share = (mode == Plot_Mode::stacked_share);
+			data_stacked.set_share(is_share);
+		}
+				
 		std::vector<Index_T> indexes(MAX_INDEX_SETS);
 		for(auto var_id : setup.selected_results) {
 			const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);

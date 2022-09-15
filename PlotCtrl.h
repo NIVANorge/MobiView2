@@ -106,6 +106,64 @@ struct Plot_Colors {
 };
 
 
+//NOTE: a better version of the DataStackedY class where we don't have to add back the plots in reverse
+//order.
+class MyDataStackedY {
+public:
+	MyDataStackedY() : is_share(false) {}
+	void set_share(bool _is_share)	  { is_share = _is_share; }
+	MyDataStackedY &Add(Upp::DataSource &data) {
+		EachDataStackedY &each = each_data.Add();
+		each.Init(data, each_data.GetCount() - 1, this);
+		return *this;
+	}
+	double get_share_y(int index, s64 id) {
+		double acc = 0;
+		for (int i = 0; i < each_data.GetCount(); ++i)
+			acc += each_data[i].real_y(id);
+		if (acc == 0)
+			return 0;
+		else
+			return each_data[index].real_y(id)/acc;
+	}
+	double get_y(int index, s64 id) {
+		double res = 0;
+		//for (int i = 0; i <= index; ++i) {
+		for(int i = each_data.GetCount()-1; i >= index; --i) {
+			if (is_share) res += get_share_y(i, id);
+			else       res += each_data[i].real_y(id);
+		}
+		return res;
+	}
+	
+	class EachDataStackedY : public Upp::DataSource {
+	public:
+		EachDataStackedY() {}
+		void Init(Upp::DataSource &_data, int _index, MyDataStackedY *_parent) {
+			ASSERT(!_data.IsExplicit() && !_data.IsParam());
+			this->data = &_data;
+			this->index = _index;
+			this->parent = _parent;
+		}
+		virtual inline double y(s64 id) { return parent->get_y(index, id); }
+		double real_y(s64 id) { return data->y(id); }
+		virtual inline double x(s64 id) { return data->x(id);	}
+		virtual s64 GetCount() const { return data->GetCount(); }
+	private:
+		Upp::DataSource *data = 0;
+		int index = -1;
+		MyDataStackedY *parent = 0;
+	};
+	
+	//EachDataStackedY &get(int id) { return each_data[id]; }
+	EachDataStackedY &top()       { return each_data.Top(); }
+	void clear() { each_data.Clear(); }
+
+protected:
+	Upp::Array<EachDataStackedY> each_data;
+	bool is_share;
+};
+
 class MyPlot : public Upp::ScatterCtrl {
 public:
 	typedef MyPlot CLASSNAME;
@@ -124,6 +182,7 @@ public:
 	
 	Upp::Array<Mobius_Data_Source> series_data;
 	std::vector<double> x_data;
+	MyDataStackedY data_stacked;
 	
 	Plot_Colors colors;
 	
