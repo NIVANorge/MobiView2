@@ -128,7 +128,6 @@ public:
 	}
 	double get_y(int index, s64 id) {
 		double res = 0;
-		//for (int i = 0; i <= index; ++i) {
 		for(int i = each_data.GetCount()-1; i >= index; --i) {
 			if (is_share) res += get_share_y(i, id);
 			else       res += each_data[i].real_y(id);

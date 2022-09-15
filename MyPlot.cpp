@@ -252,6 +252,9 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 	}
 	
 	if(res_type <= 2) {
+		if(step <= 0)
+			return;
+		
 		for(; iter_time <= last; iter_time += step) {
 			double x = (double)((iter_time - input_start.seconds_since_epoch)) - x_min;
 			if(x > 0.0 && x < x_range)
@@ -327,6 +330,9 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		fm = 1;
 		mon_step = 12*yr_step;
 	}
+	
+	if(mon_step <= 0)
+		return;
 	
 	Expanded_Date_Time iter_date(Date_Time(fy, fm, 1), Time_Step_Size { Time_Step_Size::month, (s32)mon_step} );
 	
@@ -480,13 +486,13 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			
 			// TODO: This is still bug prone!!
 			// Position of x grid lines
-			/*
+			
 			plot->SetGridLinesX << [plot, input_start, res_type](Vector<double> &vec){
 				double x_min = plot->GetXMin();
 				double x_range = plot->GetXRange();
 				set_date_grid_line_positions_x(x_min, x_range, vec, input_start, res_type);
 			};
-			*/
+			
 			
 			// Format to be displayed for x values at grid lines and data view
 			plot->cbModifFormatX << [res_type, input_start] (String &str, int i, double r) {
