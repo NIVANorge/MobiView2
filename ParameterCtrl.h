@@ -23,7 +23,7 @@ struct Model_Application;
 
 
 #include "common_types.h"
-#include "parameter_editing.h"
+#include "support/parameter_editing.h"
 
 
 class ParameterCtrl : public WithParameterCtrlLayout<Upp::ParentCtrl> {

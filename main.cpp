@@ -780,5 +780,6 @@ void MobiView2::closing_checks() {
 
 GUI_APP_MAIN
 {
+	StdLogSetup(LOG_FILE, "MobiView2.log");
 	MobiView2().Run();
 }
