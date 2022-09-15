@@ -252,7 +252,7 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 	}
 	
 	if(res_type <= 2) {
-		if(step <= 0)
+		if(step <= 0) //NOTE: should not happen. Just so that it doesn't crash if there is a bug.
 			return;
 		
 		for(; iter_time <= last; iter_time += step) {
@@ -270,8 +270,6 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 	s32 fy, fm, fd, ly, lm, ld;
 	first_d.year_month_day(&fy, &fm, &fd);
 	last_d.year_month_day(&ly, &lm, &ld);
-	
-	//RLOG(Format("f %d-%d l %d-%d first %d last %d", fy, fm, ly, lm, (int)first, (int)last));
 	
 	if(res_type == 3) {
 		s64 day_range = sec_range / 86400;   // +1 ??
@@ -331,12 +329,14 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		mon_step = 12*yr_step;
 	}
 	
-	if(mon_step <= 0)
+	if(mon_step <= 0)  //NOTE: should not happen. Just so that it doesn't crash if there is a bug.
 		return;
 	
 	Expanded_Date_Time iter_date(Date_Time(fy, fm, 1), Time_Step_Size { Time_Step_Size::month, (s32)mon_step} );
 	
-	while(!( iter_date.year > ly || (iter_date.year == ly && iter_date.month > lm))) {
+	while(true) {
+		if(iter_date.year > ly || (iter_date.year == ly && iter_date.month > lm)) break;
+		
 		double x = (double)((iter_date.date_time.seconds_since_epoch - input_start.seconds_since_epoch)) - x_min;
 		if(x > 0.0 && x < x_range)
 			pos << x;
