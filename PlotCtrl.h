@@ -85,6 +85,26 @@ private :
 	double *x_data;
 };
 
+struct Plot_Colors {
+	Plot_Colors() {
+		colors  = {{0, 130, 200}, {230, 25, 75}, {245, 130, 48}, {145, 30, 180}, {60, 180, 75},
+                  {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
+                  {170, 110, 40}, {128, 0, 0}, {170, 255, 195}, {128, 128, 0}, {255, 215, 180}, {0, 0, 128}, {255, 225, 25}};
+        next_idx = 0;
+	}
+	
+	int next_idx;
+	std::vector<Upp::Color> colors;
+	
+	Upp::Color next() {
+		Upp::Color result = colors[next_idx++];
+		if(next_idx == colors.size()) next_idx = 0;
+		return result;
+	}
+	
+	void reset() { next_idx = 0; }
+};
+
 
 class MyPlot : public Upp::ScatterCtrl {
 public:
@@ -104,6 +124,8 @@ public:
 	
 	Upp::Array<Mobius_Data_Source> series_data;
 	std::vector<double> x_data;
+	
+	Plot_Colors colors;
 	
 private:
 	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);

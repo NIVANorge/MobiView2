@@ -27,8 +27,7 @@ MyPlot::MyPlot() {
 void MyPlot::clean(bool full_clean) {
 	//TODO
 	RemoveAllSeries();
-	//plot_colors.reset();
-	//plot_data.clear();
+	colors.reset();
 	
 	series_data.Clear();
 	x_data.clear();
@@ -55,6 +54,52 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 		dt.advance();
 	}
 }
+
+void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level, Plot_Setup &setup, MyRichView *plot_info,
+	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets) {
+	if(level == setup.selected_indexes.size()) {
+		s64 offset;
+		String legend;
+		String unit = "";  //TODO!
+		
+		if(var_id.type == 0) {
+			offset = app->result_data.get_offset(var_id, indexes);
+			legend = str(app->model->state_vars[var_id]->name);
+		} else if(var_id.type == 1) {
+			offset = app->series_data.get_offset(var_id, indexes);
+			legend = str(app->model->series[var_id]->name);
+		} else if(var_id.type == 2) {
+			offset = app->additional_series_data.get_offset(var_id, indexes);
+			legend = str(app->additional_series[var_id]->name);
+		}
+		//TODO: add indexes to name in legend
+		
+		draw->series_data.Create(app, var_id.type, offset, x_offset, y_offset, time_steps, x_data);
+		
+		//TODO: different formatting for series
+		//TODO: aggregation etc.
+		Color graph_color = draw->colors.next();
+		draw->AddSeries(draw->series_data.Top()).NoMark().Stroke(1.5, graph_color).Dash("").Legend(legend).Units(unit);
+		// TODO: compute and display stats
+	} else {
+		bool loop = false;
+		if(!setup.selected_indexes[level].empty()) {
+			auto index_set = setup.selected_indexes[level][0].index_set;
+			auto find = std::find(index_sets.begin(), index_sets.end(), index_set);
+			loop = find != index_sets.end();
+		}
+		if(!loop) {
+			indexes[level] = invalid_index;
+			add_plot_recursive(draw, app, var_id, indexes, level+1, setup, plot_info, x_offset, y_offset, time_steps, x_data, index_sets);
+		} else {
+			for(Index_T index : setup.selected_indexes[level]) {
+				indexes[level] = index;
+				add_plot_recursive(draw, app, var_id, indexes, level+1, setup, plot_info, x_offset, y_offset, time_steps, x_data, index_sets);
+			}
+		}
+	}
+}
+
 
 void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 	
@@ -156,24 +201,15 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 	
 	if(mode == Plot_Mode::regular) {
 		//NOTE: test code.
-		if(setup.selected_results.size() > 0) {
-			std::vector<Index_T> indexes(MAX_INDEX_SETS);
-			for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-				if(setup.selected_indexes[idx].size() > 0)
-					indexes[idx] = setup.selected_indexes[idx][0];
-				else
-					indexes[idx] = invalid_index;
-			}
-			Var_Id var_id = setup.selected_results[0];
-			s64 offset = app->result_data.get_offset(var_id, indexes);
-			
-			series_data.Create(app, 0, offset, result_offset, 0, result_ts, x_data.data());
-			
-			String name = str(app->model->state_vars[var_id]->name);
-			Color graph_color(255, 0, 0);
-			AddSeries(series_data.Top()).NoMark().Stroke(1.5, graph_color).Dash("").Legend(name);
-			
-			//PromptOK(Format("Offset %d result_offset %d result_ts %d x_data_size %d", offset, result_offset, result_ts, (int)x_data.size()));
+		std::vector<Index_T> indexes(MAX_INDEX_SETS);
+		for(auto var_id : setup.selected_results) {
+			const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
+			add_plot_recursive(this, app, var_id, indexes, 0, setup, plot_info,	result_offset, 0, result_ts, x_data.data(), index_sets);
+		}
+		
+		for(auto var_id : setup.selected_series) {
+			const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
+			add_plot_recursive(this, app, var_id, indexes, 0, setup, plot_info, 0, 0, input_ts, x_data.data(), index_sets);
 		}
 		
 	} else {
