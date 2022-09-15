@@ -248,11 +248,6 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		return;
 	}
 	
-	//TODO: The following is buggy still!
-	
-	first -= (first % 86400);
-	last  -= (last % 86400);
-	
 	Date_Time first_d;
 	first_d.seconds_since_epoch = first;
 	Date_Time last_d;
