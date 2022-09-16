@@ -3,6 +3,7 @@
 
 #include "model_application.h"
 
+
 PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
 	

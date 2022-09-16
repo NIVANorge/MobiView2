@@ -5,8 +5,8 @@
 #include <ScatterCtrl/ScatterCtrl.h>
 
 #include "ParameterCtrl.h"
-#include "common_types.h"
 #include "MyRichView.h"
+#include "model_application.h"
 
 //NOTE: This has to match up to the aggregation selector. It should also match the override
 //modes in the AdditionalPlotView
@@ -66,10 +66,12 @@ struct Plot_Setup {
 
 class Mobius_Data_Source : public Upp::DataSource {
 public :
-	Mobius_Data_Source(Model_Application *app, int type, s64 offset, s64 x_offset, s64 y_offset, s64 steps, double *x_data)
-		: app(app), type(type), offset(offset), x_offset(x_offset), y_offset(y_offset), x_data(x_data), steps(steps) {}
+	Mobius_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 x_offset, s64 y_offset, s64 steps, double *x_data)
+		: data(data), offset(offset), x_offset(x_offset), y_offset(y_offset), x_data(x_data), steps(steps) {}
 		
-	virtual double y(s64 id);
+	virtual double y(s64 id) {
+		return *data->get_value(offset, y_offset + id);
+	}
 	
 	virtual double x(s64 id) {
 		return x_data[x_offset + id];
@@ -77,8 +79,7 @@ public :
 	
 	virtual s64 GetCount() const { return steps; }
 private :
-	Model_Application *app;
-	int type;
+	Structured_Storage<double, Var_Id> *data;
 	s64 offset;
 	s64 x_offset, y_offset;
 	s64 steps;
@@ -86,18 +87,13 @@ private :
 };
 
 struct Plot_Colors {
-	Plot_Colors() {
-		colors  = {{0, 130, 200}, {230, 25, 75}, {245, 130, 48}, {145, 30, 180}, {60, 180, 75},
-                  {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
-                  {170, 110, 40}, {128, 0, 0}, {170, 255, 195}, {128, 128, 0}, {255, 215, 180}, {0, 0, 128}, {255, 225, 25}};
-        next_idx = 0;
-	}
+	Plot_Colors() : next_idx(0) {}
 	
 	int next_idx;
-	std::vector<Upp::Color> colors;
+	static std::vector<Upp::Color> colors;
 	
 	Upp::Color next() {
-		Upp::Color result = colors[next_idx++];
+		Upp::Color &result = colors[next_idx++];
 		if(next_idx == colors.size()) next_idx = 0;
 		return result;
 	}

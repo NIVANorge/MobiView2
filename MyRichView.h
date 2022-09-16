@@ -1,6 +1,8 @@
 #ifndef _MobiView_MyLogBox_h_
 #define _MobiView_MyLogBox_h_
 
+#include <CtrlLib/CtrlLib.h>
+
 class MyRichView : public Upp::RichTextView {
 public:
 	MyRichView() {

@@ -767,6 +767,7 @@ void MobiView2::closing_checks() {
 	store_settings();
 	
 	if(app) delete app;
+	app = nullptr;
 	// These two are not strictly necessary, but we should delete the app since otherwise jit
 	// memory is not properly cleaned.
 	if(data_set) delete data_set;

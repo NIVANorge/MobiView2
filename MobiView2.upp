@@ -10,6 +10,8 @@ file
 	MyRichView.h,
 	ParameterCtrl.h,
 	ParameterCtrl.cpp,
+	Statistics.cpp,
+	Statistics.h,
 	MyRichView.h,
 	PlotCtrl.h,
 	PlotCtrl.cpp,
@@ -65,6 +67,8 @@ file
 	C:\Data\Mobius2\src\units.cpp,
 	C:\Data\Mobius2\src\support\parameter_editing.cpp,
 	C:\Data\Mobius2\src\support\parameter_editing.h,
+	C:\Data\Mobius2\src\support\statistics.cpp,
+	C:\Data\Mobius2\src\support\statistics.h,
 	C:\Data\Mobius2\src\units.h;
 
 mainconfig

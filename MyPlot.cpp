@@ -1,7 +1,12 @@
 #include "PlotCtrl.h"
 #include "MobiView2.h"
+#include "Statistics.h"
 
 using namespace Upp;
+
+std::vector<Color> Plot_Colors::colors = {{0, 130, 200}, {230, 25, 75}, {245, 130, 48}, {145, 30, 180}, {60, 180, 75},
+                  {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
+                  {170, 110, 40}, {128, 0, 0}, {170, 255, 195}, {128, 128, 0}, {255, 215, 180}, {0, 0, 128}, {255, 225, 25}};
 
 
 MyPlot::MyPlot() {
@@ -55,58 +60,61 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 	}
 }
 
-void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level, Plot_Setup &setup, MyRichView *plot_info,
+void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
 	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets) {
-	if(level == setup.selected_indexes.size()) {
-		s64 offset;
+	if(level == draw->setup.selected_indexes.size()) {
 		String legend;
 		String unit = "";  //TODO!
 		
+		Structured_Storage<double, Var_Id> *data;
 		if(var_id.type == 0) {
-			offset = app->result_data.get_offset(var_id, indexes);
+			data = &app->result_data;
 			legend = str(app->model->state_vars[var_id]->name);
 		} else if(var_id.type == 1) {
-			offset = app->series_data.get_offset(var_id, indexes);
+			data = &app->series_data;
 			legend = str(app->model->series[var_id]->name);
 		} else if(var_id.type == 2) {
-			offset = app->additional_series_data.get_offset(var_id, indexes);
+			data = &app->additional_series_data;
 			legend = str(app->additional_series[var_id]->name);
 		}
+		s64 offset = data->get_offset(var_id, indexes);
 		//TODO: add indexes to name in legend
 		
-		draw->series_data.Create(app, var_id.type, offset, x_offset, y_offset, time_steps-1, x_data);
+		draw->series_data.Create(data, offset, x_offset, y_offset, time_steps, x_data);
 		
 		//TODO: different formatting for series
 		//TODO: aggregation etc.
 		Color graph_color = draw->colors.next();
-		if(var_id.type == 0 && (setup.mode == Plot_Mode::stacked || setup.mode == Plot_Mode::stacked_share)) {
+		if(var_id.type == 0 && (draw->setup.mode == Plot_Mode::stacked || draw->setup.mode == Plot_Mode::stacked_share)) {
 			draw->data_stacked.Add(draw->series_data.Top());
 			draw->AddSeries(draw->data_stacked.top()).Fill(graph_color);
 		} else
 			draw->AddSeries(draw->series_data.Top());
-		if(var_id.type == 0 || !setup.scatter_inputs)
+		if(var_id.type == 0 || !draw->setup.scatter_inputs)
 			draw->NoMark().Stroke(1.5, graph_color).Dash("").Legend(legend).Units(unit);
 		else {
 			draw->MarkBorderColor(graph_color).Stroke(0.0, graph_color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
 			int index = draw->GetCount()-1;
 			draw->SetMarkColor(index, Null); //NOTE: Calling draw->MarkColor(Null) does not make it transparent, so we have to do it like this.
 		}
-			
-		// TODO: compute and display stats
+		
+		Time_Series_Stats stats;
+		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, y_offset, time_steps);
+		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, graph_color, legend, unit);
 	} else {
 		bool loop = false;
-		if(!setup.selected_indexes[level].empty()) {
-			auto index_set = setup.selected_indexes[level][0].index_set;
+		if(!draw->setup.selected_indexes[level].empty()) {
+			auto index_set = draw->setup.selected_indexes[level][0].index_set;
 			auto find = std::find(index_sets.begin(), index_sets.end(), index_set);
 			loop = find != index_sets.end();
 		}
 		if(!loop) {
 			indexes[level] = invalid_index;
-			add_plot_recursive(draw, app, var_id, indexes, level+1, setup, plot_info, x_offset, y_offset, time_steps, x_data, index_sets);
+			add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets);
 		} else {
-			for(Index_T index : setup.selected_indexes[level]) {
+			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				add_plot_recursive(draw, app, var_id, indexes, level+1, setup, plot_info, x_offset, y_offset, time_steps, x_data, index_sets);
+				add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets);
 			}
 		}
 	}
@@ -639,12 +647,12 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 		std::vector<Index_T> indexes(MAX_INDEX_SETS);
 		for(auto var_id : setup.selected_results) {
 			const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
-			add_plot_recursive(this, app, var_id, indexes, 0, setup, plot_info,	result_offset, 0, result_ts, x_data.data(), index_sets);
+			add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets);
 		}
 		
 		for(auto var_id : setup.selected_series) {
 			const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
-			add_plot_recursive(this, app, var_id, indexes, 0, setup, plot_info, 0, 0, input_ts, x_data.data(), index_sets);
+			add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets);
 		}
 		
 	} else {
@@ -657,15 +665,4 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 	format_axes(this, mode, n_bins_histogram, input_start, app->time_step_size);
 	
 	Refresh();
-}
-
-
-double Mobius_Data_Source::y(s64 id) {
-	s64 ts = id + y_offset;
-	if(type == 0)
-		return *app->result_data.get_value(offset, ts);
-	else if(type == 1)
-		return *app->series_data.get_value(offset, ts);
-	else if(type == 2)
-		return *app->additional_series_data.get_value(offset, ts);
 }

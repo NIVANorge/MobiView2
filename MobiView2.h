@@ -20,6 +20,7 @@
 
 #include "ParameterCtrl.h"
 #include "PlotCtrl.h"
+#include "Statistics.h"
 
 //#define LAYOUTFILE <MobiView2/MobiView2.lay>
 //#include <CtrlCore/lay.h>
@@ -505,7 +506,7 @@ public :
 */
 
 
-#include "model_application.h"
+#include "model_application.h" //TODO: may not need to include this entire file..
 
 inline Upp::String str(const String_View &str) {
 	return Upp::String(str.data, str.data+str.count);
@@ -525,7 +526,7 @@ inline Date_Time convert_time(const Upp::Time &tm) {
 }
 
 
-// TODO: should also have a checkbox.
+// TODO: should also have a star option for "favorites".
 class Entity_Node : public Upp::Label {
 public:
 	typedef Entity_Node CLASSNAME;
@@ -574,6 +575,8 @@ public:
 	Upp::ToolBar    tool_bar;
 	
 	PlotCtrl        plotter;
+	
+	EditStatSettings stat_settings;
 	
 	
 	Mobius_Model      *model = nullptr;
