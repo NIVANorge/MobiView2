@@ -6,6 +6,7 @@
 
 #include "ParameterCtrl.h"
 #include "MyRichView.h"
+#include "support/statistics.h"
 #include "model_application.h"
 
 //NOTE: This has to match up to the aggregation selector. It should also match the override
@@ -180,6 +181,7 @@ public:
 	MyDataStackedY data_stacked;
 	
 	Plot_Colors colors;
+	Residual_Stats cached_stats;
 	
 private:
 	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);

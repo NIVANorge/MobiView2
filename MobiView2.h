@@ -583,6 +583,11 @@ public:
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;
 	
+	std::string model_file;
+	std::string data_file;
+	
+	bool baseline_was_just_saved = false;
+	
 
 	void sub_bar(Upp::Bar &bar);
 	
@@ -703,8 +708,6 @@ public:
 	//std::string DllFile;
 	//std::string InputFile;
 	//std::string ParameterFile;
-	std::string model_file;
-	std::string data_file;
 };
 
 

@@ -20,6 +20,7 @@ struct Display_Stat_Settings {
 void display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, Time_Series_Stats *stats,
 	Upp::Color &color, Upp::String &label, Upp::String &unit);
 	
+void display_residual_stats(MyRichView *plot_info, Display_Stat_Settings *settings, Residual_Stats *stats, Residual_Stats *cached_stats, bool display_diff, Upp::String &title);
 	
 	
 class EditStatSettings {

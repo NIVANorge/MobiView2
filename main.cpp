@@ -564,7 +564,8 @@ void MobiView2::clean_interface() {
 	
 	params.clean();
 	plotter.clean();
-	//TODO
+	
+	baseline_was_just_saved = false;
 }
 
 void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,

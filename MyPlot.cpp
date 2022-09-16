@@ -140,9 +140,9 @@ void set_round_grid_line_positions(MyPlot *plot, int axis) {
 	if(range < 1.0) int_part -= 1.0;
 	double order_of_mag = std::pow(10.0, int_part);
 	double stretch = range / order_of_mag;
-	int ref_ticks = 10; //TODO: Should depend on plot size.
+	constexpr int ref_ticks = 10; //TODO: Should depend on plot size.
 	
-	//TODO: This document this implementation better?
+	//TODO: Document this implementation better?
 	static double stride_factors[8] = {0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 2.5, 5.0};
 	double stride = order_of_mag * stride_factors[0];
 	for(int idx = 1; idx < 8; ++idx) {
@@ -538,8 +538,17 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 
+void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup) {
+	indexes.resize(MAX_INDEX_SETS);
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		if(setup.selected_indexes[idx].empty())
+			indexes[idx] = invalid_index;
+		else
+			indexes[idx] = setup.selected_indexes[idx][0];
+	}
+}
 
-void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
+void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	
 	clean(false);
 	
@@ -596,11 +605,6 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 	Plot_Mode mode = setup.mode;
 	if(override_mode != Plot_Mode::none) mode = override_mode;
 	
-	int n_bins_histogram = 0;
-	
-	bool residuals_available = false;
-	bool compute_gof = (bool)parent->gof_option.GetData() || mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq;
-	
 	Date_Time gof_start;
 	Date_Time gof_end;
 	s64 input_gof_offset;
@@ -623,46 +627,93 @@ void MyPlot::build_plot(bool cause_by_run, Plot_Mode override_mode) {
 		
 		gof_ts = steps_between(gof_start, gof_end, app->time_step_size) + 1; //NOTE: if start time = end time, there is still one timestep.
 		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size);
-		if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq)
-			input_gof_offset = result_gof_offset;
-		else
-			input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
+		//if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq)
+		//	input_gof_offset = result_gof_offset;
+		//else
+		input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
 	}
 	
-	compute_x_data(input_start, input_ts, app->time_step_size);
+	bool gof_available = false;
+	bool want_gof = (bool)parent->gof_option.GetData() || mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq;
 	
+	s64 offset_sim;
+	s64 offset_obs;
+	char buf1[64];
+	char buf2[64];
+	gof_start.to_string(buf1);
+	gof_end  .to_string(buf2);
 	
-	//String sim_legend, obs_legend, sim_unit, obs_unit;
-	//TODO: compute residual stats
+	plot_info->append(Format("Showing statistics for interval %s to %s&&", buf1, buf2));
 	
-	
-	
-	if(mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share) {
-		
-		if(mode != Plot_Mode::regular) {
-			bool is_share = (mode == Plot_Mode::stacked_share);
-			data_stacked.set_share(is_share);
+	try {
+		Residual_Stats residual_stats;
+		if(want_gof && setup.selected_results.size() == 1 && setup.selected_series.size() == 1 && !multi_index) {
+			gof_available = true;
+			bool compute_rcc = parent->stat_settings.display_settings.display_srcc;
+			Var_Id id_sim = setup.selected_results[0];
+			Var_Id id_obs = setup.selected_series[0];
+			Structured_Storage<double, Var_Id> *data_sim = &app->result_data;
+			Structured_Storage<double, Var_Id> *data_obs = id_obs.type == 1 ? &app->series_data : &app->additional_series_data;
+			std::vector<Index_T> indexes;
+			get_single_indexes(indexes, setup);
+			offset_sim = data_sim->get_offset(id_sim, indexes);
+			offset_obs = data_obs->get_offset(id_obs, indexes);
+			compute_residual_stats(&residual_stats, data_sim, offset_sim, result_gof_offset, data_obs, offset_obs, input_gof_offset, gof_ts, compute_rcc);
 		}
-				
-		std::vector<Index_T> indexes(MAX_INDEX_SETS);
-		for(auto var_id : setup.selected_results) {
-			const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
-			add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets);
+		
+		compute_x_data(input_start, input_ts, app->time_step_size);
+		
+		int n_bins_histogram = 0;
+		
+		if(mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share) {
+			
+			if(mode != Plot_Mode::regular) {
+				bool is_share = (mode == Plot_Mode::stacked_share);
+				data_stacked.set_share(is_share);
+			}
+			
+			// TODO add_plot_recursive should take the gof interval to compute stats only for
+			// that interval!
+			
+			std::vector<Index_T> indexes(MAX_INDEX_SETS);
+			for(auto var_id : setup.selected_results) {
+				const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
+				add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets);
+			}
+			
+			for(auto var_id : setup.selected_series) {
+				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
+				add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets);
+			}
+			
+		} else {
+			SetTitle("Plot mode not yet implemented :(");
+			return;
+		}
+
+		if(gof_available) {
+			String gof_title = "Goodness of fit:";
+			if(mode == Plot_Mode::compare_baseline)
+				gof_title = "Goodness of fit (changes rel. to baseline):";
+		
+			//TODO caused_by_run should instead indicate whether the data changed (either
+			//re-run or different time series selection. Then always display diff if it is
+			//available, but only update cache if the data changed.
+			bool display_diff = caused_by_run && cached_stats.initialized;  //Whether or not to show difference between current and cached GOF stats.
+			display_residual_stats(plot_info, &parent->stat_settings.display_settings, &residual_stats, &cached_stats, display_diff, gof_title);
+			
+			//NOTE: If in baseline mode, only cache the stats of the baseline.
+			if(mode != Plot_Mode::compare_baseline || parent->baseline_was_just_saved)
+				cached_stats = residual_stats;
+		} else if (want_gof) {
+			plot_info->append("\nTo show goodness of fit, select a single result and input series.\n");
+			plot_info->ScrollEnd();
 		}
 		
-		for(auto var_id : setup.selected_series) {
-			const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
-			add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets);
-		}
-		
-	} else {
-		SetTitle("Plot mode not yet implemented :(");
-		return;
-	}
+		format_axes(this, mode, n_bins_histogram, input_start, app->time_step_size);
 	
-	//TODO: put gof stats if desired
-	
-	format_axes(this, mode, n_bins_histogram, input_start, app->time_step_size);
+	} catch(int) {}
+	parent->log_warnings_and_errors();
 	
 	Refresh();
 }
