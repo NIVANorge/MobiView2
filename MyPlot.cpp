@@ -61,7 +61,7 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 }
 
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
-	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets) {
+	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
 	if(level == draw->setup.selected_indexes.size()) {
 		String legend;
 		String unit = "";  //TODO!
@@ -99,7 +99,7 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		
 		Time_Series_Stats stats;
-		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, y_offset, time_steps);
+		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
 		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, graph_color, legend, unit);
 	} else {
 		bool loop = false;
@@ -110,11 +110,11 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		if(!loop) {
 			indexes[level] = invalid_index;
-			add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets);
+			add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets, gof_offset, gof_ts);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets);
+				add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets, gof_offset, gof_ts);
 			}
 		}
 	}
@@ -627,9 +627,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		
 		gof_ts = steps_between(gof_start, gof_end, app->time_step_size) + 1; //NOTE: if start time = end time, there is still one timestep.
 		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size);
-		//if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq)
-		//	input_gof_offset = result_gof_offset;
-		//else
 		input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
 	}
 	
@@ -672,18 +669,15 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				data_stacked.set_share(is_share);
 			}
 			
-			// TODO add_plot_recursive should take the gof interval to compute stats only for
-			// that interval!
-			
 			std::vector<Index_T> indexes(MAX_INDEX_SETS);
 			for(auto var_id : setup.selected_results) {
 				const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets);
+				add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts);
 			}
 			
 			for(auto var_id : setup.selected_series) {
 				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets);
+				add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
 			}
 			
 		} else {

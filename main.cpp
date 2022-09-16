@@ -15,7 +15,7 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() : params(this), plotter(this) {
+MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -269,8 +269,8 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Add(IconImg::RevertBaseline(), THISBACK(RevertBaseline)).Tip("Revert to baseline");
 	//bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
 	//bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization and MCMC setup");
-	//bar.Separator();
-	//bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings");
+	bar.Separator();
+	bar.Add(IconImg::StatSettings(), THISBACK(open_stat_settings)).Tip("Edit statistics settings");
 	//bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
 	//bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
 }
@@ -777,7 +777,12 @@ void MobiView2::closing_checks() {
 	Close();
 }
 
-
+void MobiView2::open_stat_settings() {
+	if(!stat_settings.IsOpen()) {
+		stat_settings.load_interface();
+		stat_settings.Open();
+	}
+}
 
 
 GUI_APP_MAIN

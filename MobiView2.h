@@ -508,22 +508,7 @@ public :
 
 #include "model_application.h" //TODO: may not need to include this entire file..
 
-inline Upp::String str(const String_View &str) {
-	return Upp::String(str.data, str.data+str.count);
-}
-
-inline Upp::Time convert_time(const Date_Time &dt) {
-	s32 year, month, day, hour, minute, second;
-	dt.year_month_day(&year, &month, &day);
-	dt.hour_minute_second(&hour, &minute, &second);
-	return Upp::Time(year, month, day, hour, minute, second);
-}
-
-inline Date_Time convert_time(const Upp::Time &tm) {
-	Date_Time result(tm.year, tm.month, tm.day);
-	result.add_timestamp(tm.hour, tm.minute, tm.second);
-	return result;
-}
+#include "Util.h"
 
 
 // TODO: should also have a star option for "favorites".
@@ -601,21 +586,18 @@ public:
 	/*
 	void SaveBaseline();
 	void RevertBaseline();
-	bool BaselineWasJustSaved = false;
 	
 	void SaveInputsAsDat();
-	
-	void StoreSettings(bool OverwriteFavorites = true);
 	*/
 	void clean_interface();
 	void build_interface();
 	void closing_checks();
 	
 	void store_settings(bool store_favorites = true);
-	
 	void plot_rebuild();
-	
 	bool model_is_loaded() { return app && model; }
+	
+	void open_stat_settings();
 	
 	/*
 	StatisticsSettings StatSettings;

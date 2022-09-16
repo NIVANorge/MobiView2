@@ -13,7 +13,7 @@ struct Display_Stat_Settings {
 	#include "support/residual_types.incl"
 	#undef SET_RESIDUAL
 	
-	bool display_initial_value;
+	bool display_initial = false;
 	int decimal_precision = 5;
 };
 
@@ -21,14 +21,24 @@ void display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, 
 	Upp::Color &color, Upp::String &label, Upp::String &unit);
 	
 void display_residual_stats(MyRichView *plot_info, Display_Stat_Settings *settings, Residual_Stats *stats, Residual_Stats *cached_stats, bool display_diff, Upp::String &title);
-	
-	
-class EditStatSettings {
-	// TODO
+
+#define LAYOUTFILE <MobiView2/StatSettings.lay>
+#include <CtrlCore/lay.h>
+
+class MobiView2;
+
+class EditStatSettings : public WithEditStatSettingsLayout<Upp::TopWindow> {
 public :
+	typedef EditStatSettings CLASSNAME;
+	
+	EditStatSettings(MobiView2 *parent);
+	
 	Statistics_Settings   settings;
 	Display_Stat_Settings display_settings;
+	MobiView2 *parent;
 	
+	void save_and_close();
+	void load_interface();
 };
 
 #endif
