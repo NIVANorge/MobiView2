@@ -185,6 +185,32 @@ private :
 	std::vector<double> agg_y;
 };
 
+class Data_Source_Line : public Upp::DataSource {
+
+public:
+	Data_Source_Line(double x0, double y0, double x1, double y1)
+		: xx {x0, x1}, yy {y0, y1} {}
+	virtual double x(s64 id) { return xx[id]; }
+	virtual double y(s64 id) { return yy[id]; }
+	virtual s64 GetCount() const { return 2; }
+	
+private:
+	double xx[2], yy[2];
+};
+
+class Data_Source_Owns_XY : public Upp::DataSource {
+	
+public:
+	Data_Source_Owns_XY(std::vector<double> *xx, std::vector<double> *yy) :
+		xx(std::move(*xx)), yy(std::move(*yy)) {}
+	virtual double x(s64 id) { return xx[id]; }
+	virtual double y(s64 id) { return yy[id]; }
+	virtual s64 GetCount() const { return (s64)xx.size(); }
+	
+private:
+	std::vector<double> xx, yy;
+};
+
 struct Plot_Colors {
 	Plot_Colors() : next_idx(0) {}
 	
@@ -281,6 +307,8 @@ public:
 	
 	Plot_Colors colors;
 	Residual_Stats cached_stats;
+	
+	Upp::Vector<Upp::String> qq_labels;
 	
 private:
 	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);

@@ -47,6 +47,8 @@ void MyPlot::clean(bool full_clean) {
 	SetLabelX(" ");
 	SetLabelY(" ");
 	
+	qq_labels.Clear();
+	
 	if(full_clean)
 		was_auto_resized = false;
 }
@@ -443,30 +445,27 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 					pos << stride * (double)idx;
 			};
 		} else if(mode == Plot_Mode::qq) {
-			//TODO
-			/*
-			this->cbModifFormatXGridUnits.Clear();
-			this->cbModifFormatX.Clear();
-			//NOTE: Histograms require completely different zooming.
-			this->ZoomToFit(true, true);
-			PlotWasAutoResized = false;
+			plot->cbModifFormatXGridUnits.Clear();
+			plot->cbModifFormatX.Clear();
+			//NOTE: qq plots require completely different zooming.
+			plot->ZoomToFit(true, true);
+			plot->was_auto_resized = false;
 			
-			double YRange = this->GetYRange();
-			double YMin   = this->GetYMin();
-			double XRange = this->GetXRange();
-			double XMin   = this->GetXMin();
+			double y_range = plot->GetYRange();
+			double y_min   = plot->GetYMin();
+			double x_range = plot->GetXRange();
+			double x_min   = plot->GetXMin();
 			
 			//NOTE: Make it so that the extremal points are not on the border
-			double ExtendY = YRange * 0.1;
-			YRange += 2.0 * ExtendY;
-			YMin -= ExtendY;
-			double ExtendX = XRange * 0.1;
-			XRange += 2.0 * ExtendX;
-			XMin -= ExtendX;
+			double ext_y = y_range * 0.1;
+			y_range += 2.0 * ext_y;
+			y_min -= ext_y;
+			double ext_x = x_range * 0.1;
+			x_range += 2.0 * ext_x;
+			x_min -= ext_x;
 			
-			this->SetRange(XRange, YRange);
-			this->SetXYMin(XMin, YMin);
-			*/
+			plot->SetRange(x_range, y_range);
+			plot->SetXYMin(x_min, y_min);
 		} else if(mode == Plot_Mode::profile) {
 			plot->was_auto_resized = false;
 		} else {
@@ -546,6 +545,36 @@ void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup) {
 		else
 			indexes[idx] = setup.selected_indexes[idx][0];
 	}
+}
+
+void add_line(MyPlot *plot, double x0, double y0, double x1, double y1, Color color, const String &legend) {
+	plot->series_data.Create<Data_Source_Line>(x0, y0, x1, y1);
+	if(IsNull(color)) color = plot->colors.next();
+	plot->AddSeries(plot->series_data.Top()).NoMark().Stroke(1.5, color).Dash("6 3");
+	if(!IsNull(legend)) plot->Legend(legend);
+	else plot->ShowSeriesLegend(false);
+}
+
+void add_trend_line(MyPlot *plot, double xy_covar, double x_var, double y_mean, double x_mean, double start_x, double end_x, String &legend) {
+	double beta = xy_covar / x_var;
+	double alpha = y_mean - beta*x_mean;
+
+	add_line(plot, start_x, alpha + start_x*beta, end_x, alpha + end_x*beta, Null, legend);
+}
+
+int add_histogram(MyPlot *plot, DataSource *data, double min, double max, s64 count, String &legend, String &unit, Color &color) {
+	//n_bins_histogram = 1 + (int)std::ceil(std::log2((double)count));      //NOTE: Sturges' rule.
+	int n_bins_histogram = 2*(int)(std::ceil(std::cbrt((double)count)));    //NOTE: Rice's rule.
+	
+	plot->histogram.Create(*data, min, max, n_bins_histogram);
+	plot->histogram.Normalize();
+	
+	double stride = (max - min)/(double)n_bins_histogram;
+	double darken = 0.4;
+	Color border((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
+	plot->AddSeries(plot->histogram).Legend(legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*stride).NoMark().Fill(color).Stroke(1.0, border).Units("", unit);
+	
+	return n_bins_histogram;
 }
 
 void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
@@ -716,25 +745,16 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			//TODO: with the new data system, it would be easy to allow aggregation also.
 			s64 offset = data->get_offset(var_id, indexes);
+			Time_Series_Stats stats;
+			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
+			
 			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
 			String legend = str(var->name);
 			String unit; // TODO
 			
-			Time_Series_Stats stats;
-			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
-			
-			//n_bins_histogram = 1 + (int)std::ceil(std::log2((double)stats.data_points));   //NOTE: Sturges' rule.
-			n_bins_histogram = 2*(int)(std::ceil(std::cbrt((double)stats.data_points)));      //NOTE: Rice's rule.
-			
-			histogram.Create(series_data.Top(), stats.min, stats.max, n_bins_histogram);
-			
-			double stride = (stats.max - stats.min)/(double)n_bins_histogram;
 			Color &color = colors.next();
-			double darken = 0.4;
-			Color border((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
-			AddSeries(histogram).Legend(legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*stride).NoMark().Fill(color).Stroke(1.0, border).Units("", unit);
-			
+			n_bins_histogram = add_histogram(this, &series_data.Top(), stats.min, stats.max, stats.data_points, legend, unit, color);
 			display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, color, legend, unit);
 			
 		} else if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq) {
@@ -773,41 +793,63 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			if(mode == Plot_Mode::residuals) {
 				series_data.Create<Agg_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, result_ts, x_data.data(),
 					input_start, result_start, app->time_step_size, &setup);
-				
-				//series_data.Create<Residual_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, result_ts, x_data.data(),
-				//	input_start, result_start, app->time_step_size);
-				
+					
 				AddSeries(series_data.Top());
 				format_plot(this, 1, colors.next(), legend, unit);
 				
-				//AddLine(Null, StartX, StartX, ResidualStats.MinError, ResidualStats.MaxError, Red());
-				//AddLine(Null, EndX, EndX, ResidualStats.MinError, ResidualStats.MaxError, Red());
+				double first_x = (double)(gof_start.seconds_since_epoch - input_start.seconds_since_epoch);
+				double last_x  = (double)(gof_end  .seconds_since_epoch - input_start.seconds_since_epoch);
 				
-				//TODO: trend line
+				double xy_covar, x_var, y_mean, x_mean;
+				// Hmm, this will make a trend of the aggregated data. Should we do it that way?
+				compute_trend_stats(&series_data.Top(), x_mean, y_mean, x_var, xy_covar);
+				add_trend_line(this, xy_covar, x_var, y_mean, x_mean, first_x, last_x, String("Trend line"));
+				
+				add_line(this, first_x, residual_stats.min_error, first_x, residual_stats.max_error, Red(), Null);
+				add_line(this, last_x,  residual_stats.min_error, last_x,  residual_stats.max_error, Red(), Null);
+			} else if(mode == Plot_Mode::residuals_histogram) {
+				//TODO : Could actually allow aggrecation for this now
+				series_data.Create<Residual_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, gof_ts, x_data.data(),
+					input_start, gof_start, app->time_step_size);
+
+				n_bins_histogram = add_histogram(this, &series_data.Top(), residual_stats.min_error, residual_stats.max_error, residual_stats.data_points, legend, unit, colors.next());
+				
+				// Create a normal distribution with the same mean and std_dev
+				double mean    = series_data.Top().AvgY();
+				double std_dev = series_data.Top().StdDevY(mean);
+				std::vector<double> xx(n_bins_histogram), yy(n_bins_histogram);
+				double stride = (residual_stats.max_error - residual_stats.min_error) / (double)n_bins_histogram;
+				for(int pt = 0; pt < n_bins_histogram; ++pt) {
+					double low = residual_stats.min_error + (double)pt * stride;
+					double high = low + stride;
+					xx[pt] = 0.5*(low + high);
+					yy[pt] = 0.5 * (std::erf((high-mean) / (std::sqrt(2.0)*std_dev)) - std::erf((low-mean) / (std::sqrt(2.0)*std_dev)));
+				}
+				series_data.Create<Data_Source_Owns_XY>(&xx, &yy);
+				Color &color = colors.next();
+				AddSeries(series_data.Top()).Legend("Normal distr.").MarkColor(color).Stroke(0.0, color).Dash("");
+
+			} else if(mode == Plot_Mode::qq) {
+				auto &perc = parent->stat_settings.settings.percentiles;
+				int num_perc = perc.size();
+				std::vector<double> xx(num_perc), yy(num_perc);
+				for(int idx = 0; idx < num_perc; ++idx) {
+					xx[idx] = sim_stats.percentiles[idx];
+					yy[idx] = obs_stats.percentiles[idx];
+					qq_labels << Format("%g", perc[idx]);
+				}
+				Color color = colors.next();
+				series_data.Create<Data_Source_Owns_XY>(&xx, &yy);
+				AddSeries(series_data.Top()).MarkColor(color).Stroke(0.0, color).Dash("").Units(unit, unit)
+					.AddLabelSeries(qq_labels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
+				ShowLegend(false);
+				
+				SetLabels(legend_sim, legend_obs); //TODO: This does not work!
+				double min = std::min(sim_stats.percentiles[0], obs_stats.percentiles[0]);
+				double max = std::max(sim_stats.percentiles[num_perc-1], obs_stats.percentiles[num_perc-1]);
+
+				add_line(this, min, min, max, max, Red(), Null);
 			}
-			/*
-			else if(PlotMajorMode == MajorMode_ResidualHistogram)
-			{
-				NBinsHistogram = AddHistogram(Legend, ModUnit, Residuals.data()+InputGofOffset, InputGofTimesteps);
-				String NormLegend = "Normal distr.";
-				
-				timeseries_stats RS2;
-				ComputeTimeseriesStats(RS2, Residuals.data()+InputGofOffset, InputGofTimesteps, Parent->StatSettings, false);
-				
-				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDev);
-			}
-			else if(PlotMajorMode == MajorMode_QQ)
-			{
-				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats, Parent->StatSettings);
-				
-				int Last = ModeledStats.Percentiles.size()-1;
-				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
-				double Max = std::max(ModeledStats.Percentiles[Last], ObservedStats.Percentiles[Last]);
-				
-				String Dum = "";
-				AddLine(Dum, Min, Max, Min, Max);
-			}
-			*/
 		} else {
 			SetTitle("Plot mode not yet implemented :(");
 			return;

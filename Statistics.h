@@ -22,6 +22,11 @@ void display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, 
 	
 void display_residual_stats(MyRichView *plot_info, Display_Stat_Settings *settings, Residual_Stats *stats, Residual_Stats *cached_stats, bool display_diff, Upp::String &title);
 
+namespace Upp {
+	class DataSource;
+}
+void compute_trend_stats(Upp::DataSource *source, double &mean_x, double &mean_y, double &x_var, double &xy_covar);
+
 #define LAYOUTFILE <MobiView2/StatSettings.lay>
 #include <CtrlCore/lay.h>
 

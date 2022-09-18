@@ -89,6 +89,40 @@ display_residual_stats(MyRichView *plot_info, Display_Stat_Settings *settings, R
 	plot_info->ScrollEnd();
 }
 
+void compute_trend_stats(DataSource *source, double &mean_x, double &mean_y, double &x_var, double &xy_covar) {
+	double sum_x = 0.0;
+	double sum_y = 0.0;
+	s64 finite_count = 0;
+	
+	// TODO: numerically stable summation
+	for(s64 idx = 0; idx < source->GetCount(); ++idx) {
+		double yy = source->y(idx);
+		if(std::isfinite(yy)) {
+			sum_x += source->x(idx);
+			sum_y += yy;
+			finite_count++;
+		}
+	}
+	
+	mean_x = sum_x / (double)finite_count;
+	mean_y = sum_y / (double)finite_count;
+	
+	double cov_acc = 0.0;
+	double var_acc = 0.0;
+	
+	for(s64 idx = 0; idx < source->GetCount(); ++idx) {
+		double yy = source->y(idx);
+		if(std::isfinite(yy)) {
+			double dev_x = (source->x(idx) - mean_x);
+			cov_acc += (yy - mean_y)*dev_x;
+			var_acc += dev_x*dev_x;
+		}
+	}
+	
+	x_var = var_acc / (double)finite_count;
+	xy_covar = cov_acc / (double)finite_count;
+}
+
 
 EditStatSettings::EditStatSettings(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this, "Edit statistics settings");
