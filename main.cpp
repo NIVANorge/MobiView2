@@ -15,7 +15,7 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
+MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -225,7 +225,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	bar.Add(IconImg::ReLoad(), THISBACK(reload)).Tip("Reload the already loaded model and data files.").Key(K_F5);
 	bar.Add(IconImg::Save(), THISBACK(save_parameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(save_parameters_as)).Tip("Save parameters as").Key(K_ALT_S);
-	//bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
+	bar.Add(IconImg::Search(), THISBACK(open_search_window)).Tip("Search parameters").Key(K_CTRL_F);
 	//bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(run_model)).Tip("Run model").Key(K_F7);
@@ -243,6 +243,15 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
 }
 
+void MobiView2::delete_model() {
+	if(app) delete app;
+	app = nullptr;
+	if(model) delete model;
+	model = nullptr;
+	if(data_set) delete data_set;
+	data_set = nullptr;
+}
+
 void MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
 	if(model_is_loaded())	{
@@ -254,12 +263,7 @@ void MobiView2::do_the_load() {
 		//	BaselineDataSet = nullptr;
 		//}
 		
-		if(data_set) delete data_set;
-		data_set = nullptr;
-		if(app) delete app;
-		app = nullptr;
-		if(model) delete model;
-		model = nullptr;
+		delete_model();
 		
 		params.changed_since_last_save = false;
 		clean_interface();
@@ -282,17 +286,16 @@ void MobiView2::do_the_load() {
 	
 		app->compile();
 	} catch(int) {
-		store_settings(false);
 		success = false;
+		delete_model();
 	}
-	
 	log_warnings_and_errors();
+	store_settings(false);
 
 	if(!success)
 		return;
 	
 	build_interface();
-	store_settings(false);
 }
 
 void MobiView2::reload() {
@@ -803,6 +806,11 @@ void MobiView2::open_stat_settings() {
 		stat_settings.load_interface();
 		stat_settings.Open();
 	}
+}
+
+void MobiView2::open_search_window() {
+	if(!search_window.IsOpen())
+		search_window.Open();
 }
 
 

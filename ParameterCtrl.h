@@ -9,15 +9,6 @@ constexpr int MAX_INDEX_SETS = 6;    //NOTE: This has to match the number of (cu
 #include <CtrlCore/lay.h>
 
 
-
-class EmptyDisplay : public Upp::Display
-{
-	public :
-		virtual void Paint(Upp::Draw& w, const Upp::Rect& r, const Upp::Value& q, Upp::Color ink, Upp::Color paper, Upp::dword style) const {
-			Upp::Display::Paint(w, r, Upp::Null, ink, paper, style);
-		}
-};
-
 class MobiView2;
 struct Model_Application;
 
@@ -33,8 +24,6 @@ public:
 	
 	ParameterCtrl(MobiView2* parent);
 	
-	EmptyDisplay no_display;
-	
 	bool changed_since_last_save = false;
 	
 	Upp::Label     *index_set_name[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
@@ -43,9 +32,9 @@ public:
 	Upp::Option    *index_expand[MAX_INDEX_SETS];
 	
 	Upp::Array<Upp::Ctrl> parameter_controls;
-	//std::vector<parameter_type> CurrentParameterTypes;
 	
 	std::vector<Entity_Id> index_sets;
+	std::vector<Indexed_Parameter> listed_pars; // TODO: eventually must be a matrix
 	
 	MobiView2 *parent;
 	

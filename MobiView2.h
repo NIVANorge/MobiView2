@@ -21,24 +21,9 @@
 #include "ParameterCtrl.h"
 #include "PlotCtrl.h"
 #include "Statistics.h"
-
-//#define LAYOUTFILE <MobiView2/MobiView2.lay>
-//#include <CtrlCore/lay.h>
+#include "SearchWindow.h"
 
 /*
-class SearchWindow : public WithSearchLayout<TopWindow>
-{
-public:
-	typedef SearchWindow CLASSNAME;
-	
-	SearchWindow();
-	
-	MobiView *ParentWindow;
-	
-	void Find();
-	void SelectItem();
-};
-
 class ChangeIndexesWindow;
 
 class VisualizeBranches : public ParentCtrl
@@ -562,6 +547,7 @@ public:
 	PlotCtrl        plotter;
 	
 	EditStatSettings stat_settings;
+	SearchWindow     search_window;
 	
 	
 	Mobius_Model      *model = nullptr;
@@ -599,8 +585,10 @@ public:
 	bool model_is_loaded() { return app && model; }
 	
 	void open_stat_settings();
+	void open_search_window();
 	
 private :
+	void delete_model();
 	void do_the_load();
 	/*
 	StatisticsSettings StatSettings;

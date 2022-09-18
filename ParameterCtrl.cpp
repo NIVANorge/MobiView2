@@ -273,6 +273,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	
 	*/
+	listed_pars.clear();
 	
 	Index_T exp_count = {expanded_set, 1};
 	if(is_valid(expanded_set))
@@ -294,6 +295,8 @@ void ParameterCtrl::refresh(bool values_only) {
 				
 				if(is_valid(expanded_set))
 					par_data.indexes[expanded_set.id] = exp_idx;
+				
+				listed_pars.push_back(par_data);
 			}
 			
 			ValueMap row_data;
@@ -334,12 +337,12 @@ void ParameterCtrl::refresh(bool values_only) {
 					
 					if(!values_only) {
 						parameter_controls.Create<EditDoubleNotNull>();
-						parameter_controls[ctrl_idx].WhenAction = [par_data, ctrl_idx, this]() {
+						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
 							EditDoubleNotNull *value_field = (EditDoubleNotNull *)&parameter_controls[ctrl_idx];
 							if(IsNull(*value_field)) return;
 							Parameter_Value val;
 							val.val_real = (double)*value_field;
-							parameter_edit(par_data, parent->app, val);
+							parameter_edit(listed_pars[row], parent->app, val);
 						};
 					}
 				} else if(par->decl_type == Decl_Type::par_int) {
@@ -351,12 +354,12 @@ void ParameterCtrl::refresh(bool values_only) {
 					
 					if(!values_only) {
 						parameter_controls.Create<EditInt64NotNullSpin>();
-						parameter_controls[ctrl_idx].WhenAction = [par_data, ctrl_idx, this]() {
+						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
 							EditInt64NotNullSpin *value_field = (EditInt64NotNullSpin *)&parameter_controls[ctrl_idx];
 							if(IsNull(*value_field)) return;
 							Parameter_Value val;
 							val.val_integer = (int64)*value_field;
-							parameter_edit(par_data, parent->app, val);
+							parameter_edit(listed_pars[row], parent->app, val);
 						};
 					}
 				} else if(par->decl_type == Decl_Type::par_bool) {
@@ -364,11 +367,11 @@ void ParameterCtrl::refresh(bool values_only) {
 
 					if(!values_only) {
 						parameter_controls.Create<Option>();
-						parameter_controls[ctrl_idx].WhenAction = [par_data, ctrl_idx, this]() {
+						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
 							Option *value_field = (Option *)&parameter_controls[ctrl_idx];
 							Parameter_Value val;
 							val.val_boolean = (bool)value_field->Get();
-							parameter_edit(par_data, parent->app, val);
+							parameter_edit(listed_pars[row], parent->app, val);
 						};
 					}
 				} else if(par->decl_type == Decl_Type::par_datetime) {
@@ -377,13 +380,13 @@ void ParameterCtrl::refresh(bool values_only) {
 					
 					if(!values_only) {
 						parameter_controls.Create<EditTimeNotNull>();
-						parameter_controls[ctrl_idx].WhenAction = [par_data, ctrl_idx, this]() {
+						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
 							EditTimeNotNull *value_field = (EditTimeNotNull *)&parameter_controls[ctrl_idx];
 							Time tm = value_field->GetData();
 							if(IsNull(tm)) return;
 							Parameter_Value val;
 							val.val_datetime = convert_time(tm);
-							parameter_edit(par_data, parent->app, val);
+							parameter_edit(listed_pars[row], parent->app, val);
 						};
 					}
 				} else if(par->decl_type == Decl_Type::par_enum) {
@@ -398,11 +401,11 @@ void ParameterCtrl::refresh(bool values_only) {
 							enum_list->Add(key++, str(name));
 						enum_list->GoBegin();
 						
-						parameter_controls[ctrl_idx].WhenAction = [par_data, ctrl_idx, this]() {
+						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
 							DropList *value_field = (DropList *)&parameter_controls[ctrl_idx];
 							Parameter_Value val;
 							val.val_integer = (int64)value_field->GetKey(value_field->GetIndex());
-							parameter_edit(par_data, parent->app, val);
+							parameter_edit(listed_pars[row], parent->app, val);
 						};
 					}
 				}
