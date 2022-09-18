@@ -580,6 +580,7 @@ public:
 	void log_warnings_and_errors();
 	
 	void load();
+	void reload();
 	void save_parameters();
 	void save_parameters_as();
 	void run_model();
@@ -599,6 +600,8 @@ public:
 	
 	void open_stat_settings();
 	
+private :
+	void do_the_load();
 	/*
 	StatisticsSettings StatSettings;
 	void OpenStatSettings();

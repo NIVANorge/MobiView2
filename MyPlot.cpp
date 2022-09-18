@@ -55,7 +55,7 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 	x_data.resize(steps);
 	Expanded_Date_Time dt(start, ts_size);
 	for(s64 step = 0; step < steps; ++step) {
-		x_data[step] = (double)dt.date_time.seconds_since_epoch;
+		x_data[step] = (double)(dt.date_time.seconds_since_epoch - start.seconds_since_epoch);
 		dt.advance();
 	}
 }
@@ -378,7 +378,8 @@ int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step
 inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
 	static const char *month_names[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 	//NOTE: Adding 0.5 helps a bit with avoiding flickering when panning, but is not perfect (TODO)
-	Date_Time d2 = ref_date + (s64)(seconds_since_ref + 0.5);
+	Date_Time d2 = ref_date;
+	d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
 	s32 h, m, s;
 	if(res_type <= 2) {
 		d2.hour_minute_second(&h, &m, &s);

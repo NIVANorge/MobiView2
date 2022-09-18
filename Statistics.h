@@ -39,6 +39,8 @@ public :
 	
 	void save_and_close();
 	void load_interface();
+	void read_from_json(Upp::Value &settings_json);
+	void write_to_json(Upp::Json &settings_json);
 };
 
 #endif

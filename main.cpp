@@ -95,7 +95,7 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 	
 	
 	
-	result_selecter.Disable();
+	//result_selecter.Disable();
 	result_selecter.WhenSel << [this]() { plotter.plot_change(); };
 	result_selecter.MultiSelect();
 	result_selecter.SetRoot(Null, String("Results"));
@@ -126,21 +126,21 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 	model_file                = previous_model.ToStd();
 	data_file                 = previous_data.ToStd();
 	
-	Value window_dim = settings_json["Window dimensions"];
+	const Value &window_dim = settings_json["Window dimensions"];
 	if(window_dim.GetCount() == 2 && (int)window_dim[0] > 0 && (int)window_dim[1] > 0)
 		SetRect(0, 0, (int)window_dim[0], (int)window_dim[1]);
 	
-	Value main_vert = settings_json["Main vertical"];
+	const Value &main_vert = settings_json["Main vertical"];
 	if((int)main_vert > 0)
 		main_vertical.SetPos((int)main_vert, 0);
 	
-	Value upper_horz = settings_json["Upper horizontal"];
+	const Value &upper_horz = settings_json["Upper horizontal"];
 	if(upper_horz.GetCount() == upper_horizontal.GetCount()) {
 		for(int Idx = 0; Idx < upper_horz.GetCount(); ++Idx)
 			upper_horizontal.SetPos((int)upper_horz[Idx], Idx);
 	}
 	
-	Value lower_horz = settings_json["Lower horizontal"];
+	const Value &lower_horz = settings_json["Lower horizontal"];
 	if(lower_horz.GetCount() == lower_horizontal.GetCount()) {
 		for(int Idx = 0; Idx < lower_horz.GetCount(); ++Idx)
 			lower_horizontal.SetPos((int)lower_horz[Idx], Idx);
@@ -148,41 +148,8 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 	
 	if((bool)settings_json["Maximize"]) Maximize();
 	
+	stat_settings.read_from_json(settings_json);
 	/*
-	ValueMap StatsJson = settings_json["Statistics"];
-	#define SET_SETTING(Handle, Name, Type) \
-		Value Handle##Json = StatsJson[#Handle]; \
-		if(!IsNull(Handle##Json)) \
-		{ \
-			StatSettings.Display##Handle = (int)Handle##Json; \
-		}
-	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
-	
-	#include "SetStatSettings.h"
-	
-	#undef SET_SETTING
-	#undef SET_RES_SETTING
-	
-	ValueArray Percentiles = StatsJson["Percentiles"];
-	if(!IsNull(Percentiles) && Percentiles.GetCount() >= 1)
-	{
-		StatSettings.Percentiles.clear();
-		for(Value Perc : Percentiles)
-		{
-			double Val = Perc;  //TODO: Should check that it is a valid value between 0 and 100. Would only be a problem if somebody edited it by hand though
-			StatSettings.Percentiles.push_back(Val);
-		}
-	}
-	
-	Value PrecisionJson = StatsJson["Precision"];
-	if(!IsNull(PrecisionJson))
-		StatSettings.Precision = (int)PrecisionJson;
-	Value BFIJson = StatsJson["BFIParam"];
-	if(!IsNull(BFIJson))
-		StatSettings.EckhardtFilterParam = (double)BFIJson;
-	Value ShowInitial = StatsJson["ShowInitial"];
-	if(!IsNull(ShowInitial))
-		StatSettings.ShowInitialValue = (bool)ShowInitial;
 
 	Value IdxEditWindowDim = settings_json["Index set editor window dimensions"];
 	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
@@ -193,11 +160,9 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 		OtherPlots.SetRect(0, 0, (int)AdditionalPlotViewDim[0], (int)AdditionalPlotViewDim[1]);
 	*/
 	
-	// NOTE: Just to make it initially set the message that no model is loaded
+	
 	
 	/*
-	Plotter.MainPlot.BuildPlot(this, nullptr, true, PlotInfo, true);
-	
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
 	ChangeIndexes.ParentWindow = this;
@@ -209,6 +174,8 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this) {
 	OptimizationWin.ParentWindow = this;
 	MCMCResultWin.ParentWindow = this;
 	*/
+	
+	plotter.main_plot.build_plot(); // NOTE: Just to make it initially set the message that no model is loaded
 }
 
 void MobiView2::log(String msg, bool error) {
@@ -254,7 +221,8 @@ void MobiView2::log_warnings_and_errors() {
 }
 
 void MobiView2::sub_bar(Bar &bar) {
-	bar.Add(IconImg::Open(), THISBACK(load)).Tip("Load model, parameter and input files").Key(K_CTRL_O);
+	bar.Add(IconImg::Open(), THISBACK(load)).Tip("Load model and data files").Key(K_CTRL_O);
+	bar.Add(IconImg::ReLoad(), THISBACK(reload)).Tip("Reload the already loaded model and data files.").Key(K_F5);
 	bar.Add(IconImg::Save(), THISBACK(save_parameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(save_parameters_as)).Tip("Save parameters as").Key(K_ALT_S);
 	//bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
@@ -275,15 +243,9 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
 }
 
-void MobiView2::load() {
-	
-	if(params.changed_since_last_save) {
-		int close = PromptYesNo("Parameters have been edited since the last save. If you load a new dataset now, you will lose them. Continue anyway?");
-		if(!close) return;
-	}
-	
+void MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
-	if(app)	{
+	if(model_is_loaded())	{
 		//TODO!
 		
 		//if(BaselineDataSet)
@@ -292,11 +254,12 @@ void MobiView2::load() {
 		//	BaselineDataSet = nullptr;
 		//}
 		
-		//if(DataSet)
-		//{
-		//	ModelDll.DeleteModelAndDataSet(DataSet);
-		//	DataSet = nullptr;
-		//}
+		if(data_set) delete data_set;
+		data_set = nullptr;
+		if(app) delete app;
+		app = nullptr;
+		if(model) delete model;
+		model = nullptr;
 		
 		params.changed_since_last_save = false;
 		clean_interface();
@@ -305,55 +268,6 @@ void MobiView2::load() {
 		calib_end.SetData(Null);
 	}
 	
-	String settings_file = LoadFile(GetDataFile("settings.json"));
-	Value  settings_json = ParseJSON(settings_file);
-	
-	String previous_model = settings_json["Model file"];
-	String previous_data  = settings_json["Data file"];
-	
-	FileSel model_sel;
-
-	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them1
-
-	if(!previous_model.IsEmpty() && FileExists(previous_model))
-		model_sel.PreSelect(previous_model);
-	
-	model_sel.ExecuteOpen();
-	model_file = model_sel.Get().ToStd();
-	
-	bool changed_model = model_file != previous_model.ToStd();
-	
-	if(model_file.empty()) {
-		log("Received empty model file name.", true);
-		return;
-	}
-	
-	log(Format("Selecting model: %s", model_file.data()));
-
-	FileSel data_sel;
-#ifdef PLATFORM_WIN32
-	data_sel.Type("Input .dat or spreadsheet files", "*.dat *.xls *.xlsx");
-#else
-	data_sel.Type("Input .dat files", "*.dat");
-#endif
-
-	if(!changed_model && !previous_data.IsEmpty() && FileExists(previous_data))
-		data_sel.PreSelect(previous_data);
-	else
-		data_sel.ActiveDir(GetFileFolder(model_file.data()));
-	data_sel.ExecuteOpen();
-	data_file = data_sel.Get().ToStd();
-	
-	if(data_file.empty()){
-		log("Received empty data file name.", true);
-		return;
-	}
-	
-	bool changed_data_path = GetFileDirectory(data_file.data()) != GetFileDirectory(previous_data);
-
-	log(Format("Selecting data file: %s", data_file.data()));
-	
-
 	bool success = true;
 	try {
 		model = load_model(model_file.data());
@@ -379,6 +293,134 @@ void MobiView2::load() {
 	
 	build_interface();
 	store_settings(false);
+}
+
+void MobiView2::reload() {
+	if(!model_is_loaded()) {
+		log("Not able to reload when there is nothing loaded to begin with.", true);
+		return;
+	}
+	//TODO: decide what to do about changed parameters.
+	
+	//NOTE: we have to get out the names of selected series and indexes, since the Var_Ids may have changed after the reload.
+	// TODO: this should probably be factored out to be reused in serialization..
+	Plot_Setup setup = plotter.main_plot.setup;
+	std::vector<std::string> sel_results;
+	std::vector<std::string> sel_inputs;
+	std::vector<std::string> sel_additional;
+	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
+	for(Var_Id var_id : setup.selected_results)
+		sel_results.push_back(std::string(app->model->state_vars[var_id]->name));
+	for(Var_Id var_id : setup.selected_series) {
+		if(var_id.type == 1)
+			sel_inputs.push_back(std::string(app->model->series[var_id]->name));
+		else
+			sel_additional.push_back(std::string(app->additional_series[var_id]->name));
+	}
+	//TODO: the index sets themselves could change (or change order). So we have to store their
+	//names and remap the order! Also rebuild "index set is active"
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		for(Index_T index : setup.selected_indexes[idx]) {
+			if(!is_valid(index)) continue;
+			// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
+			sel_indexes[idx].push_back(std::string(app->index_names[idx][index.index]));
+		}
+	}
+	
+	bool resized = plotter.main_plot.was_auto_resized;
+	
+	do_the_load();
+	
+	// TODO: it is not ideal for this functionality that series names may not be unique. Fix
+	// this in Mobius 2?
+	setup.selected_results.clear();
+	setup.selected_series.clear();
+	for(auto &name : sel_results) {
+		auto &ids = app->model->state_vars[name];
+		setup.selected_results.insert(setup.selected_results.end(), ids.begin(), ids.end());
+	}
+	for(auto &name : sel_inputs) {
+		auto &ids = app->model->series[name];
+		setup.selected_series.insert(setup.selected_series.end(), ids.begin(), ids.end());
+	}
+	for(auto &name : sel_additional) {
+		auto &ids = app->additional_series[name];
+		setup.selected_series.insert(setup.selected_series.end(), ids.begin(), ids.end());
+	}
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		setup.selected_indexes[idx].clear();
+		for(auto &name : sel_indexes[idx]) {
+			auto &map = app->index_names_map[idx];
+			auto find = map.find(name);
+			if(find != map.end())
+				setup.selected_indexes[idx].push_back(find->second);
+		}
+	}
+	
+	plotter.main_plot.was_auto_resized = resized; // A bit hacky, but should cause it to not re-size x axis if it is already set.
+	plotter.set_plot_setup(setup);
+	
+	run_model();
+}
+
+void MobiView2::load() {
+	
+	if(params.changed_since_last_save) {
+		int close = PromptYesNo("Parameters have been edited since the last save. If you load a new dataset now, you will lose them. Continue anyway?");
+		if(!close) return;
+	}
+
+	String settings_file = LoadFile(GetDataFile("settings.json"));
+	Value  settings_json = ParseJSON(settings_file);
+	
+	String previous_model = settings_json["Model file"];
+	String previous_data  = settings_json["Data file"];
+	
+	FileSel model_sel;
+
+	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them1
+
+	if(!previous_model.IsEmpty() && FileExists(previous_model))
+		model_sel.PreSelect(previous_model);
+	
+	model_sel.ExecuteOpen();
+	std::string new_model_file = model_sel.Get().ToStd();
+	
+	bool changed_model = new_model_file != previous_model.ToStd();
+	
+	if(new_model_file.empty()) {
+		log("Received empty model file name.", true);
+		return;
+	}
+	model_file = new_model_file;
+	
+	log(Format("Selecting model: %s", model_file.data()));
+
+	FileSel data_sel;
+#ifdef PLATFORM_WIN32
+	data_sel.Type("Input .dat or spreadsheet files", "*.dat *.xls *.xlsx");
+#else
+	data_sel.Type("Input .dat files", "*.dat");
+#endif
+
+	if(!changed_model && !previous_data.IsEmpty() && FileExists(previous_data))
+		data_sel.PreSelect(previous_data);
+	else
+		data_sel.ActiveDir(GetFileFolder(model_file.data()));
+	data_sel.ExecuteOpen();
+	std::string new_data_file = data_sel.Get().ToStd();
+	
+	if(new_data_file.empty()){
+		log("Received empty data file name.", true);
+		return;
+	}
+	data_file = new_data_file;
+	
+	bool changed_data_path = GetFileDirectory(data_file.data()) != GetFileDirectory(previous_data);
+
+	log(Format("Selecting data file: %s", data_file.data()));
+
+	do_the_load();
 }
 
 void MobiView2::save_parameters() {
@@ -518,6 +560,8 @@ void MobiView2::store_settings(bool store_favorites) {
 	settings_json("Lower horizontal", lower_horz);
 	
 	settings_json("Maximize", IsMaximized());
+	
+	stat_settings.write_to_json(settings_json);
 	/*
 	JsonArray IdxEditWindowDim;
 	IdxEditWindowDim << ChangeIndexes.GetSize().cx << ChangeIndexes.GetSize().cy;
@@ -526,29 +570,6 @@ void MobiView2::store_settings(bool store_favorites) {
 	JsonArray AdditionalPlotViewDim;
 	AdditionalPlotViewDim << OtherPlots.GetSize().cx << OtherPlots.GetSize().cy;
 	SettingsJson("Additional plot view dimensions", AdditionalPlotViewDim);
-	*/
-	
-	/*
-	Json Statistics;
-	
-	#define SET_SETTING(Handle, Name, Type) \
-		Statistics(#Handle, StatSettings.Display##Handle);
-	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
-	
-	#include "SetStatSettings.h"
-	
-	#undef SET_SETTING
-	#undef SET_RES_SETTING
-	
-	JsonArray Percentiles;
-	for(double Percentile : StatSettings.Percentiles) Percentiles << Percentile;
-	Statistics("Percentiles", Percentiles);
-	
-	Statistics("Precision", StatSettings.Precision);
-	Statistics("BFIParam", StatSettings.EckhardtFilterParam);
-	Statistics("ShowInitial", StatSettings.ShowInitialValue);
-	
-	SettingsJson("Statistics", Statistics);
 	*/
 	
 	SaveFile("settings.json", settings_json.ToString());

@@ -138,6 +138,10 @@ void ParameterCtrl::refresh(bool values_only) {
 	SecondExpandedSetLocal = -1;
 	
 	*/
+	Entity_Id expanded_set = invalid_entity_id;
+	
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
+		if(index_expand[idx]->Get()) expanded_set = index_sets[idx];
 	
 	Vector<int> selected_groups = parent->par_group_selecter.GetSel();
 	if(selected_groups.empty()) return;
@@ -150,14 +154,14 @@ void ParameterCtrl::refresh(bool values_only) {
 	Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
 	auto par_group = parent->model->find_entity<Reg_Type::par_group>(par_group_id);
 	
-	for(size_t idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		index_expand[idx]->Enable();
 		index_list[idx]->Disable();
 		
-		//if(ExpandedSet != Idx) IndexLock[Idx]->Enable();
-		index_lock[idx]->Enable();
+		if(expanded_set != index_sets[idx]) index_lock[idx]->Enable();
 	}
 	
+	bool expanded_active = false;
 	if(!par_group->parameters.empty()) {
 		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_data.get_index_sets(par_group->parameters[0]);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
@@ -167,45 +171,24 @@ void ParameterCtrl::refresh(bool values_only) {
 			// group index sets. In that case, enable the index set control.
 			if(std::find(grp_index_sets.begin(), grp_index_sets.end(), index_set) != grp_index_sets.end()) {
 				index_list[idx]->Enable();
+				if(index_set == expanded_set) expanded_active = true;
 			}
 		}
 	}
-	
-	//for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
-	//	if(IndexExpand[Idx]->Get()) ExpandedSet = Idx;
-	
-	/*
-	
-	bool ExpandedSetIsActive = false;
-	for(size_t Idx = 0; Idx < IndexSetNames.size(); ++Idx)
-	{
-		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
-		if(Id != ExpandedSet)  IndexList[Id]->Enable();
-		else
-		{
-			ExpandedSetIsActive = true;
-			ExpandedSetLocal = Idx;
-		}
-		
-		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
-		Indexes[Idx] = (char *)Indexes_String[Idx].data();
-	}
-	if(!ExpandedSetIsActive)
-		ExpandedSet = -1;
-	
-	*/
+	if(!expanded_active)
+		expanded_set = invalid_entity_id;
 	
 	if(!values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
 		
-		parameter_view.AddColumn(Id("__value"), "Value");
-		/*
-		if(ExpandedSetLocal >= 0)
-		{
-			char *ExpandedSetName = IndexSetNames[ExpandedSetLocal];
-			Params.ParameterView.AddColumn(Id("__index"), ExpandedSetName);
+		if(is_valid(expanded_set)) {
+			auto name = parent->app->model->find_entity<Reg_Type::index_set>(expanded_set)->name;
+			parameter_view.AddColumn(Id("__index"), str(name));
 		}
 		
+		parameter_view.AddColumn(Id("__value"), "Value");
+		
+		/*
 		if(SecondExpandedSetLocal < 0)
 		{
 			// Otherwise regular editing of just one value
@@ -223,7 +206,10 @@ void ParameterCtrl::refresh(bool values_only) {
 		parameter_view.AddColumn(Id("__unit"), "Unit");
 		parameter_view.AddColumn(Id("__description"), "Description");
 		
-		parameter_view.ColumnWidths("20 12 10 10 10 38");
+		if(is_valid(expanded_set))
+			parameter_view.ColumnWidths("20 12 12 10 10 10 26");
+		else
+			parameter_view.ColumnWidths("20 12 10 10 10 38");
 		/*
 		if(SecondExpandedSetLocal < 0)
 		{
@@ -263,20 +249,6 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	/*
 	
-	std::vector<char *> ExpandedIndexSet;
-	if(ExpandedSet >= 0)
-	{
-		char *ExpandedSetName = IndexSetNames[ExpandedSetLocal];
-		
-		uint64 ExpandedIndexesCount = ModelDll.GetIndexCount(DataSet, ExpandedSetName);
-		ExpandedIndexSet.resize(ExpandedIndexesCount);
-		ModelDll.GetIndexes(DataSet, ExpandedSetName, ExpandedIndexSet.data());
-		
-		if(CheckDllUserError()) return;
-	}
-	else
-		ExpandedIndexSet.push_back((char *)"dummy");
-	
 	
 	//NOTE: If the last two index sets are the same, display this as a row
 	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetNames.size()-1], IndexSetNames[IndexSetNames.size()-2]) == 0))
@@ -301,7 +273,11 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	
 	*/
-		
+	
+	Index_T exp_count = {expanded_set, 1};
+	if(is_valid(expanded_set))
+		exp_count = parent->app->index_counts[expanded_set.id];
+	
 	int row = 0;
 	int ctrl_idx = 0;
 	
@@ -310,29 +286,31 @@ void ParameterCtrl::refresh(bool values_only) {
 	for(Entity_Id par_id : par_group->parameters) {
 		auto par = parent->model->find_entity<Reg_Type::parameter>(par_id);
 		
-		ValueMap row_data;
-		row_data.Set("__name", str(par->name));
-		// TODO: generate strings for units
-		//const char *Unit = ModelDll.GetParameterUnit(DataSet, Name);
-		//if(Unit) RowData.Set("__unit", Unit);
-		if(par->description) row_data.Set("__description", str(par->description));
-		
-		//int ExpandedIndexRow = 0;
-		//for(char *ExpandedIndex : ExpandedIndexSet) {
+		for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
 			if(!values_only) {
 				par_data.id    = par_id;
 				
 				parameter_view.Add();
 				
-				//if(ExpandedSetLocal >= 0)
-				//	Parameter.Indexes[ExpandedSetLocal].Name = ExpandedIndex;
+				if(is_valid(expanded_set))
+					par_data.indexes[expanded_set.id] = exp_idx;
 			}
 			
-			//if(ExpandedSetLocal >= 0)
-			//	Indexes[ExpandedSetLocal] = ExpandedIndex;
+			ValueMap row_data;
 			
-			//RowData.Set("__index", ExpandedIndex);
+			if(is_valid(expanded_set))
+				row_data.Set("__index", str(parent->app->index_names[expanded_set.id][exp_idx.index])); //TODO: should be an api for this in model_application
 			
+			bool show_additional = exp_idx.index == 0;
+			
+			// For expanded index sets, only show name, description, etc for the first row of
+			// each parameter
+			if(show_additional) {
+				row_data.Set("__name", str(par->name));
+				// TODO: generate strings for units
+				//if(Unit) RowData.Set("__unit", Unit);
+				if(par->description) row_data.Set("__description", str(par->description));
+			}
 			
 			//for(char *SecondExpandedIndex : SecondExpandedIndexSet)
 			//{
@@ -349,8 +327,10 @@ void ParameterCtrl::refresh(bool values_only) {
 				Parameter_Value val = *parent->app->parameter_data.get_value(offset);
 				if(par->decl_type == Decl_Type::par_real) {
 					row_data.Set(value_column, val.val_real);
-					row_data.Set("__min", par->min_val.val_real);
-					row_data.Set("__max", par->max_val.val_real);
+					if(show_additional) {
+						row_data.Set("__min", par->min_val.val_real);
+						row_data.Set("__max", par->max_val.val_real);
+					}
 					
 					if(!values_only) {
 						parameter_controls.Create<EditDoubleNotNull>();
@@ -364,8 +344,10 @@ void ParameterCtrl::refresh(bool values_only) {
 					}
 				} else if(par->decl_type == Decl_Type::par_int) {
 					row_data.Set(value_column, val.val_integer);
-					row_data.Set("__min", par->min_val.val_integer);
-					row_data.Set("__max", par->max_val.val_integer);
+					if(show_additional) {
+						row_data.Set("__min", par->min_val.val_integer);
+						row_data.Set("__max", par->max_val.val_integer);
+					}
 					
 					if(!values_only) {
 						parameter_controls.Create<EditInt64NotNullSpin>();
@@ -433,25 +415,14 @@ void ParameterCtrl::refresh(bool values_only) {
 			
 			parameter_view.SetMap(row, row_data);
 			
-			/*
-			if(!RefreshValuesOnly && ExpandedIndexRow > 0)   //NOTE: Don't display the same parameter name, unit, min, max, desc for each row.
-			{
-				//NOTE: It is annoying that we have to hard code the columns here....
-				Params.ParameterView.SetDisplay(Row, 0, Params.NoDisplay);
-				if(SecondExpandedSetLocal < 0)
-					for(int Col = 3; Col <= 6; ++Col) Params.ParameterView.SetDisplay(Row, Col, Params.NoDisplay);
+			// Alternating row colors for expanded indexes
+			if(is_valid(expanded_set)) {
+				Color &row_color = row_colors[row % 2];
+				parameter_view.SetLineColor(row, row_color);
 			}
-			
-			if(ExpandedSetLocal >= 0)
-			{
-				Color RowCol = RowColors[Idx % 2];
-				Params.ParameterView.SetLineColor(Row, RowCol);
-			}
-			*/
 			
 			++row;
-			//++ExpandedIndexRow;
-		//}
+		}
 	}
 }
 

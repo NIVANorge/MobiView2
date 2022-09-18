@@ -3,11 +3,18 @@
 
 using namespace Upp;
 
-void
+inline void
 display_stat(const char *name, double val, String &display, bool &tracked_first, int precision) {
 	if(!tracked_first) display << "::@W ";
 	tracked_first = false;
 	display << name << "::@W " << FormatDouble(val, precision);
+}
+
+inline void
+display_stat_int(const char *name, s64 val, String &display, bool &tracked_first, int precision) {
+	if(!tracked_first) display << "::@W ";
+	tracked_first = false;
+	display << Format("%s::@W %lld", name, val);
 }
 
 void
@@ -49,7 +56,7 @@ display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, Time_
 	#undef SET_STATISTIC
 
 	
-	display_stat("data points", stats->data_points, display, tracked_first, precision);
+	display_stat_int("data points", stats->data_points, display, tracked_first, precision);
 	if(settings->display_initial)
 		display_stat("initial value", stats->initial_value, display, tracked_first, precision);
 	display << "}}&";
@@ -145,4 +152,60 @@ void EditStatSettings::load_interface() {
 	precision_edit.SetData(display_settings.decimal_precision);
 	eckhardt_edit.SetData(settings.eckhardt_filter_param);
 	display_initial.SetData(display_settings.display_initial);
+}
+
+void EditStatSettings::read_from_json(Value &settings_json) {
+	ValueMap stats_json = settings_json["Statistics"];
+	#define SET_STATISTIC(handle, name) \
+		const Value &handle##_json = stats_json[name]; \
+		if(!IsNull(handle##_json)) \
+			display_settings.display_##handle = (int)handle##_json;
+	#define SET_RESIDUAL(handle, name, type) SET_STATISTIC(handle, name)
+	#include "support/stat_types.incl"
+	#include "support/residual_types.incl"
+	#undef SET_STATISTIC
+	#undef SET_RESIDUAL
+	
+	ValueArray percentiles = stats_json["percentiles"];
+	if(!IsNull(percentiles) && percentiles.GetCount() >= 1) {
+		settings.percentiles.clear();
+		for(const Value &perc : percentiles) {
+			double val = perc;
+			val = std::min(100.0, val);
+			val = std::max(0.0, val);
+			settings.percentiles.push_back(val);
+		}
+	}
+	
+	const Value &prec_json = stats_json["precision"];
+	if(!IsNull(prec_json))
+		display_settings.decimal_precision = (int)prec_json;
+	const Value &bfi_json = stats_json["bfi_param"];
+	if(!IsNull(bfi_json))
+		settings.eckhardt_filter_param = (double)bfi_json;
+	const Value &show_init = stats_json["display_initial"];
+	if(!IsNull(show_init))
+		display_settings.display_initial = (bool)show_init;
+}
+
+void EditStatSettings::write_to_json(Json &settings_json) {
+	Json stats;
+	
+	#define SET_STATISTIC(handle, name) \
+		stats(name, display_settings.display_##handle);
+	#define SET_RESIDUAL(handle, name, type) SET_STATISTIC(handle, name)
+	#include "support/stat_types.incl"
+	#include "support/residual_types.incl"
+	#undef SET_STATISTIC
+	#undef SET_RESIDUAL
+	
+	JsonArray percentiles;
+	for(double perc : settings.percentiles) percentiles << perc;
+	stats("percentiles", percentiles);
+	
+	stats("precision", display_settings.decimal_precision);
+	stats("bfi_param", settings.eckhardt_filter_param);
+	stats("display_initial", display_settings.display_initial);
+	
+	settings_json("Statistics", stats);
 }
