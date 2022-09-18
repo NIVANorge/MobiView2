@@ -385,7 +385,7 @@ int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step
 	return 0;
 }
 
-inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
+inline void grid_time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
 	static const char *month_names[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 	//NOTE: Adding 0.5 helps a bit with avoiding flickering when panning, but is not perfect (TODO)
 	Date_Time d2 = ref_date;
@@ -416,6 +416,18 @@ inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_s
 			}
 		}
 	}
+}
+
+inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
+	Date_Time d2 = ref_date;
+	d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
+	s32 y, mn, d, h, m, s;
+	d2.year_month_day(&y, &mn, &d);
+	if(res_type <= 2) {
+		d2.hour_minute_second(&h, &m, &s);
+		str = Format("%02d-%02d-%02d %02d:%02d:%02d", y, mn, d, h, m, s);
+	} else
+		str = Format("%02d-%02d-%02d", y, mn, d);
 }
 
 void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size) {
@@ -493,15 +505,18 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			
 			// TODO: This is still bug prone!!
 			// Position of x grid lines
-			
 			plot->SetGridLinesX << [plot, input_start, res_type](Vector<double> &vec){
 				double x_min = plot->GetXMin();
 				double x_range = plot->GetXRange();
 				set_date_grid_line_positions_x(x_min, x_range, vec, input_start, res_type);
 			};
 			
-			
 			// Format to be displayed for x values at grid lines and data view
+			plot->cbModifFormatXGridUnits << [res_type, input_start] (String &str, int i, double r) {
+				grid_time_stamp_format(res_type, input_start, r, str);
+			};
+			
+			// Format to be displayed in data table
 			plot->cbModifFormatX << [res_type, input_start] (String &str, int i, double r) {
 				time_stamp_format(res_type, input_start, r, str);
 			};
