@@ -1,4 +1,5 @@
-LAYOUT(SearchLayout, 388, 248)
+LAYOUT(SearchLayout, 752, 248)
 	ITEM(Upp::ArrayCtrl, result_field, HSizePosZ(4, 4).VSizePosZ(32, 4))
 	ITEM(Upp::LineEdit, search_field, HSizePosZ(4, 4).TopPosZ(4, 24))
 END_LAYOUT
+

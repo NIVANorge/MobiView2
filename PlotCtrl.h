@@ -179,6 +179,7 @@ public:
 	Upp::Array<Mobius_Data_Source> series_data;
 	std::vector<double> x_data;
 	MyDataStackedY data_stacked;
+	Upp::Histogram histogram;
 	
 	Plot_Colors colors;
 	Residual_Stats cached_stats;

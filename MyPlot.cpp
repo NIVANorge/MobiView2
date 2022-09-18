@@ -60,29 +60,33 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 	}
 }
 
+// TODO: This could maybe be a utility function in the Model_Application itself!
+void get_storage_and_var(Model_Application *app, Var_Id var_id, Structured_Storage<double, Var_Id> **data, State_Variable **var) {
+	if(var_id.type == 0) {
+		*data = &app->result_data;
+		*var = app->model->state_vars[var_id];
+	} else if(var_id.type == 1) {
+		*data = &app->series_data;
+		*var  = app->model->series[var_id];
+	} else if(var_id.type == 2) {
+		*data = &app->additional_series_data;
+		*var = app->additional_series[var_id];
+	}
+}
+
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
 	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
 	if(level == draw->setup.selected_indexes.size()) {
-		String legend;
+		Structured_Storage<double, Var_Id> *data;
+		State_Variable *var;
+		get_storage_and_var(app, var_id, &data, &var);
+		
+		String legend = str(var->name); //TODO: add indexes to name in legend
 		String unit = "";  //TODO!
 		
-		Structured_Storage<double, Var_Id> *data;
-		if(var_id.type == 0) {
-			data = &app->result_data;
-			legend = str(app->model->state_vars[var_id]->name);
-		} else if(var_id.type == 1) {
-			data = &app->series_data;
-			legend = str(app->model->series[var_id]->name);
-		} else if(var_id.type == 2) {
-			data = &app->additional_series_data;
-			legend = str(app->additional_series[var_id]->name);
-		}
 		s64 offset = data->get_offset(var_id, indexes);
-		//TODO: add indexes to name in legend
-		
 		draw->series_data.Create(data, offset, x_offset, y_offset, time_steps, x_data);
 		
-		//TODO: different formatting for series
 		//TODO: aggregation etc.
 		Color graph_color = draw->colors.next();
 		if(var_id.type == 0 && (draw->setup.mode == Plot_Mode::stacked || draw->setup.mode == Plot_Mode::stacked_share)) {
@@ -413,36 +417,27 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 	
 	if(plot->GetCount() > 0) {// || (mode == Plot_Mode::profile2D && SurfZ.size() > 0)) {
 		if(mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram) {
-			// TODO: We may want to use the new histogram functionality in ScatterDraw instead
-			/*
 			plot->cbModifFormatXGridUnits.Clear();
 			plot->cbModifFormatX.Clear();
 			//NOTE: Histograms require different zooming.
 			plot->ZoomToFit(true, true);
 			plot->was_auto_resized = false;
-			
 			double x_range = plot->GetXRange();
 			double x_min   = plot->GetXMin();
 			
 			//NOTE: The auto-resize cuts out half of each outer bar, so we fix that
-			double strinde = x_range / (double)(n_bins_histogram-1);
-			XMin   -= 0.5*Stride;
-			XRange += Stride;
-			this->SetXYMin(XMin);
-			this->SetRange(XRange);
+			double stride = x_range / (double)(n_bins_histogram-1);
+			x_min   -= 0.5*stride;
+			x_range += stride;
+			plot->SetXYMin(x_min);
+			plot->SetRange(x_range);
 			
-			int LineSkip = NBinsHistogram / 30 + 1;
-			
-			this->SetGridLinesX << [NBinsHistogram, Stride, LineSkip](Vector<double> &LinesOut)
-			{
-				double At = 0.0;//this->GetXMin();
-				for(int Idx = 0; Idx < NBinsHistogram; ++Idx)
-				{
-					LinesOut << At;
-					At += Stride * (double)LineSkip;
-				}
+			// Position grid lines at the actual bars.
+			int line_skip = n_bins_histogram / 30 + 1;
+			plot->SetGridLinesX << [n_bins_histogram, stride, line_skip](Vector<double> &pos) {
+				for(int idx = 0; idx < n_bins_histogram; idx+=line_skip)
+					pos << stride * (double)idx;
 			};
-			*/
 		} else if(mode == Plot_Mode::qq) {
 			//TODO
 			/*
@@ -519,11 +514,11 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			plot->cbModifFormatYGridUnits.Clear();
 			if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic) {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
-					s = FormatDoubleExp(pow(10., d), 2);
+					s = FormatDoubleExp(pow(10., d), 4);
 				};
 			} else {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
-					s = FormatDouble(d, 2);
+					s = FormatDouble(d, 4);
 				};
 			}
 
@@ -617,17 +612,24 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		Time gof_start_setting  = parent->calib_start.GetData();
 		Time gof_end_setting    = parent->calib_end.GetData();
 		
-		Date_Time result_end = advance(result_start, app->time_step_size, result_ts-1);
-		gof_start = IsNull(gof_start_setting) ? result_start : convert_time(gof_start_setting);
-		gof_end   = IsNull(gof_end_setting)   ? result_end   : convert_time(gof_end_setting);
+		Date_Time gof_min = result_start;
+		s64 max_ts = result_ts;
+		if(setup.selected_results.empty()) {
+			gof_min = input_start;
+			max_ts  = input_ts;
+		}
+		Date_Time gof_max = advance(gof_min, app->time_step_size, max_ts-1);
 		
-		if(gof_start < result_start || gof_start > result_end)
-			gof_start = result_start;
-		if(gof_end   < result_start || gof_end   > result_end || gof_end < gof_start)
-			gof_end   = result_end;
+		gof_start = IsNull(gof_start_setting) ? gof_min : convert_time(gof_start_setting);
+		gof_end   = IsNull(gof_end_setting)   ? gof_max   : convert_time(gof_end_setting);
+		
+		if(gof_start < gof_min || gof_start > gof_max)
+			gof_start = gof_min;
+		if(gof_end   < gof_min || gof_end   > gof_max || gof_end < gof_start)
+			gof_end   = gof_max;
 		
 		gof_ts = steps_between(gof_start, gof_end, app->time_step_size) + 1; //NOTE: if start time = end time, there is still one timestep.
-		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size);
+		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size); //NOTE: this could be negative, but only in the case when no result series are selected
 		input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
 	}
 	
@@ -680,7 +682,55 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
 				add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
 			}
+		} else if (mode == Plot_Mode::histogram) {
+			if(series_count > 1 || multi_index) {
+				SetTitle("In histogram mode you can only have one timeseries selected, for one index combination");
+				return;
+			}
 			
+			std::vector<Index_T> indexes;
+			get_single_indexes(indexes, setup);
+			
+			s64 gof_offset;
+			s64 base_offset;
+			Var_Id var_id;
+			
+			// TODO: We should make it very clear that the histogram uses the GOF interval only
+			// for its data!
+			
+			if(!setup.selected_results.empty()) {
+				var_id = setup.selected_results[0];
+				gof_offset  = result_gof_offset;
+				base_offset = result_offset;
+			} else {
+				var_id = setup.selected_series[0];
+				gof_offset  = input_gof_offset;
+				base_offset = 0;
+			}
+			
+			Structured_Storage<double, Var_Id> *data;
+			State_Variable *var;
+			get_storage_and_var(app, var_id, &data, &var);
+			
+			s64 offset = data->get_offset(var_id, indexes);
+			series_data.Create(data, offset, base_offset+gof_offset, gof_offset, gof_ts, x_data.data());
+			
+			String legend = str(var->name);
+			String unit; // TODO
+		
+			Time_Series_Stats stats;
+			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
+			
+			//n_bins_histogram = 1 + (int)std::ceil(std::log2((double)stats.data_points));   //NOTE: Sturges' rule.
+			n_bins_histogram = 2*(int)(std::ceil(std::cbrt((double)stats.data_points)));      //NOTE: Rice's rule.
+			
+			histogram.Create(series_data.Top(), stats.min, stats.max, n_bins_histogram);
+			
+			double stride = (stats.max - stats.min)/(double)n_bins_histogram;
+			Color &color = colors.next();
+			double darken = 0.4;
+			Color border((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
+			AddSeries(histogram).Legend(legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*stride).NoMark().Fill(color).Stroke(1.0, border).Units("", unit);;
 		} else {
 			SetTitle("Plot mode not yet implemented :(");
 			return;

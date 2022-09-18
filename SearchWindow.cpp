@@ -17,10 +17,7 @@ void SearchWindow::find() {
 	if(!parent->model_is_loaded())
 		return;
 
-	//NOTE: For some reason the callback is called by ResultField.Clear() below, causing a crash unless we remove the callback and re-add it later.
-	result_field.WhenSel.Clear();
 	result_field.Clear();
-	result_field.WhenSel = THISBACK(select_item);
 	par_list.clear();
 	
 	std::string match = search_field.GetData().ToStd();
@@ -64,6 +61,7 @@ select_group_recursive(TreeCtrl &tree, int node, Entity_Id group_id) {
 void
 SearchWindow::select_item() {
 	int row = result_field.GetCursor();
+	if(row < 0) return;
 	
 	auto sel_group = par_list[row].first;
 	auto sel_par   = par_list[row].second;
