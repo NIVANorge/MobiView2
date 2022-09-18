@@ -74,8 +74,19 @@ void get_storage_and_var(Model_Application *app, Var_Id var_id, Structured_Stora
 	}
 }
 
+void format_plot(MyPlot *draw, int type, Color &color, String &legend, String &unit) {
+	draw->Legend(legend).Units(unit);
+	if(type == 0 || !draw->setup.scatter_inputs)
+		draw->NoMark().Stroke(1.5, color).Dash("");
+	else {
+		draw->MarkBorderColor(color).Stroke(0.0, color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
+		int index = draw->GetCount()-1;
+		draw->SetMarkColor(index, Null); //NOTE: Calling draw->MarkColor(Null) does not make it transparent, so we have to do it like this.
+	}
+}
+
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
-	s64 x_offset, s64 y_offset, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
+	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
 	if(level == draw->setup.selected_indexes.size()) {
 		Structured_Storage<double, Var_Id> *data;
 		State_Variable *var;
@@ -85,7 +96,7 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		String unit = "";  //TODO!
 		
 		s64 offset = data->get_offset(var_id, indexes);
-		draw->series_data.Create(data, offset, x_offset, y_offset, time_steps, x_data);
+		draw->series_data.Create<Agg_Data_Source>(data, offset, time_steps, x_data,	ref_x_start, start, app->time_step_size, &draw->setup);
 		
 		//TODO: aggregation etc.
 		Color graph_color = draw->colors.next();
@@ -94,13 +105,7 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 			draw->AddSeries(draw->data_stacked.top()).Fill(graph_color);
 		} else
 			draw->AddSeries(draw->series_data.Top());
-		if(var_id.type == 0 || !draw->setup.scatter_inputs)
-			draw->NoMark().Stroke(1.5, graph_color).Dash("").Legend(legend).Units(unit);
-		else {
-			draw->MarkBorderColor(graph_color).Stroke(0.0, graph_color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
-			int index = draw->GetCount()-1;
-			draw->SetMarkColor(index, Null); //NOTE: Calling draw->MarkColor(Null) does not make it transparent, so we have to do it like this.
-		}
+		format_plot(draw, var_id.type, graph_color, legend, unit);
 		
 		Time_Series_Stats stats;
 		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
@@ -114,11 +119,11 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		if(!loop) {
 			indexes[level] = invalid_index;
-			add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets, gof_offset, gof_ts);
+			add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				add_plot_recursive(draw, app, var_id, indexes, level+1, x_offset, y_offset, time_steps, x_data, index_sets, gof_offset, gof_ts);
+				add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts);
 			}
 		}
 	}
@@ -175,7 +180,6 @@ int round_step_10(int step) {
 	//TODO: hmm, could this be unified with what is done in the above function somehow?
 	int log_10 = (int)std::log10((double)step);
 	int order_of_mag = (int)std::pow(10.0, log_10);
-	//for(int idx = 0; idx < log_10; ++Idx) OrderOfMagnitude*=10;   //NOTE: Not efficient, but will not be a problem in practice
 	int stretch = step / order_of_mag;
 	if(stretch == 1) return order_of_mag;
 	if(stretch == 2) return order_of_mag*2;
@@ -514,7 +518,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			plot->cbModifFormatYGridUnits.Clear();
 			if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic) {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
-					s = FormatDoubleExp(pow(10., d), 4);
+					s = FormatDoubleExp(pow(10., d), 2);
 				};
 			} else {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
@@ -675,14 +679,15 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			std::vector<Index_T> indexes(MAX_INDEX_SETS);
 			for(auto var_id : setup.selected_results) {
 				const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, result_offset, 0, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts);
+				add_plot_recursive(this, app, var_id, indexes, 0, input_start, result_start, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts);
 			}
 			
 			for(auto var_id : setup.selected_series) {
 				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, 0, 0, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
+				add_plot_recursive(this, app, var_id, indexes, 0, input_start, input_start, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
 			}
 		} else if (mode == Plot_Mode::histogram) {
+			
 			if(series_count > 1 || multi_index) {
 				SetTitle("In histogram mode you can only have one timeseries selected, for one index combination");
 				return;
@@ -692,7 +697,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			get_single_indexes(indexes, setup);
 			
 			s64 gof_offset;
-			s64 base_offset;
 			Var_Id var_id;
 			
 			// TODO: We should make it very clear that the histogram uses the GOF interval only
@@ -701,23 +705,22 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			if(!setup.selected_results.empty()) {
 				var_id = setup.selected_results[0];
 				gof_offset  = result_gof_offset;
-				base_offset = result_offset;
 			} else {
 				var_id = setup.selected_series[0];
 				gof_offset  = input_gof_offset;
-				base_offset = 0;
 			}
 			
 			Structured_Storage<double, Var_Id> *data;
 			State_Variable *var;
 			get_storage_and_var(app, var_id, &data, &var);
 			
+			//TODO: with the new data system, it would be easy to allow aggregation also.
 			s64 offset = data->get_offset(var_id, indexes);
-			series_data.Create(data, offset, base_offset+gof_offset, gof_offset, gof_ts, x_data.data());
+			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
 			String legend = str(var->name);
 			String unit; // TODO
-		
+			
 			Time_Series_Stats stats;
 			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
 			
@@ -730,7 +733,81 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Color &color = colors.next();
 			double darken = 0.4;
 			Color border((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
-			AddSeries(histogram).Legend(legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*stride).NoMark().Fill(color).Stroke(1.0, border).Units("", unit);;
+			AddSeries(histogram).Legend(legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*stride).NoMark().Fill(color).Stroke(1.0, border).Units("", unit);
+			
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, color, legend, unit);
+			
+		} else if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq) {
+			if(!gof_available) {
+				this->SetTitle("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only");
+				return;
+			}
+			
+			std::vector<Index_T> indexes;
+			get_single_indexes(indexes, setup);
+			
+			Var_Id var_id_sim = setup.selected_results[0];
+			Var_Id var_id_obs = setup.selected_series[0];
+			Structured_Storage<double, Var_Id> *data_sim, *data_obs;
+			State_Variable *var_sim, *var_obs;
+			get_storage_and_var(app, var_id_sim, &data_sim, &var_sim);
+			get_storage_and_var(app, var_id_obs, &data_obs, &var_obs);
+			
+			s64 offset_sim = data_sim->get_offset(var_id_sim, indexes);
+			s64 offset_obs = data_obs->get_offset(var_id_obs, indexes);
+			
+			// TODO: indexes in legend
+			String legend_obs = str(var_obs->name);
+			String legend_sim = str(var_sim->name);
+			String legend = String("Residuals of ") + legend_obs + " vs. " + legend_sim;
+			String unit; //TODO!
+			
+			Time_Series_Stats obs_stats;
+			compute_time_series_stats(&obs_stats, &parent->stat_settings.settings, data_obs, offset_obs, input_gof_offset, gof_ts);
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &obs_stats, Black(), legend_obs, unit);
+			
+			Time_Series_Stats sim_stats;
+			compute_time_series_stats(&sim_stats, &parent->stat_settings.settings, data_sim, offset_sim, result_gof_offset, gof_ts);
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &sim_stats, Black(), legend_sim, unit);
+			
+			if(mode == Plot_Mode::residuals) {
+				series_data.Create<Agg_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, result_ts, x_data.data(),
+					input_start, result_start, app->time_step_size, &setup);
+				
+				//series_data.Create<Residual_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, result_ts, x_data.data(),
+				//	input_start, result_start, app->time_step_size);
+				
+				AddSeries(series_data.Top());
+				format_plot(this, 1, colors.next(), legend, unit);
+				
+				//AddLine(Null, StartX, StartX, ResidualStats.MinError, ResidualStats.MaxError, Red());
+				//AddLine(Null, EndX, EndX, ResidualStats.MinError, ResidualStats.MaxError, Red());
+				
+				//TODO: trend line
+			}
+			/*
+			else if(PlotMajorMode == MajorMode_ResidualHistogram)
+			{
+				NBinsHistogram = AddHistogram(Legend, ModUnit, Residuals.data()+InputGofOffset, InputGofTimesteps);
+				String NormLegend = "Normal distr.";
+				
+				timeseries_stats RS2;
+				ComputeTimeseriesStats(RS2, Residuals.data()+InputGofOffset, InputGofTimesteps, Parent->StatSettings, false);
+				
+				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDev);
+			}
+			else if(PlotMajorMode == MajorMode_QQ)
+			{
+				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats, Parent->StatSettings);
+				
+				int Last = ModeledStats.Percentiles.size()-1;
+				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
+				double Max = std::max(ModeledStats.Percentiles[Last], ObservedStats.Percentiles[Last]);
+				
+				String Dum = "";
+				AddLine(Dum, Min, Max, Min, Max);
+			}
+			*/
 		} else {
 			SetTitle("Plot mode not yet implemented :(");
 			return;
@@ -761,4 +838,83 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	parent->log_warnings_and_errors();
 	
 	Refresh();
+}
+
+
+void
+aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
+	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, std::vector<double> &x_vals, std::vector<double> &y_vals)
+{
+	s64 steps = data->GetCount();
+	
+	double curr_agg;
+	if(agg_type == Aggregation_Type::mean || agg_type == Aggregation_Type::sum)
+		curr_agg = 0.0;
+	else if(agg_type == Aggregation_Type::min)
+		curr_agg = std::numeric_limits<double>::infinity();
+	else if(agg_type == Aggregation_Type::max)
+		curr_agg = -std::numeric_limits<double>::infinity();
+		
+	int count = 0;
+	Expanded_Date_Time time(start_time, ts_size);
+	
+	for(s64 step = 0; step < steps; ++step) {
+		double val = data->y(step);
+		
+		//TODO: more numerically stable summation method.
+		if(std::isfinite(val)) {
+			if(agg_type == Aggregation_Type::mean || agg_type == Aggregation_Type::sum)
+				curr_agg += val;
+			else if(agg_type == Aggregation_Type::min)
+				curr_agg = std::min(val, curr_agg);
+			else if(agg_type == Aggregation_Type::max)
+				curr_agg = std::max(val, curr_agg);
+			++count;
+		}
+		
+		s32 y = time.year;
+		s32 m = time.month;
+		s32 d = time.day_of_month;
+		s32 w = week_of_year(time.day_of_year);
+		time.advance();
+		
+		//TODO: Want more aggregation interval types than year or month for models with
+		//non-daily resolutions
+		bool push = (step == steps-1);
+		if(agg_period == Aggregation_Period::yearly || agg_period == Aggregation_Period::monthly)
+			push = push || (time.year != y);
+		if(agg_period == Aggregation_Period::monthly)
+			push = push || (time.month != m);
+		if(agg_period == Aggregation_Period::weekly)
+			push = push || (week_of_year(time.day_of_year) != w);
+		
+		if(push) {
+			double yval = curr_agg;
+			if(agg_type == Aggregation_Type::mean) yval /= (double)count;
+			if(!std::isfinite(yval) || count == 0) yval = std::numeric_limits<double>::quiet_NaN();
+			y_vals.push_back(yval);
+			
+			// Put the mark down at a round location.
+			Date_Time mark;
+			if(agg_period == Aggregation_Period::weekly) {
+				mark = Date_Time(y, m, d);
+				int dow = mark.day_of_week()-1;
+				mark.seconds_since_epoch -= 86400*dow;
+			} else {
+				int mn = (agg_period == Aggregation_Period::yearly) ? 1 : m;
+				mark = Date_Time(y, mn, 1);
+			}
+			double xval = (double)(mark.seconds_since_epoch - ref_time.seconds_since_epoch);
+			x_vals.push_back(xval);
+			
+			if(agg_type == Aggregation_Type::mean || agg_type == Aggregation_Type::sum)
+				curr_agg = 0.0;
+			else if(agg_type == Aggregation_Type::min)
+				curr_agg = std::numeric_limits<double>::infinity();
+			else if(agg_type == Aggregation_Type::max)
+				curr_agg = -std::numeric_limits<double>::infinity();
+			
+			count = 0;
+		}
+	}
 }

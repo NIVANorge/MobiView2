@@ -65,26 +65,124 @@ struct Plot_Setup {
 	int profile_time_step;
 };
 
+/*
+TODO: should maybe have some composable classes
+Mobius_Base_Data_Source
+(2 x Mobius_Base_Data_Source) -> Residual_Data_Source
+(Mobius_Base_Data_Source -> Agg_Data_Source)
+*/
+
 class Mobius_Data_Source : public Upp::DataSource {
 public :
-	Mobius_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 x_offset, s64 y_offset, s64 steps, double *x_data)
-		: data(data), offset(offset), x_offset(x_offset), y_offset(y_offset), x_data(x_data), steps(steps) {}
+	Mobius_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
+		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size)
+		: data(data), offset(offset), x_data(x_data), steps(steps) {
 		
-	virtual double y(s64 id) {
-		return *data->get_value(offset, y_offset + id);
+		x_offset = steps_between(ref_x_start, start, ts_size);
+		y_offset = steps_between(data->start_date, start, ts_size);
 	}
-	
-	virtual double x(s64 id) {
-		return x_data[x_offset + id];
-	}
-	
+		
+	virtual double y(s64 id) { return *data->get_value(offset, y_offset + id); }
+	virtual double x(s64 id) { return x_data[x_offset + id]; }
 	virtual s64 GetCount() const { return steps; }
 private :
 	Structured_Storage<double, Var_Id> *data;
-	s64 offset;
-	s64 x_offset, y_offset;
-	s64 steps;
+	s64 offset, x_offset, y_offset, steps;
 	double *x_data;
+};
+
+class Residual_Data_Source : public Upp::DataSource {
+	
+public:
+	Residual_Data_Source(Structured_Storage<double, Var_Id> *data_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
+		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size) :
+		
+		sim(data_sim, offset_sim, steps, x_data, ref_x_start, start, ts_size),
+		obs(data_obs, offset_obs, steps, x_data, ref_x_start, start, ts_size)
+	{}
+	
+	virtual double y(s64 id) { return obs.y(id) - sim.y(id); }
+	virtual double x(s64 id) { return obs.x(id); }
+	virtual s64 GetCount() const { return obs.GetCount(); }
+	
+private:
+	Mobius_Data_Source sim;
+	Mobius_Data_Source obs;
+};
+
+void
+aggregate_data(Date_Time &ref_time, Date_Time &start_time, Upp::DataSource *source,
+	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, std::vector<double> &x_vals, std::vector<double> &y_vals);
+
+class Agg_Data_Source : public Upp::DataSource {
+	
+public :
+	Agg_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
+		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup)
+		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
+		
+		source = new Mobius_Data_Source(data, offset, steps, x_data, ref_x_start, start, ts_size);
+		build(ref_x_start, start, setup, steps, ts_size);
+	}
+	
+	Agg_Data_Source(Structured_Storage<double, Var_Id> *data_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
+		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup)
+		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
+		
+		source = new Residual_Data_Source(data_sim, data_obs, offset_sim, offset_obs, steps, x_data, ref_x_start, start, ts_size);
+		build(ref_x_start, start, setup, steps, ts_size);
+	}
+	
+	inline double get_actual_y(s64 id) {
+		if(aggregation_period == Aggregation_Period::none)
+			return source->y(id);
+		return agg_y[id];
+	}
+		
+	virtual double y(s64 id) {
+		double yval = get_actual_y(id);
+		if(y_axis_mode == Y_Axis_Mode::regular)
+			return yval;
+		if(y_axis_mode == Y_Axis_Mode::normalized)
+			return yval / max;
+		else
+			return std::log10(yval);
+	}
+	
+	virtual double x(s64 id) {
+		if(aggregation_period == Aggregation_Period::none)
+			return source->x(id);
+		return agg_x[id];
+	}
+	
+	virtual s64 GetCount() const {
+		if(aggregation_period == Aggregation_Period::none)
+			return source->GetCount();
+		return agg_x.size();
+	}
+	
+	~Agg_Data_Source() { delete source; }
+private :
+	inline void build(Date_Time ref_x_start, Date_Time start, Plot_Setup *setup, s64 steps, Time_Step_Size ts_size) {
+		if(aggregation_period != Aggregation_Period::none)
+			aggregate_data(ref_x_start, start, source, setup->aggregation_period, setup->aggregation_type, ts_size, agg_x, agg_y);
+
+		max = -std::numeric_limits<double>::infinity();
+		if(y_axis_mode == Y_Axis_Mode::normalized) {
+			for(s64 step = 0; step < steps; ++step) {
+				double yy = get_actual_y(step);
+				if(std::isfinite(yy))
+					max = std::max(max, yy);
+			}
+		}
+	}
+	
+	Upp::DataSource *source;
+	double max;
+	Y_Axis_Mode y_axis_mode;
+	Aggregation_Period aggregation_period;
+	std::vector<double> agg_x;
+	std::vector<double> agg_y;
 };
 
 struct Plot_Colors {
@@ -176,7 +274,7 @@ public:
 	
 	bool was_auto_resized = false;
 	
-	Upp::Array<Mobius_Data_Source> series_data;
+	Upp::Array<Upp::DataSource> series_data;
 	std::vector<double> x_data;
 	MyDataStackedY data_stacked;
 	Upp::Histogram histogram;
