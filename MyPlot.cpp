@@ -11,7 +11,7 @@ std::vector<Color> Plot_Colors::colors = {{0, 130, 200}, {230, 25, 75}, {245, 13
 
 MyPlot::MyPlot() {
 	//this->SetFastViewX(true); Can't be used with scatter plot data since it combines points.
-	SetSequentialXAll(true);
+	SetSequentialXAll(true); // NOTE: with this on, lines that clip the plot area to the left are culled :(
 	
 	Size plot_reticle_size = GetTextSize("00000000", GetReticleFont());
 	Size plot_unit_size    = GetTextSize("[dummy]", GetLabelsFont());
@@ -32,13 +32,17 @@ MyPlot::MyPlot() {
 void MyPlot::clean(bool full_clean) {
 	//TODO
 	RemoveAllSeries();
+	RemoveSurf();
+	
 	colors.reset();
 	
-	series_data.Clear();
 	x_data.clear();
 	data_stacked.clear();
+	profile.clear();
+	profile2D.clear();
+	histogram.Clear();
+	series_data.Clear();
 	
-	RemoveSurf();
 	//surf_x.Clear();
 	//surf_y.Clear();
 	//surf_z.Clear();
@@ -47,7 +51,7 @@ void MyPlot::clean(bool full_clean) {
 	SetLabelX(" ");
 	SetLabelY(" ");
 	
-	qq_labels.Clear();
+	labels.Clear();
 	
 	if(full_clean)
 		was_auto_resized = false;
@@ -85,6 +89,23 @@ void format_plot(MyPlot *draw, int type, Color &color, String &legend, String &u
 		int index = draw->GetCount()-1;
 		draw->SetMarkColor(index, Null); //NOTE: Calling draw->MarkColor(Null) does not make it transparent, so we have to do it like this.
 	}
+}
+
+Date_Time
+normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
+	if(agg == Aggregation_Period::none) return time;
+	Date_Time result = time;
+	result.seconds_since_epoch -= result.second_of_day();
+	if(agg == Aggregation_Period::weekly) {
+		int dow = result.day_of_week()-1;
+		result.seconds_since_epoch -= 86400*dow;
+	} else {
+		s32 y, m, d;
+		result.year_month_day(&y, &m, &d);
+		m = (agg == Aggregation_Period::yearly) ? 1 : m;
+		result = Date_Time(y, m, 1);
+	}
+	return result;
 }
 
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
@@ -433,11 +454,14 @@ inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_s
 void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size) {
 	plot->SetGridLinesX.Clear();
 	
-	if(plot->GetCount() > 0) {// || (mode == Plot_Mode::profile2D && SurfZ.size() > 0)) {
+	if(plot->GetCount() > 0 || (mode == Plot_Mode::profile2D && plot->profile2D.count() > 0)) {
+		plot->cbModifFormatXGridUnits.Clear();
+		plot->cbModifFormatX.Clear();
+		plot->cbModifFormatY.Clear();
+		plot->cbModifFormatYGridUnits.Clear();
+		
 		if(mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram) {
-			plot->cbModifFormatXGridUnits.Clear();
-			plot->cbModifFormatX.Clear();
-			//NOTE: Histograms require different zooming.
+			//NOTE: Histograms require special zooming.
 			plot->ZoomToFit(true, true);
 			plot->was_auto_resized = false;
 			double x_range = plot->GetXRange();
@@ -457,9 +481,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 					pos << stride * (double)idx;
 			};
 		} else if(mode == Plot_Mode::qq) {
-			plot->cbModifFormatXGridUnits.Clear();
-			plot->cbModifFormatX.Clear();
-			//NOTE: qq plots require completely different zooming.
+			//NOTE: qq plots require special zooming.
 			plot->ZoomToFit(true, true);
 			plot->was_auto_resized = false;
 			
@@ -480,22 +502,37 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			plot->SetXYMin(x_min, y_min);
 		} else if(mode == Plot_Mode::profile) {
 			plot->was_auto_resized = false;
+			plot->SetXYMin(0.0, 0.0);
+			s64 count = plot->profile.GetCount();
+			plot->SetRange((double)count, plot->profile.get_max());
+			plot->SetMajorUnits(1.0);
+			plot->SetMinUnits(0.5);
+			plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
+				int idx = (int)d;
+				if(d >= 0 && d < count) s = plot->labels[idx];
+			};
 		} else {
-			plot->cbModifFormatXGridUnits.Clear();
-			plot->cbModifFormatX.Clear();
 			plot->ZoomToFit(false, true);
 			
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
-			
-			//PromptOK(Format("res_type = %d", res_type));
-			
-			// Set the minimum of the y range to be 0 unless the minimum is already below 0
-			double y_range = plot->GetYRange();
-			double y_min   = plot->GetYMin();
-			if(y_min > 0.0) {
-				double new_range = y_range + y_min;
-				plot->SetRange(Null, new_range);
-				plot->SetXYMin(Null, 0.0);
+			if(mode == Plot_Mode::profile2D) {
+				plot->ZoomToFitZ();
+				plot->SetMajorUnits(Null, 1.0);
+				s64 count = plot->profile2D.lenxAxis;
+				plot->cbModifFormatY <<
+				[count, plot](String &s, int i, double d) {
+					int idx = (int)d;
+					if(d >= 0 && d < count) s = plot->labels[idx];
+				};
+			} else {
+				// Set the minimum of the y range to be 0 unless the minimum is already below 0
+				double y_range = plot->GetYRange();
+				double y_min   = plot->GetYMin();
+				if(y_min > 0.0) {
+					double new_range = y_range + y_min;
+					plot->SetRange(Null, new_range);
+					plot->SetXYMin(Null, 0.0);
+				}
 			}
 			
 			if(!plot->was_auto_resized) {
@@ -524,12 +561,10 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 		
 		// Extend the Y range a bit more to avoid the legend obscuring the plot in the most
 		// common cases (and to have a nice margin).
-		if(plot->GetShowLegend() && mode != Plot_Mode::profile)
+		if(plot->GetShowLegend() && mode != Plot_Mode::profile && mode != Plot_Mode::profile2D)
 			plot->SetRange(Null, plot->GetYRange() * 1.15);
 		
 		if(mode != Plot_Mode::profile2D) {
-			plot->cbModifFormatY.Clear();
-			plot->cbModifFormatYGridUnits.Clear();
 			if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic) {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
 					s = FormatDoubleExp(pow(10., d), 2);
@@ -539,7 +574,6 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 					s = FormatDouble(d, 4);
 				};
 			}
-
 			set_round_grid_line_positions(plot, 1);
 		}
 
@@ -709,7 +743,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			compute_residual_stats(&residual_stats, data_sim, offset_sim, result_gof_offset, data_obs, offset_obs, input_gof_offset, gof_ts, compute_rcc);
 		}
 		
-		compute_x_data(input_start, input_ts, app->time_step_size);
+		compute_x_data(input_start, input_ts+1, app->time_step_size);
 		
 		int n_bins_histogram = 0;
 		
@@ -851,12 +885,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				for(int idx = 0; idx < num_perc; ++idx) {
 					xx[idx] = sim_stats.percentiles[idx];
 					yy[idx] = obs_stats.percentiles[idx];
-					qq_labels << Format("%g", perc[idx]);
+					labels << Format("%g", perc[idx]);
 				}
 				Color color = colors.next();
 				series_data.Create<Data_Source_Owns_XY>(&xx, &yy);
 				AddSeries(series_data.Top()).MarkColor(color).Stroke(0.0, color).Dash("").Units(unit, unit)
-					.AddLabelSeries(qq_labels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
+					.AddLabelSeries(labels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
 				ShowLegend(false);
 				
 				SetLabels(legend_sim, legend_obs); //TODO: This does not work!
@@ -864,6 +898,82 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				double max = std::max(sim_stats.percentiles[num_perc-1], obs_stats.percentiles[num_perc-1]);
 
 				add_line(this, min, min, max, max, Red(), Null);
+			}
+		} else if (mode == Plot_Mode::profile || mode == Plot_Mode::profile2D) {
+			
+			int profile_set_idx;
+			int index_count;
+			int n_multi_index = 0;
+			for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+				int count = setup.selected_indexes[idx].size();
+				if(count > 1 && setup.index_set_is_active[idx]) {
+					n_multi_index++;
+					index_count = count;
+					profile_set_idx = idx;
+				}
+			}
+			if(series_count != 1 || n_multi_index != 1) {
+				SetTitle("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected");
+				return;
+			}
+			Var_Id var_id;
+			s64 steps;
+			Date_Time start;
+			if(!setup.selected_results.empty()) {
+				var_id = setup.selected_results[0];
+				steps = result_ts;
+				start = result_start;
+			} else {
+				var_id = setup.selected_series[0];
+				steps = input_ts;
+				start = input_start;
+			}
+			Structured_Storage<double, Var_Id> *data;
+			State_Variable *var;
+			get_storage_and_var(app, var_id, &data, &var);
+			profile_legend = str(var->name);
+			profile_unit   = ""; //TODO
+			for(Index_T &index : setup.selected_indexes[profile_set_idx])
+				labels << str(app->index_names[profile_set_idx][index.index]);
+			
+			std::vector<Index_T> indexes;
+			get_single_indexes(indexes, setup);
+			
+			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
+				indexes[profile_set_idx] = index;
+				s64 offset = data->get_offset(var_id, indexes);
+				series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+			}
+			
+			if(mode == Plot_Mode::profile) {
+				
+				int idx = 0;
+				for(Index_T &index : setup.selected_indexes[profile_set_idx])
+					profile.add(&series_data[idx++]);
+
+				s64 agg_steps = series_data[0].GetCount();
+				
+				if(plot_ctrl) {
+					Date_Time prof_start = normalize_to_aggregation_period(start, setup.aggregation_period);
+					plot_ctrl->profile_base_time = prof_start;
+					plot_ctrl->time_step_edit.SetData(convert_time(prof_start));
+					plot_ctrl->time_step_slider.Range(agg_steps-1);
+					setup.profile_time_step = plot_ctrl->time_step_slider.GetData();
+					plot_ctrl->time_step_slider.Enable();
+					// NOTE: this condition is only because we didn't implement functionality for it when it is aggregated
+					if(setup.aggregation_period == Aggregation_Period::none)
+						plot_ctrl->time_step_edit.Enable();
+				}
+				
+				Color &color = colors.next();
+				double darken = 0.4;
+				Color border_color((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
+				AddSeries(profile).Legend(profile_legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(color).Stroke(1.0, border_color).Units(profile_unit);
+			} else if (mode == Plot_Mode::profile2D) {
+				int idx = 0;
+				for(Index_T &index : setup.selected_indexes[profile_set_idx])
+					profile2D.add(&series_data[idx++]);
+				AddSurf(profile2D);
 			}
 		} else {
 			SetTitle("Plot mode not yet implemented :(");
@@ -894,9 +1004,17 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	} catch(int) {}
 	parent->log_warnings_and_errors();
 	
-	Refresh();
+	if(mode == Plot_Mode::profile) {
+		replot_profile();
+	} else
+		Refresh();
 }
 
+void MyPlot::replot_profile() {
+	//RemoveAllSeries();
+	profile.set_ts(setup.profile_time_step);
+	Refresh();
+}
 
 void
 aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
@@ -929,6 +1047,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 			++count;
 		}
 		
+		Date_Time prev = time.date_time;
 		s32 y = time.year;
 		s32 m = time.month;
 		s32 d = time.day_of_month;
@@ -952,15 +1071,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 			y_vals.push_back(yval);
 			
 			// Put the mark down at a round location.
-			Date_Time mark;
-			if(agg_period == Aggregation_Period::weekly) {
-				mark = Date_Time(y, m, d);
-				int dow = mark.day_of_week()-1;
-				mark.seconds_since_epoch -= 86400*dow;
-			} else {
-				int mn = (agg_period == Aggregation_Period::yearly) ? 1 : m;
-				mark = Date_Time(y, mn, 1);
-			}
+			Date_Time mark = normalize_to_aggregation_period(prev, agg_period);
 			double xval = (double)(mark.seconds_since_epoch - ref_time.seconds_since_epoch);
 			x_vals.push_back(xval);
 			

@@ -211,21 +211,62 @@ private:
 	std::vector<double> xx, yy;
 };
 
-struct Plot_Colors {
-	Plot_Colors() : next_idx(0) {}
+class Data_Source_Profile : public Upp::DataSource {
 	
-	int next_idx;
-	static std::vector<Upp::Color> colors;
+public :
+	Data_Source_Profile() : ts(0), max(-std::numeric_limits<double>::infinity()) {}
 	
-	Upp::Color next() {
-		Upp::Color &result = colors[next_idx++];
-		if(next_idx == colors.size()) next_idx = 0;
-		return result;
+	void add(Upp::DataSource *val) {
+		data.push_back(val);
+		for(s64 ts = 0; ts < val->GetCount(); ++ts)
+			max = std::max(max, val->y(ts));
 	}
+	void set_ts(s64 _ts) { ts = _ts; }
+	void clear() { data.clear(); ts = 0; }
+	double get_max() { return max; }
 	
-	void reset() { next_idx = 0; }
+	virtual double x(s64 id) { return (double)id + 0.5; }
+	virtual double y(s64 id) { return data[id]->y(ts); }
+	virtual s64 GetCount() const { return (s64)data.size(); }
+	
+private:
+	s64 ts;
+	double max;
+	std::vector<Upp::DataSource *> data;
 };
 
+class Table_Data_Profile2D : public Upp::TableData {
+
+public:
+	//TODO: should switch this to use areas
+	Table_Data_Profile2D() {
+		inter = TableInterpolate::NO;
+		areas = true;
+	}
+	
+	void add(Upp::DataSource *val) {
+		sources.push_back(val);
+		//TODO: ideally this should be +1, but then we would have to instruct the sources to
+		//provide 1 more x value, which is tricky the way the infrastructure is set up now.
+		// this means that now the last time step value is not displayed.
+		this->lenxAxis = val->GetCount();
+		this->lenyAxis = sources.size()+1;
+		this->lendata = (lenxAxis-1)*(lenyAxis-1);
+	}
+	void clear() { sources.clear(); }
+	s64 count() { return sources.size(); }
+	
+	virtual double x(int id) { return sources[0]->x((s64)id); }
+	virtual double y(int id) { return (double)id; }
+	virtual double data(int id) {
+		s64 yy = (s64)id / (s64)(lenxAxis-1);
+		s64 xx = ((s64)id) % ((s64)lenxAxis-1);
+		return sources[yy]->y(xx);
+	}
+	
+private:
+	std::vector<Upp::DataSource *> sources;
+};
 
 //NOTE: a better version of the DataStackedY class where we don't have to add back the plots in reverse
 //order.
@@ -275,7 +316,6 @@ public:
 		MyDataStackedY *parent = 0;
 	};
 	
-	//EachDataStackedY &get(int id) { return each_data[id]; }
 	EachDataStackedY &top()       { return each_data.Top(); }
 	void clear() { each_data.Clear(); }
 
@@ -283,6 +323,23 @@ protected:
 	Upp::Array<EachDataStackedY> each_data;
 	bool is_share;
 };
+
+struct Plot_Colors {
+	Plot_Colors() : next_idx(0) {}
+	
+	int next_idx;
+	static std::vector<Upp::Color> colors;
+	
+	Upp::Color next() {
+		Upp::Color &result = colors[next_idx++];
+		if(next_idx == colors.size()) next_idx = 0;
+		return result;
+	}
+	
+	void reset() { next_idx = 0; }
+};
+
+class PlotCtrl;
 
 class MyPlot : public Upp::ScatterCtrl {
 public:
@@ -292,11 +349,13 @@ public:
 	
 	void clean(bool full_clean = true);
 	void build_plot(bool cause_by_run = false, Plot_Mode override_mode = Plot_Mode::none);
+	void replot_profile();
 	
 	Plot_Setup setup;
 	
 	MyRichView *plot_info;
 	MobiView2  *parent;
+	PlotCtrl   *plot_ctrl = nullptr;
 	
 	bool was_auto_resized = false;
 	
@@ -304,11 +363,14 @@ public:
 	std::vector<double> x_data;
 	MyDataStackedY data_stacked;
 	Upp::Histogram histogram;
+	Data_Source_Profile profile;
+	Table_Data_Profile2D profile2D;
 	
 	Plot_Colors colors;
 	Residual_Stats cached_stats;
 	
-	Upp::Vector<Upp::String> qq_labels;
+	Upp::Vector<Upp::String> labels;
+	Upp::String profile_legend, profile_unit;
 	
 private:
 	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);
@@ -344,7 +406,7 @@ public:
 	std::vector<Entity_Id> index_sets;
 	Upp::ArrayCtrl *index_list[MAX_INDEX_SETS];
 	
-	//Upp::Time profile_display_time;
+	Date_Time profile_base_time;
 	
 	MobiView2 *parent;
 };

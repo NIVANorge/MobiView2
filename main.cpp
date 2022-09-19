@@ -814,8 +814,7 @@ void MobiView2::open_search_window() {
 }
 
 
-GUI_APP_MAIN
-{
-	//StdLogSetup(LOG_FILE, "MobiView2.log");
+GUI_APP_MAIN {
+	StdLogSetup(LOG_FILE, "MobiView2.log");
 	MobiView2().Run();
 }

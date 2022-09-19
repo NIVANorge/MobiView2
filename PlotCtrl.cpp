@@ -50,14 +50,46 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	y_axis_mode.SetData(0);
 	y_axis_mode.Disable();
 	y_axis_mode.WhenAction << THISBACK(plot_change);
+	
+	main_plot.plot_ctrl = this;
 }
 
 void PlotCtrl::time_step_slider_event() {
-	//TODO
+	if(!parent->model_is_loaded()) return;
+	
+	s64 ts = time_step_slider.GetData();
+	// Recompute the displayed date in the time_step_edit based on the new position of the
+	// slider.
+	Aggregation_Period agg = main_plot.setup.aggregation_period;
+	// TODO: this functionality could maybe be factored out..
+	Time_Step_Size ts_size = parent->app->time_step_size;
+	if(agg == Aggregation_Period::weekly) {
+		ts_size.unit = Time_Step_Size::second;
+		ts_size.magnitude = 7*86400;
+	} else if(agg == Aggregation_Period::monthly) {
+		ts_size.unit = Time_Step_Size::month;
+		ts_size.magnitude = 1;
+	} else if(agg == Aggregation_Period::yearly) {
+		ts_size.unit = Time_Step_Size::month;
+		ts_size.magnitude = 12;
+	}
+	Date_Time time = advance(profile_base_time, ts_size, ts);
+	time_step_edit.SetData(convert_time(time));
+	main_plot.setup.profile_time_step = ts;
+	main_plot.replot_profile();
 }
 
 void PlotCtrl::time_step_edit_event() {
-	//TODO
+	if(!parent->model_is_loaded()) return;
+	// NOTE: currently only works for no aggregation. Wouldn't be that difficult to fix it.
+	Upp::Time tm = time_step_edit.GetData();
+	if(IsNull(tm)) return;
+	Date_Time time = convert_time(tm);
+	s64 ts = steps_between(profile_base_time, time, parent->app->time_step_size);
+	if(ts < 0 && ts >= main_plot.profile.GetCount()) return;
+	time_step_slider.SetData(ts);
+	main_plot.setup.profile_time_step = ts;
+	main_plot.replot_profile();
 }
 
 void PlotCtrl::plot_change() {
