@@ -233,7 +233,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Separator();
 	//bar.Gap(60);
-	//bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
+	bar.Add(IconImg::SaveBaseline(), THISBACK(save_baseline)).Tip("Save baseline");
 	//bar.Add(IconImg::RevertBaseline(), THISBACK(RevertBaseline)).Tip("Revert to baseline");
 	//bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
 	//bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization and MCMC setup");
@@ -257,11 +257,10 @@ void MobiView2::do_the_load() {
 	if(model_is_loaded())	{
 		//TODO!
 		
-		//if(BaselineDataSet)
-		//{
-		//	ModelDll.DeleteDataSet(BaselineDataSet);
-		//	BaselineDataSet = nullptr;
-		//}
+		if(baseline){
+			delete baseline;
+			baseline = nullptr;
+		}
 		
 		delete_model();
 		
@@ -480,7 +479,7 @@ void MobiView2::plot_rebuild() {
 	//TODO!
 	//if(OtherPlots.IsOpen())
 	//	OtherPlots.BuildAll(true);
-	//BaselineWasJustSaved = false;
+	baseline_was_just_saved = false;
 }
 
 void MobiView2::run_model() {
@@ -799,6 +798,22 @@ void MobiView2::closing_checks() {
 	if(model) delete model;
 	
 	Close();
+}
+
+void MobiView2::save_baseline() {
+	if(!model_is_loaded()) {
+		log("You can only save a baseline after the model has been run once", true);
+		return;
+	}
+	if(baseline) delete baseline;
+	baseline = app->copy();
+	baseline_was_just_saved = true;
+	log("Baseline saved.");
+	plot_rebuild();
+}
+
+void MobiView2::revert_baseline() {
+	//TODO!
 }
 
 void MobiView2::open_stat_settings() {

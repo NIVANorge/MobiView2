@@ -554,10 +554,13 @@ public:
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;
 	
+	Model_Application *baseline = nullptr;
+	bool baseline_was_just_saved = false;
+	
 	std::string model_file;
 	std::string data_file;
 	
-	bool baseline_was_just_saved = false;
+	
 	
 
 	void sub_bar(Upp::Bar &bar);
@@ -570,12 +573,12 @@ public:
 	void save_parameters();
 	void save_parameters_as();
 	void run_model();
-	/*
-	void SaveBaseline();
-	void RevertBaseline();
 	
-	void SaveInputsAsDat();
-	*/
+	void save_baseline();
+	void revert_baseline();
+	
+	//void SaveInputsAsDat();
+	
 	void clean_interface();
 	void build_interface();
 	void closing_checks();
