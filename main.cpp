@@ -804,7 +804,7 @@ void MobiView2::save_baseline() {
 	if(baseline) delete baseline;
 	baseline = app->data.copy();
 	baseline_was_just_saved = true;
-	log("Baseline saved.");
+	log("Saved baseline.");
 	plot_rebuild();
 }
 
@@ -817,6 +817,7 @@ void MobiView2::revert_baseline() {
 	app->data.parameters.copy_from(&baseline->parameters);
 	app->data.results.copy_from(&baseline->results);
 	plot_rebuild();
+	log("Reverted to baseline.");
 }
 
 void MobiView2::open_stat_settings() {
