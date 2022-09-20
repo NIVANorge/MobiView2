@@ -91,6 +91,34 @@ void format_plot(MyPlot *draw, int type, Color &color, String &legend, String &u
 	}
 }
 
+void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked = false,
+	const String &legend_prefix = Null) {
+		
+	Data_Storage<double, Var_Id> *data;
+	State_Variable *var;
+	get_storage_and_var(md, var_id, &data, &var);
+	s64 offset = data->structure->get_offset(var_id, indexes);
+	
+	// TODO: indexes and unit
+	String legend = str(var->name);
+	if(!IsNull(legend_prefix))
+		legend = legend_prefix + legend;
+	String unit;
+	
+	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup);
+	if(stacked) {
+		draw->data_stacked.Add(draw->series_data.Top());
+		draw->AddSeries(draw->data_stacked.top()).Fill(color);
+	} else
+		draw->AddSeries(draw->series_data.Top());
+	format_plot(draw, var_id.type, color, legend, unit);
+
+	Time_Series_Stats stats;
+	compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
+	display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend, unit);
+}
+
 Date_Time
 normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 	if(agg == Aggregation_Period::none) return time;
@@ -111,28 +139,11 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
 	if(level == draw->setup.selected_indexes.size()) {
-		Data_Storage<double, Var_Id> *data;
-		State_Variable *var;
-		get_storage_and_var(&app->data, var_id, &data, &var);
-		
-		String legend = str(var->name); //TODO: add indexes to name in legend
-		String unit = "";  //TODO!
-		
-		s64 offset = data->structure->get_offset(var_id, indexes);
-		draw->series_data.Create<Agg_Data_Source>(data, offset, time_steps, x_data,	ref_x_start, start, app->time_step_size, &draw->setup);
-		
-		//TODO: aggregation etc.
-		Color graph_color = draw->colors.next();
-		if(var_id.type == 0 && (draw->setup.mode == Plot_Mode::stacked || draw->setup.mode == Plot_Mode::stacked_share)) {
-			draw->data_stacked.Add(draw->series_data.Top());
-			draw->AddSeries(draw->data_stacked.top()).Fill(graph_color);
-		} else
-			draw->AddSeries(draw->series_data.Top());
-		format_plot(draw, var_id.type, graph_color, legend, unit);
-		
-		Time_Series_Stats stats;
-		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
-		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, graph_color, legend, unit);
+
+		Color &graph_color = draw->colors.next();
+		bool stacked = var_id.type == 0 && (draw->setup.mode == Plot_Mode::stacked || draw->setup.mode == Plot_Mode::stacked_share);
+		add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
+
 	} else {
 		bool loop = false;
 		if(!draw->setup.selected_indexes[level].empty()) {
@@ -984,9 +995,9 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				return;
 			}
 			
-			auto bl = parent->baseline;
-			s64 baseline_ts = bl->results.time_steps;
-			Date_Time baseline_start = bl->results.start_date;
+			auto baseline = parent->baseline;
+			s64 baseline_ts = baseline->results.time_steps;
+			Date_Time baseline_start = baseline->results.start_date;
 			
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);
@@ -998,61 +1009,18 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Color &bl_col   = colors.next();
 			//TODO: factor out some stuff here:
 			auto var_id = setup.selected_results[0];
-			{
-				Data_Storage<double, Var_Id> *data;
-				State_Variable *var;
-				get_storage_and_var(&app->data, var_id, &data, &var);
-				s64 offset = data->structure->get_offset(var_id, indexes);
-				
-				// TODO: indexes and unit
-				String legend = str(var->name);
-				String unit;
-				
-				series_data.Create<Agg_Data_Source>(data, offset, result_ts, x_data.data(), input_start, result_start, app->time_step_size, &setup);
-				AddSeries(series_data.Top());
-				format_plot(this, var_id.type, main_col, legend, unit);
+			
+			add_single_plot(this, &app->data, app, var_id, indexes, result_ts, input_start, result_start, x_data.data(),
+				result_gof_offset, gof_ts, main_col);
+			
+			//TODO: result_gof_offset may not be correct for the baseline!
+			add_single_plot(this, baseline, app, var_id, indexes, baseline_ts, input_start, baseline_start, x_data.data(),
+				result_gof_offset, gof_ts, bl_col, false, "baseline of ");
 		
-				Time_Series_Stats stats;
-				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
-				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, main_col, legend, unit);
-			}
-			{
-				Data_Storage<double, Var_Id> *data;
-				State_Variable *var;
-				get_storage_and_var(bl, var_id, &data, &var);
-				s64 offset = data->structure->get_offset(var_id, indexes);
-				
-				// TODO: indexes and unit
-				String legend = String("baseline of ") + str(var->name);
-				String unit;
-				
-				series_data.Create<Agg_Data_Source>(data, offset, baseline_ts, x_data.data(), input_start, baseline_start, app->time_step_size, &setup);
-				AddSeries(series_data.Top());
-				format_plot(this, var_id.type, bl_col, legend, unit);
-		
-				//TODO: result_gof_offset may not be correct for the baseline!
-				Time_Series_Stats stats;
-				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
-				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, bl_col, legend, unit);
-			}
 			if(setup.selected_series.size() == 1) {
 				auto var_id = setup.selected_series[0];
-				Data_Storage<double, Var_Id> *data;
-				State_Variable *var;
-				get_storage_and_var(&app->data, var_id, &data, &var);
-				s64 offset = data->structure->get_offset(var_id, indexes);
-				
-				// TODO: indexes and unit
-				String legend = str(var->name);
-				String unit;
-				
-				series_data.Create<Agg_Data_Source>(data, offset, input_ts, x_data.data(), input_start, input_start, app->time_step_size, &setup);
-				AddSeries(series_data.Top());
-				format_plot(this, var_id.type, ser_col, legend, unit);
-		
-				Time_Series_Stats stats;
-				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, input_gof_offset, gof_ts);
-				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, ser_col, legend, unit);
+				add_single_plot(this, &app->data, app, var_id, indexes, input_ts, input_start, input_start, x_data.data(),
+					input_gof_offset, gof_ts, ser_col);
 			}
 			
 		} else {

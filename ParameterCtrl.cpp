@@ -273,7 +273,8 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	
 	*/
-	listed_pars.clear();
+	if(!values_only)
+		listed_pars.clear();
 	
 	Index_T exp_count = {expanded_set, 1};
 	if(is_valid(expanded_set))
