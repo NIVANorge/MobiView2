@@ -234,7 +234,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	bar.Separator();
 	//bar.Gap(60);
 	bar.Add(IconImg::SaveBaseline(), THISBACK(save_baseline)).Tip("Save baseline");
-	//bar.Add(IconImg::RevertBaseline(), THISBACK(RevertBaseline)).Tip("Revert to baseline");
+	bar.Add(IconImg::RevertBaseline(), THISBACK(revert_baseline)).Tip("Revert to baseline");
 	//bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
 	//bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization and MCMC setup");
 	bar.Separator();
@@ -801,8 +801,8 @@ void MobiView2::save_baseline() {
 		return;
 	}
 	//TODO!
-	//if(baseline) delete baseline;
-	//baseline = app->copy();
+	if(baseline) delete baseline;
+	baseline = app->data.copy();
 	baseline_was_just_saved = true;
 	log("Baseline saved.");
 	plot_rebuild();
@@ -810,6 +810,13 @@ void MobiView2::save_baseline() {
 
 void MobiView2::revert_baseline() {
 	//TODO!
+	if(!baseline) {
+		log("Can not revert to the baseline since no baseline was saved.", true);
+		return;
+	}
+	app->data.parameters.copy_from(&baseline->parameters);
+	app->data.results.copy_from(&baseline->results);
+	plot_rebuild();
 }
 
 void MobiView2::open_stat_settings() {
