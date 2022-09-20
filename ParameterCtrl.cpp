@@ -127,13 +127,10 @@ void ParameterCtrl::refresh(bool values_only) {
 		parameter_view.NoVertGrid();
 		
 		parameter_controls.Clear();
-		//CurrentParameterTypes.clear();
 	}
 	
 	if(!parent->model_is_loaded()) return; // Should not be possible, but safety stopgap.
 	/*
-	int ExpandedSet = -1;
-	ExpandedSetLocal = -1;
 	
 	SecondExpandedSetLocal = -1;
 	
@@ -282,6 +279,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	int row = 0;
 	int ctrl_idx = 0;
+	int par_idx = 0;
 	
 	Color row_colors[2] = {{255, 255, 255}, {240, 240, 255}};
 	
@@ -418,15 +416,14 @@ void ParameterCtrl::refresh(bool values_only) {
 			//}
 			
 			parameter_view.SetMap(row, row_data);
-			
 			// Alternating row colors for expanded indexes
 			if(is_valid(expanded_set)) {
-				Color &row_color = row_colors[row % 2];
+				Color &row_color = row_colors[par_idx % 2];
 				parameter_view.SetLineColor(row, row_color);
 			}
-			
 			++row;
 		}
+		++par_idx;
 	}
 }
 
