@@ -975,6 +975,86 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					profile2D.add(&series_data[idx++]);
 				AddSurf(profile2D);
 			}
+		} else if (mode == Plot_Mode::compare_baseline) {
+			if(setup.selected_results.size() > 1 || multi_index) {
+				SetTitle("In baseline comparison mode you can only have one result series selected, for one index combination");
+				return;
+			} else if(!parent->baseline) {
+				SetTitle("The baseline comparison can only be displayed if the baseline has been saved (using a button in the toolbar)");
+				return;
+			}
+			
+			auto bl = parent->baseline;
+			s64 baseline_ts = bl->results.time_steps;
+			Date_Time baseline_start = bl->results.start_date;
+			
+			std::vector<Index_T> indexes;
+			get_single_indexes(indexes, setup);
+			
+			//NOTE: to get same color for main series and comparison series as when in regular
+			//plot, we extract colors in this order.
+			Color &main_col = colors.next();
+			Color &ser_col  = colors.next();
+			Color &bl_col   = colors.next();
+			//TODO: factor out some stuff here:
+			auto var_id = setup.selected_results[0];
+			{
+				Data_Storage<double, Var_Id> *data;
+				State_Variable *var;
+				get_storage_and_var(&app->data, var_id, &data, &var);
+				s64 offset = data->structure->get_offset(var_id, indexes);
+				
+				// TODO: indexes and unit
+				String legend = str(var->name);
+				String unit;
+				
+				series_data.Create<Agg_Data_Source>(data, offset, result_ts, x_data.data(), input_start, result_start, app->time_step_size, &setup);
+				AddSeries(series_data.Top());
+				format_plot(this, var_id.type, main_col, legend, unit);
+		
+				Time_Series_Stats stats;
+				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
+				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, main_col, legend, unit);
+			}
+			{
+				Data_Storage<double, Var_Id> *data;
+				State_Variable *var;
+				get_storage_and_var(bl, var_id, &data, &var);
+				s64 offset = data->structure->get_offset(var_id, indexes);
+				
+				// TODO: indexes and unit
+				String legend = String("baseline of ") + str(var->name);
+				String unit;
+				
+				series_data.Create<Agg_Data_Source>(data, offset, baseline_ts, x_data.data(), input_start, baseline_start, app->time_step_size, &setup);
+				AddSeries(series_data.Top());
+				format_plot(this, var_id.type, bl_col, legend, unit);
+		
+				//TODO: result_gof_offset may not be correct for the baseline!
+				Time_Series_Stats stats;
+				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
+				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, bl_col, legend, unit);
+			}
+			if(setup.selected_series.size() == 1) {
+				auto var_id = setup.selected_series[0];
+				Data_Storage<double, Var_Id> *data;
+				State_Variable *var;
+				get_storage_and_var(&app->data, var_id, &data, &var);
+				s64 offset = data->structure->get_offset(var_id, indexes);
+				
+				// TODO: indexes and unit
+				String legend = str(var->name);
+				String unit;
+				
+				series_data.Create<Agg_Data_Source>(data, offset, input_ts, x_data.data(), input_start, input_start, app->time_step_size, &setup);
+				AddSeries(series_data.Top());
+				format_plot(this, var_id.type, ser_col, legend, unit);
+		
+				Time_Series_Stats stats;
+				compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, input_gof_offset, gof_ts);
+				display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, ser_col, legend, unit);
+			}
+			
 		} else {
 			SetTitle("Plot mode not yet implemented :(");
 			return;

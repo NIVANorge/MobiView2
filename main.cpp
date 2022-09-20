@@ -817,6 +817,7 @@ void MobiView2::revert_baseline() {
 	app->data.parameters.copy_from(&baseline->parameters);
 	app->data.results.copy_from(&baseline->results);
 	plot_rebuild();
+	params.refresh(true);
 	log("Reverted to baseline.");
 }
 
