@@ -67,16 +67,16 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 }
 
 // TODO: This could maybe be a utility function in the Model_Application itself!
-void get_storage_and_var(Model_Application *app, Var_Id var_id, Structured_Storage<double, Var_Id> **data, State_Variable **var) {
+void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var) {
 	if(var_id.type == 0) {
-		*data = &app->result_data;
-		*var = app->model->state_vars[var_id];
+		*data = &md->results;
+		*var = md->app->model->state_vars[var_id];
 	} else if(var_id.type == 1) {
-		*data = &app->series_data;
-		*var  = app->model->series[var_id];
+		*data = &md->series;
+		*var  = md->app->model->series[var_id];
 	} else if(var_id.type == 2) {
-		*data = &app->additional_series_data;
-		*var = app->additional_series[var_id];
+		*data = &md->additional_series;
+		*var = md->app->additional_series[var_id];
 	}
 }
 
@@ -111,14 +111,14 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
 	if(level == draw->setup.selected_indexes.size()) {
-		Structured_Storage<double, Var_Id> *data;
+		Data_Storage<double, Var_Id> *data;
 		State_Variable *var;
-		get_storage_and_var(app, var_id, &data, &var);
+		get_storage_and_var(&app->data, var_id, &data, &var);
 		
 		String legend = str(var->name); //TODO: add indexes to name in legend
 		String unit = "";  //TODO!
 		
-		s64 offset = data->get_offset(var_id, indexes);
+		s64 offset = data->structure->get_offset(var_id, indexes);
 		draw->series_data.Create<Agg_Data_Source>(data, offset, time_steps, x_data,	ref_x_start, start, app->time_step_size, &draw->setup);
 		
 		//TODO: aggregation etc.
@@ -643,11 +643,11 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	
 	auto app = parent->app;
 	
-	Date_Time result_start = app->result_data.start_date;
-	Date_Time input_start  = app->series_data.start_date;  // NOTE: Should be same for both type of series (model inputs & additional series)
+	Date_Time result_start = app->data.results.start_date;
+	Date_Time input_start  = app->data.series.start_date;  // NOTE: Should be same for both type of series (model inputs & additional series)
 	
-	s64 input_ts = app->series_data.time_steps;
-	s64 result_ts = app->result_data.time_steps;
+	s64 input_ts = app->data.series.time_steps;
+	s64 result_ts = app->data.results.time_steps;
 	if(input_ts == 0) {   //NOTE: could happen if there are no input series at all
 		input_ts = result_ts;
 		input_start = result_start;
@@ -734,12 +734,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			bool compute_rcc = parent->stat_settings.display_settings.display_srcc;
 			Var_Id id_sim = setup.selected_results[0];
 			Var_Id id_obs = setup.selected_series[0];
-			Structured_Storage<double, Var_Id> *data_sim = &app->result_data;
-			Structured_Storage<double, Var_Id> *data_obs = id_obs.type == 1 ? &app->series_data : &app->additional_series_data;
+			Data_Storage<double, Var_Id> *data_sim = &app->data.results;
+			Data_Storage<double, Var_Id> *data_obs = id_obs.type == 1 ? &app->data.series : &app->data.additional_series;
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);
-			offset_sim = data_sim->get_offset(id_sim, indexes);
-			offset_obs = data_obs->get_offset(id_obs, indexes);
+			offset_sim = data_sim->structure->get_offset(id_sim, indexes);
+			offset_obs = data_obs->structure->get_offset(id_obs, indexes);
 			compute_residual_stats(&residual_stats, data_sim, offset_sim, result_gof_offset, data_obs, offset_obs, input_gof_offset, gof_ts, compute_rcc);
 		}
 		
@@ -756,12 +756,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			std::vector<Index_T> indexes(MAX_INDEX_SETS);
 			for(auto var_id : setup.selected_results) {
-				const std::vector<Entity_Id> &index_sets = app->result_data.get_index_sets(var_id);
+				const std::vector<Entity_Id> &index_sets = app->result_structure.get_index_sets(var_id);
 				add_plot_recursive(this, app, var_id, indexes, 0, input_start, result_start, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts);
 			}
 			
 			for(auto var_id : setup.selected_series) {
-				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_data.get_index_sets(var_id) : app->additional_series_data.get_index_sets(var_id);
+				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_structure.get_index_sets(var_id) : app->additional_series_structure.get_index_sets(var_id);
 				add_plot_recursive(this, app, var_id, indexes, 0, input_start, input_start, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
 			}
 		} else if (mode == Plot_Mode::histogram) {
@@ -788,12 +788,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				gof_offset  = input_gof_offset;
 			}
 			
-			Structured_Storage<double, Var_Id> *data;
+			Data_Storage<double, Var_Id> *data;
 			State_Variable *var;
-			get_storage_and_var(app, var_id, &data, &var);
+			get_storage_and_var(&app->data, var_id, &data, &var);
 			
 			//TODO: with the new data system, it would be easy to allow aggregation also.
-			s64 offset = data->get_offset(var_id, indexes);
+			s64 offset = data->structure->get_offset(var_id, indexes);
 			Time_Series_Stats stats;
 			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
 			
@@ -817,13 +817,13 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			Var_Id var_id_sim = setup.selected_results[0];
 			Var_Id var_id_obs = setup.selected_series[0];
-			Structured_Storage<double, Var_Id> *data_sim, *data_obs;
+			Data_Storage<double, Var_Id> *data_sim, *data_obs;
 			State_Variable *var_sim, *var_obs;
-			get_storage_and_var(app, var_id_sim, &data_sim, &var_sim);
-			get_storage_and_var(app, var_id_obs, &data_obs, &var_obs);
+			get_storage_and_var(&app->data, var_id_sim, &data_sim, &var_sim);
+			get_storage_and_var(&app->data, var_id_obs, &data_obs, &var_obs);
 			
-			s64 offset_sim = data_sim->get_offset(var_id_sim, indexes);
-			s64 offset_obs = data_obs->get_offset(var_id_obs, indexes);
+			s64 offset_sim = data_sim->structure->get_offset(var_id_sim, indexes);
+			s64 offset_obs = data_obs->structure->get_offset(var_id_obs, indexes);
 			
 			// TODO: indexes in legend
 			String legend_obs = str(var_obs->name);
@@ -928,9 +928,9 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				steps = input_ts;
 				start = input_start;
 			}
-			Structured_Storage<double, Var_Id> *data;
+			Data_Storage<double, Var_Id> *data;
 			State_Variable *var;
-			get_storage_and_var(app, var_id, &data, &var);
+			get_storage_and_var(&app->data, var_id, &data, &var);
 			profile_legend = str(var->name);
 			profile_unit   = ""; //TODO
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
@@ -941,7 +941,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
 				indexes[profile_set_idx] = index;
-				s64 offset = data->get_offset(var_id, indexes);
+				s64 offset = data->structure->get_offset(var_id, indexes);
 				series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
 			}
 			

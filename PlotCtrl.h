@@ -74,7 +74,7 @@ Mobius_Base_Data_Source
 
 class Mobius_Data_Source : public Upp::DataSource {
 public :
-	Mobius_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
+	Mobius_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size)
 		: data(data), offset(offset), x_data(x_data), steps(steps) {
 		
@@ -86,7 +86,7 @@ public :
 	virtual double x(s64 id) { return x_data[x_offset + id]; }
 	virtual s64 GetCount() const { return steps; }
 private :
-	Structured_Storage<double, Var_Id> *data;
+	Data_Storage<double, Var_Id> *data;
 	s64 offset, x_offset, y_offset, steps;
 	double *x_data;
 };
@@ -94,7 +94,7 @@ private :
 class Residual_Data_Source : public Upp::DataSource {
 	
 public:
-	Residual_Data_Source(Structured_Storage<double, Var_Id> *data_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
+	Residual_Data_Source(Data_Storage<double, Var_Id> *data_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size) :
 		
 		sim(data_sim, offset_sim, steps, x_data, ref_x_start, start, ts_size),
@@ -117,7 +117,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, Upp::DataSource *sour
 class Agg_Data_Source : public Upp::DataSource {
 	
 public :
-	Agg_Data_Source(Structured_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
+	Agg_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup)
 		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
 		
@@ -125,7 +125,7 @@ public :
 		build(ref_x_start, start, setup, steps, ts_size);
 	}
 	
-	Agg_Data_Source(Structured_Storage<double, Var_Id> *data_sim, Structured_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
+	Agg_Data_Source(Data_Storage<double, Var_Id> *data_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup)
 		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
 		

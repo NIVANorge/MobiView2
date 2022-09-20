@@ -282,7 +282,6 @@ void MobiView2::do_the_load() {
 		data_set->read_from_file(data_file.data());
 		
 		app->build_from_data_set(data_set);
-	
 		app->compile();
 	} catch(int) {
 		success = false;
@@ -790,12 +789,8 @@ void MobiView2::closing_checks() {
 	
 	store_settings();
 	
-	if(app) delete app;
-	app = nullptr;
-	// These two are not strictly necessary, but we should delete the app since otherwise jit
-	// memory is not properly cleaned.
-	if(data_set) delete data_set;
-	if(model) delete model;
+	// NOTE: necessary to cleanly free the memory used by the LLVM jit.
+	delete_model();
 	
 	Close();
 }
@@ -805,8 +800,9 @@ void MobiView2::save_baseline() {
 		log("You can only save a baseline after the model has been run once", true);
 		return;
 	}
-	if(baseline) delete baseline;
-	baseline = app->copy();
+	//TODO!
+	//if(baseline) delete baseline;
+	//baseline = app->copy();
 	baseline_was_just_saved = true;
 	log("Baseline saved.");
 	plot_rebuild();

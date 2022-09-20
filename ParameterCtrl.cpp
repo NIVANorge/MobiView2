@@ -163,7 +163,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	bool expanded_active = false;
 	if(!par_group->parameters.empty()) {
-		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_data.get_index_sets(par_group->parameters[0]);
+		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_structure.get_index_sets(par_group->parameters[0]);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			auto index_set = index_sets[idx];
 			if(!is_valid(index_set)) break;
@@ -326,8 +326,8 @@ void ParameterCtrl::refresh(bool values_only) {
 						Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;
 				}*/
 				
-				s64 offset = parent->app->parameter_data.get_offset(par_id, par_data.indexes);
-				Parameter_Value val = *parent->app->parameter_data.get_value(offset);
+				s64 offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes);
+				Parameter_Value val = *parent->app->data.parameters.get_value(offset);
 				if(par->decl_type == Decl_Type::par_real) {
 					row_data.Set(value_column, val.val_real);
 					if(show_additional) {

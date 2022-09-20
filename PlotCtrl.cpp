@@ -131,14 +131,14 @@ void PlotCtrl::plot_change() {
 		aggregation.Disable();
 	
 	// If the calibration interval is not set, set it based on the last model run.
-	s64 time_steps = parent->app->result_data.time_steps;
+	s64 time_steps = parent->app->data.results.time_steps;
 	if(time_steps > 0) {
 		Time start_time = parent->calib_start.GetData();
 		Time end_time   = parent->calib_end.GetData();
 		if (IsNull(start_time))
-			parent->calib_start.SetData(convert_time(parent->app->result_data.start_date));
+			parent->calib_start.SetData(convert_time(parent->app->data.results.start_date));
 		if (IsNull(end_time)) {
-			Date_Time end_date = advance(parent->app->result_data.start_date, parent->app->time_step_size, time_steps-1);
+			Date_Time end_date = advance(parent->app->data.results.start_date, parent->app->time_step_size, time_steps-1);
 			parent->calib_end.SetData(convert_time(end_date));
 		}
 	}
@@ -266,14 +266,14 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	}
 	
 	for(Var_Id var_id : ps.selected_series) {
-		const std::vector<Entity_Id> &var_index_sets = var_id.type == 1 ? parent->app->series_data.get_index_sets(var_id) : parent->app->additional_series_data.get_index_sets(var_id);
+		const std::vector<Entity_Id> &var_index_sets = var_id.type == 1 ? parent->app->series_structure.get_index_sets(var_id) : parent->app->additional_series_structure.get_index_sets(var_id);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
 				ps.index_set_is_active[idx] = true;
 		}
 	}
 	for(Var_Id var_id : ps.selected_results) {
-		const std::vector<Entity_Id> &var_index_sets = parent->app->result_data.get_index_sets(var_id);
+		const std::vector<Entity_Id> &var_index_sets = parent->app->result_structure.get_index_sets(var_id);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
 				ps.index_set_is_active[idx] = true;

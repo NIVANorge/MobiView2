@@ -554,7 +554,7 @@ public:
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;
 	
-	Model_Application *baseline = nullptr;
+	Model_Data *baseline = nullptr;
 	bool baseline_was_just_saved = false;
 	
 	std::string model_file;
