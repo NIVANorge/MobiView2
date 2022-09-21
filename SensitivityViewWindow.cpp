@@ -218,15 +218,11 @@ SensitivityViewWindow::run() {
 
 	plot.compute_x_data(input_start, input_ts, parent->app->time_step_size);
 	
-	Color ser_col(0, 130, 200);
+	Var_Id ser_id;
 	if(has_input) {
-		Var_Id ser_id = plot.setup.selected_series[0];
+		ser_id = plot.setup.selected_series[0];
 		get_storage_and_var(model_data, ser_id, &data_ser, &var_ser);
 		offset_ser = data_ser->structure->get_offset(ser_id, indexes);
-		
-		// NOTE: it is ok to pass 0 for gof_offset and gof_ts here since plot.plot_info=nullptr
-		add_single_plot(&plot, model_data, parent->app, ser_id, indexes,
-			input_ts, input_start, input_start, plot.x_data.data(), 0, 0, ser_col, false, Null, true);
 	}
 	
 	String stat_name = stat_plot.select_stat.Get();
@@ -303,6 +299,15 @@ SensitivityViewWindow::run() {
 				}
 				ProcessEvents();
 			}
+		}
+		
+		// Add this at the end to not have it auto-zoom to input bounds. Fix zoom in other
+		// ways...
+		if(has_input) {
+			Color ser_col(0, 130, 200);
+			// NOTE: it is ok to pass 0 for gof_offset and gof_ts here since plot.plot_info=nullptr
+			add_single_plot(&plot, model_data, parent->app, ser_id, indexes,
+				input_ts, input_start, input_start, plot.x_data.data(), 0, 0, ser_col, false, Null, true);
 		}
 		
 		// Have to do it at the end, since otherwise the plot min and max y are not set yet.
