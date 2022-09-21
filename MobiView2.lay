@@ -49,24 +49,6 @@ LAYOUT(MiniPlotLayout, 568, 100)
 	ITEM(Upp::Button, PushMain, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
 END_LAYOUT
 
-LAYOUT(SensitivityStatPlotLayout, 116, 152)
-	ITEM(ScatterCtrl, Plot, HSizePosZ(4, 4).VSizePosZ(32, 4))
-	ITEM(Upp::DropList, SelectStat, HSizePosZ(4, 4).TopPosZ(4, 24))
-END_LAYOUT
-
-LAYOUT(SensitivityLayout, 884, 448)
-	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(36, 64).TopPosZ(4, 19))
-	ITEM(Upp::Label, LabelMax, SetLabel(t_("Max")).LeftPosZ(196, 24).TopPosZ(4, 19))
-	ITEM(Upp::Label, LabelSteps, SetLabel(t_("Steps")).LeftPosZ(4, 32).TopPosZ(4, 19))
-	ITEM(Upp::EditDoubleSpin, EditMax, LeftPosZ(220, 64).TopPosZ(4, 19))
-	ITEM(Upp::Label, LabelMin, SetLabel(t_("Min")).LeftPosZ(104, 24).TopPosZ(4, 19))
-	ITEM(Upp::EditDoubleSpin, EditMin, LeftPosZ(128, 64).TopPosZ(4, 19))
-	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).LeftPosZ(288, 60).TopPosZ(4, 20))
-	ITEM(Upp::Label, ErrorLabel, HSizePosZ(4, 4).TopPosZ(28, 19))
-	ITEM(Upp::ProgressIndicator, RunProgress, HSizePosZ(4, 4).BottomPosZ(4, 24))
-	ITEM(Upp::Label, ParamLabel, HSizePosZ(352, 4).TopPosZ(4, 19))
-END_LAYOUT
-
 LAYOUT(OptimizationLayout, 688, 256)
 	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 28))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 108).BottomPosZ(4, 20))

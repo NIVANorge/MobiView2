@@ -1,0 +1,17 @@
+LAYOUT(SensitivityStatPlotLayout, 116, 152)
+	ITEM(Upp::ScatterCtrl, plot, HSizePosZ(4, 4).VSizePosZ(32, 4))
+	ITEM(Upp::DropList, select_stat, HSizePosZ(4, 4).TopPosZ(4, 24))
+END_LAYOUT
+
+LAYOUT(SensitivityLayout, 884, 448)
+	ITEM(Upp::EditIntSpin, edit_steps, NotNull(true).LeftPosZ(36, 64).TopPosZ(4, 19))
+	ITEM(Upp::Label, label_max, SetLabel(t_("Max")).LeftPosZ(196, 24).TopPosZ(4, 19))
+	ITEM(Upp::Label, label_steps, SetLabel(t_("Steps")).LeftPosZ(4, 32).TopPosZ(4, 19))
+	ITEM(Upp::EditDoubleSpin, edit_max, LeftPosZ(220, 64).TopPosZ(4, 19))
+	ITEM(Upp::Label, label_min, SetLabel(t_("Min")).LeftPosZ(104, 24).TopPosZ(4, 19))
+	ITEM(Upp::EditDoubleSpin, edit_min, LeftPosZ(128, 64).TopPosZ(4, 19))
+	ITEM(Upp::Button, push_run, SetLabel(t_("Run")).LeftPosZ(288, 60).TopPosZ(4, 20))
+	ITEM(Upp::Label, error_label, HSizePosZ(4, 4).TopPosZ(28, 19))
+	ITEM(Upp::ProgressIndicator, run_progress, HSizePosZ(4, 4).BottomPosZ(4, 24))
+	ITEM(Upp::Label, param_label, HSizePosZ(352, 4).TopPosZ(4, 19))
+END_LAYOUT

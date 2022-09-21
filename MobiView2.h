@@ -22,6 +22,7 @@
 #include "PlotCtrl.h"
 #include "Statistics.h"
 #include "SearchWindow.h"
+#include "SensitivityViewWindow.h"
 
 /*
 class ChangeIndexesWindow;
@@ -60,23 +61,6 @@ public:
 	
 	void RefreshText();
 };
-
-class EditStatSettingsWindow : public WithEditStatSettingsLayout<TopWindow>
-{
-public:
-	typedef EditStatSettingsWindow CLASSNAME;
-	
-	EditStatSettingsWindow();
-	
-	MobiView *ParentWindow;
-	
-	void LoadData();
-	void SaveDataAndClose();
-	
-	bool ParseDoubleList(String &ListStr, std::vector<double> &Result);
-};
-
-
 
 class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow>
 {
@@ -148,32 +132,6 @@ private:
 	ToolBar Tool;
 	
 	void SubBar(Bar &bar);
-};
-
-class StatPlotCtrl : public WithSensitivityStatPlotLayout<ParentCtrl>
-{
-public:
-	typedef StatPlotCtrl CLASSNAME;
-	
-	StatPlotCtrl();
-};
-
-class SensitivityViewWindow : public WithSensitivityLayout<TopWindow>
-{
-public:
-	typedef SensitivityViewWindow CLASSNAME;
-	
-	SensitivityViewWindow();
-	
-	MobiView *ParentWindow;
-	
-	void Update();
-	void Run();
-	
-private :
-	Splitter     MainHorizontal;
-	MyPlot       Plot;
-	StatPlotCtrl StatPlot;
 };
 
 class OptimizationParameterSetup : public WithOptimizationLayout<ParentCtrl>
@@ -548,7 +506,7 @@ public:
 	
 	EditStatSettings stat_settings;
 	SearchWindow     search_window;
-	
+	SensitivityViewWindow sensitivity_window;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -589,6 +547,7 @@ public:
 	
 	void open_stat_settings();
 	void open_search_window();
+	void open_sensitivity_window();
 	
 private :
 	void delete_model();

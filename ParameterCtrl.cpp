@@ -230,7 +230,6 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	Indexed_Parameter par_data = {};
 	if(!values_only) {
-		par_data.valid = true;
 		par_data.indexes.resize(MAX_INDEX_SETS, invalid_index);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(!is_valid(index_sets[idx])) break;
@@ -427,9 +426,10 @@ void ParameterCtrl::refresh(bool values_only) {
 	}
 }
 
-void ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app, Parameter_Value val) {
+void
+ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app, Parameter_Value val) {
 	
-	if(!par_data.valid || par_data.virt) {
+	if(!is_valid(par_data.id)) {
 		parent->log("Internal error: Trying to set value of parameter that is flagged as invalid or virtual.", true);
 		return;
 	}
@@ -439,8 +439,23 @@ void ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application
 		par_data.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
 	
 	try {
-		set_parameter_value(par_data, app, val);
+		set_parameter_value(par_data, &app->data, val);
 		changed_since_last_save = true;
 	} catch(int) {}
 	parent->log_warnings_and_errors();
+}
+
+Indexed_Parameter
+ParameterCtrl::get_selected_parameter() {
+	Indexed_Parameter result;
+	result.id = invalid_entity_id;
+	
+	int row = parameter_view.GetCursor();
+	if(row < 0 || row >= listed_pars.size()) return std::move(result);
+	
+	result = listed_pars[row];
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
+		result.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
+	
+	return std::move(result);
 }

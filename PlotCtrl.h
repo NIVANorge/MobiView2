@@ -118,10 +118,11 @@ class Agg_Data_Source : public Upp::DataSource {
 	
 public :
 	Agg_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
-		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup)
+		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup, bool always_copy_y = false)
 		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
 		
 		source = new Mobius_Data_Source(data, offset, steps, x_data, ref_x_start, start, ts_size);
+		copied_y = always_copy_y;
 		build(ref_x_start, start, setup, steps, ts_size);
 	}
 	
@@ -130,11 +131,12 @@ public :
 		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
 		
 		source = new Residual_Data_Source(data_sim, data_obs, offset_sim, offset_obs, steps, x_data, ref_x_start, start, ts_size);
+		copied_y = false;
 		build(ref_x_start, start, setup, steps, ts_size);
 	}
 	
 	inline double get_actual_y(s64 id) {
-		if(aggregation_period == Aggregation_Period::none)
+		if(!copied_y)
 			return source->y(id);
 		return agg_y[id];
 	}
@@ -156,15 +158,21 @@ public :
 	}
 	
 	virtual s64 GetCount() const {
-		if(aggregation_period == Aggregation_Period::none)
+		if(!copied_y)
 			return source->GetCount();
-		return agg_x.size();
+		return agg_y.size();
 	}
 	
 	~Agg_Data_Source() { delete source; }
 private :
 	inline void build(Date_Time ref_x_start, Date_Time start, Plot_Setup *setup, s64 steps, Time_Step_Size ts_size) {
-		if(aggregation_period != Aggregation_Period::none)
+		
+		if(aggregation_period == Aggregation_Period::none) {
+			if(copied_y) {
+				agg_y.resize(steps);
+				for(s64 ts = 0; ts < steps; ++ts) agg_y[ts] = source->y(ts);
+			}
+		} else
 			aggregate_data(ref_x_start, start, source, setup->aggregation_period, setup->aggregation_type, ts_size, agg_x, agg_y);
 
 		max = -std::numeric_limits<double>::infinity();
@@ -177,6 +185,7 @@ private :
 		}
 	}
 	
+	bool copied_y;
 	Upp::DataSource *source;
 	double max;
 	Y_Axis_Mode y_axis_mode;
@@ -207,6 +216,7 @@ public:
 	virtual double y(s64 id) { return yy[id]; }
 	virtual s64 GetCount() const { return (s64)xx.size(); }
 	
+	void set_y(int id, double yval) { yy[id] = yval; }
 private:
 	std::vector<double> xx, yy;
 };
@@ -350,10 +360,11 @@ public:
 	void clean(bool full_clean = true);
 	void build_plot(bool cause_by_run = false, Plot_Mode override_mode = Plot_Mode::none);
 	void replot_profile();
+	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);
 	
 	Plot_Setup setup;
 	
-	MyRichView *plot_info;
+	MyRichView *plot_info = nullptr;
 	MobiView2  *parent;
 	PlotCtrl   *plot_ctrl = nullptr;
 	
@@ -371,9 +382,6 @@ public:
 	
 	Upp::Vector<Upp::String> labels;
 	Upp::String profile_legend, profile_unit;
-	
-private:
-	void compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size);
 };
 
 
@@ -410,4 +418,23 @@ public:
 	
 	MobiView2 *parent;
 };
+
+void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var);
+
+void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Upp::Color &color, bool stacked = false,
+	const Upp::String &legend_prefix = Upp::Null, bool always_copy_y = false);
+	
+void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup);
+
+void get_gof_offsets(Upp::Time &start_setting, Upp::Time &end_setting, Date_Time input_start, s64 input_ts, Date_Time result_start, s64 result_ts, Date_Time &gof_start, Date_Time &gof_end,
+	s64 &input_gof_offset, s64 &result_gof_offset, s64 &gof_ts, Time_Step_Size ts_size, bool has_results);
+
+void set_round_grid_line_positions(Upp::ScatterDraw *plot, int axis);
+
+void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size);
+
+void add_line(MyPlot *plot, double x0, double y0, double x1, double y1, Upp::Color color, const Upp::String &legend = Upp::Null);
+
+
 #endif

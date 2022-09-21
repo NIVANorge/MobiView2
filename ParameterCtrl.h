@@ -44,6 +44,7 @@ public:
 	void expand_index_set_clicked(int idx);
 	
 	void parameter_edit(Indexed_Parameter par_data, Model_Application *app, Parameter_Value val);
+	Indexed_Parameter get_selected_parameter();
 };
 
 #endif

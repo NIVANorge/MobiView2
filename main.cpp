@@ -15,7 +15,7 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this) {
+MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this), sensitivity_window(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -71,27 +71,17 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), searc
 	par_group_selecter.HighlightCtrl(true);
 	
 	
-	//CurrentSelectedParameter.Valid = false;
-	
-	/*
-	auto SensitivityWindowUpdate = [this]()
-	{
-		//NOTE: This HAS to be done before the update of the sensitivity window.
-		//It is also used by the Optimization window. We have to do it here since
-		//the parameters can be out of focus when in the other window!
-		this->CurrentSelectedParameter = this->GetSelectedParameter();
-		
-		SensitivityWindow.Update();
+	auto sensitivity_window_update = [this]() {
+		sensitivity_window.update();
 	};
-	*/
 	
 	//TODO: This is not sufficient. It is not updated when selection changes within an individual row!
 	// What we want is something like WhenLeftClick, but that
 	// doesn't work either! Maybe we have to set one on each individual control?
-	//Params.ParameterView.WhenSel << SensitivityWindowUpdate;
+	params.parameter_view.WhenSel << sensitivity_window_update;
 	
 	par_group_selecter.WhenSel << [this](){ params.refresh(false); };
-	//ParameterGroupSelecter.WhenSel << SensitivityWindowUpdate;
+	par_group_selecter.WhenSel << sensitivity_window_update;
 	
 	
 	
@@ -235,7 +225,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Gap(60);
 	bar.Add(IconImg::SaveBaseline(), THISBACK(save_baseline)).Tip("Save baseline");
 	bar.Add(IconImg::RevertBaseline(), THISBACK(revert_baseline)).Tip("Revert to baseline");
-	//bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
+	bar.Add(IconImg::Perturb(), THISBACK(open_sensitivity_window)).Tip("Parameter perturbation (sensitivity)");
 	//bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization and MCMC setup");
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(open_stat_settings)).Tip("Edit statistics settings");
@@ -831,6 +821,11 @@ void MobiView2::open_stat_settings() {
 void MobiView2::open_search_window() {
 	if(!search_window.IsOpen())
 		search_window.Open();
+}
+
+void MobiView2::open_sensitivity_window() {
+	if(!sensitivity_window.IsOpen())
+		sensitivity_window.Open();
 }
 
 

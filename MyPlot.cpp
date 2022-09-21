@@ -92,8 +92,8 @@ void format_plot(MyPlot *draw, int type, Color &color, String &legend, String &u
 }
 
 void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
-	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked = false,
-	const String &legend_prefix = Null) {
+	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
+	const String &legend_prefix, bool always_copy_y) {
 		
 	Data_Storage<double, Var_Id> *data;
 	State_Variable *var;
@@ -106,17 +106,19 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 		legend = legend_prefix + legend;
 	String unit;
 	
-	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup);
+	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup, always_copy_y);
 	if(stacked) {
 		draw->data_stacked.Add(draw->series_data.Top());
 		draw->AddSeries(draw->data_stacked.top()).Fill(color);
 	} else
 		draw->AddSeries(draw->series_data.Top());
 	format_plot(draw, var_id.type, color, legend, unit);
-
-	Time_Series_Stats stats;
-	compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
-	display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend, unit);
+	
+	if(draw->plot_info) {
+		Time_Series_Stats stats;
+		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
+		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend, unit);
+	}
 }
 
 Date_Time
@@ -163,7 +165,7 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 	}
 }
 
-void set_round_grid_line_positions(MyPlot *plot, int axis) {
+void set_round_grid_line_positions(ScatterDraw *plot, int axis) {
 	//TODO: This should take Y axis mode into account (if axis is 1)
 	
 	double min;
@@ -637,6 +639,30 @@ int add_histogram(MyPlot *plot, DataSource *data, double min, double max, s64 co
 	return n_bins_histogram;
 }
 
+void get_gof_offsets(Time &start_setting, Time &end_setting, Date_Time input_start, s64 input_ts, Date_Time result_start, s64 result_ts, Date_Time &gof_start, Date_Time &gof_end,
+	s64 &input_gof_offset, s64 &result_gof_offset, s64 &gof_ts, Time_Step_Size ts_size, bool has_results) {
+
+	Date_Time gof_min = result_start;
+	s64 max_ts = result_ts;
+	if(!has_results) {
+		gof_min = input_start;
+		max_ts  = input_ts;
+	}
+	Date_Time gof_max = advance(gof_min, ts_size, max_ts-1);
+	
+	gof_start = IsNull(start_setting) ? gof_min : convert_time(start_setting);
+	gof_end   = IsNull(end_setting)   ? gof_max : convert_time(end_setting);
+	
+	if(gof_start < gof_min || gof_start > gof_max)
+		gof_start = gof_min;
+	if(gof_end   < gof_min || gof_end   > gof_max || gof_end < gof_start)
+		gof_end   = gof_max;
+	
+	gof_ts = steps_between(gof_start, gof_end, ts_size) + 1; //NOTE: if start time = end time, there is still one timestep.
+	result_gof_offset = steps_between(result_start, gof_start, ts_size); //NOTE: this could be negative, but only in the case when has_results=false
+	input_gof_offset = steps_between(input_start, gof_start, ts_size);
+}
+
 void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	
 	clean(false);
@@ -700,10 +726,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	s64 result_gof_offset;
 	s64 gof_ts;
 	
+	Time gof_start_setting  = parent->calib_start.GetData();
+	Time gof_end_setting    = parent->calib_end.GetData();
+	get_gof_offsets(gof_start_setting, gof_end_setting, input_start, input_ts, result_start, result_ts, gof_start, gof_end,
+		input_gof_offset, result_gof_offset, gof_ts, app->time_step_size, !setup.selected_results.empty());
+	/*
 	{
-		//TODO: We could maybe factor out some stuff here!
-		Time gof_start_setting  = parent->calib_start.GetData();
-		Time gof_end_setting    = parent->calib_end.GetData();
 		
 		Date_Time gof_min = result_start;
 		s64 max_ts = result_ts;
@@ -725,6 +753,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size); //NOTE: this could be negative, but only in the case when no result series are selected
 		input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
 	}
+	*/
 	
 	bool gof_available = false;
 	bool want_gof = (bool)parent->gof_option.GetData() || mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq;
