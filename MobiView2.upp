@@ -3,7 +3,8 @@ description "GUI for Mobius 2\377";
 uses
 	CtrlLib,
 	AutoScroller,
-	ScatterCtrl;
+	ScatterCtrl,
+	plugin/md;
 
 file
 	MobiView2.h,
@@ -23,6 +24,8 @@ file
 	SensitivityViewWindow.cpp,
 	StarOption.h,
 	StarOption.cpp,
+	ModelInfoWindow.h,
+	ModelInfoWindow.cpp,
 	Info.rc,
 	mobius.ico,
 	logos.iml,
@@ -31,11 +34,12 @@ file
 	star.iml,
 	MobiView2.upp,
 	MobiView2.lay,
-	SensitivityViewWindow.lay,
 	ParameterCtrl.lay,
 	PlotCtrl.lay,
 	StatSettings.lay,
 	SearchWindow.lay,
+	SensitivityViewWindow.lay,
+	ModelInfoWindow.lay,
 	C:\Data\Mobius2\src\ast.cpp,
 	C:\Data\Mobius2\src\ast.h,
 	C:\Data\Mobius2\src\common_types.h,

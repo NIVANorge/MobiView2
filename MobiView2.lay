@@ -3,11 +3,6 @@ LAYOUT(StructureViewLayout, 316, 484)
 	ITEM(Upp::Label, dv___1, SetLabel(t_("Index set dependencies and order of evaluation for equations")).LeftPosZ(8, 304).TopPosZ(8, 19))
 END_LAYOUT
 
-LAYOUT(ModelInfoLayout, 604, 484)
-	ITEM(MyRichView, InfoBox, HSizePosZ(4, 4).VSizePosZ(44, 4))
-	ITEM(Upp::Label, OverviewLabel, SetLabel(t_("\001[2 This is info provided for individual modules in the loaded model. For general documentation on MobiView and file formats, go to [^https://github.com/NIVANorge/Mobius^ https://github.com/NIVANorge/Mobius] and the Documentation folder]")).LeftPosZ(4, 596).TopPosZ(-8, 52))
-END_LAYOUT
-
 LAYOUT(ChangeIndexesLayout, 568, 536)
 	ITEM(Upp::LineEdit, IndexList1, LeftPosZ(12, 88).BottomPosZ(36, 116))
 	ITEM(Upp::LineEdit, IndexList2, LeftPosZ(104, 88).BottomPosZ(36, 116))

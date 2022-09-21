@@ -925,12 +925,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				for(int idx = 0; idx < num_perc; ++idx) {
 					xx[idx] = sim_stats.percentiles[idx];
 					yy[idx] = obs_stats.percentiles[idx];
-					labels << Format("%g", perc[idx]);
+					labels << Format(" %g", perc[idx]);
 				}
 				Color color = colors.next();
 				series_data.Create<Data_Source_Owns_XY>(&xx, &yy);
 				AddSeries(series_data.Top()).MarkColor(color).Stroke(0.0, color).Dash("").Units(unit, unit)
-					.AddLabelSeries(labels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
+					.AddLabelSeries(labels, 10, 0, StdFont().Height(15), ALIGN_LEFT);
 				ShowLegend(false);
 				
 				SetLabels(legend_sim, legend_obs); //TODO: This does not work!

@@ -23,6 +23,7 @@
 #include "Statistics.h"
 #include "SearchWindow.h"
 #include "SensitivityViewWindow.h"
+#include "ModelInfoWindow.h"
 
 /*
 class ChangeIndexesWindow;
@@ -44,18 +45,6 @@ public:
 	typedef StructureViewWindow CLASSNAME;
 	
 	StructureViewWindow();
-	
-	MobiView *ParentWindow;
-	
-	void RefreshText();
-};
-
-class ModelInfoViewWindow : public WithModelInfoLayout<TopWindow>
-{
-public:
-	typedef ModelInfoViewWindow CLASSNAME;
-	
-	ModelInfoViewWindow();
 	
 	MobiView *ParentWindow;
 	
@@ -507,6 +496,7 @@ public:
 	EditStatSettings stat_settings;
 	SearchWindow     search_window;
 	SensitivityViewWindow sensitivity_window;
+	ModelInfoWindow  info_window;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -548,6 +538,7 @@ public:
 	void open_stat_settings();
 	void open_search_window();
 	void open_sensitivity_window();
+	void open_info_window();
 	
 private :
 	void delete_model();

@@ -15,7 +15,7 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this), sensitivity_window(this) {
+MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this), sensitivity_window(this), info_window(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -149,22 +149,6 @@ MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), searc
 	if(AdditionalPlotViewDim.GetCount() == 2 && (int)AdditionalPlotViewDim[0] > 0 && (int)AdditionalPlotViewDim[1] > 0)
 		OtherPlots.SetRect(0, 0, (int)AdditionalPlotViewDim[0], (int)AdditionalPlotViewDim[1]);
 	*/
-	
-	
-	
-	/*
-	Search.ParentWindow = this;
-	StructureView.ParentWindow = this;
-	ChangeIndexes.ParentWindow = this;
-	ChangeIndexes.Branches.ParentWindow = this;
-	EditStatSettings.ParentWindow = this;
-	OtherPlots.ParentWindow = this;
-	ModelInfo.ParentWindow = this;
-	SensitivityWindow.ParentWindow = this;
-	OptimizationWin.ParentWindow = this;
-	MCMCResultWin.ParentWindow = this;
-	*/
-	
 	plotter.main_plot.build_plot(); // NOTE: Just to make it initially set the message that no model is loaded
 }
 
@@ -230,7 +214,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(open_stat_settings)).Tip("Edit statistics settings");
 	//bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
-	//bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
+	bar.Add(IconImg::Info(), THISBACK(open_info_window)).Tip("View model information");
 }
 
 void MobiView2::delete_model() {
@@ -828,6 +812,12 @@ void MobiView2::open_sensitivity_window() {
 		sensitivity_window.Open();
 }
 
+void MobiView2::open_info_window() {
+	if(!info_window.IsOpen()) {
+		info_window.refresh_text();
+		info_window.Open();
+	}
+}
 
 GUI_APP_MAIN {
 	StdLogSetup(LOG_FILE, "MobiView2.log");
