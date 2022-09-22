@@ -23,13 +23,12 @@ SensitivityViewWindow::SensitivityViewWindow(MobiView2 *parent) : parent(parent)
 	push_run.WhenPush = THISBACK(run);
 	
 	run_progress.Hide();
-	stat_plot.select_stat.Add("(none)");
-	#define SET_STATISTIC(handle, name, type) \
-		stat_plot.select_stat.Add(name);
-	#define SET_RESIDUAL(handle, name, type) SET_STATISTIC(handle, name)
+	stat_plot.select_stat.Add(-1, "(none)");
+	#define SET_STATISTIC(handle, name, type) stat_plot.select_stat.Add((int)Stat_Type::handle, name);
 	#include "support/stat_types.incl"
-	#include "support/residual_types.incl"
 	#undef SET_STATISTIC
+	#define SET_RESIDUAL(handle, name, type) stat_plot.select_stat.Add((int)Residual_Type::handle, name);
+	#include "support/residual_types.incl"
 	#undef SET_RESIDUAL
 	
 	stat_plot.select_stat.GoBegin();
@@ -267,26 +266,14 @@ SensitivityViewWindow::run() {
 			
 			//TODO: This is a bit inefficient.
 			if(has_stat) {
-				double val = std::numeric_limits<double>::quiet_NaN();
-				if(false) {}
-				#define SET_STATISTIC(handle, name) \
-					else if(name == stat_name) {    \
-						compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts); \
-						val = stats.handle;                 \
-					}
-				#define SET_RESIDUAL(handle, name, type) \
-					else if(name == stat_name) {           \
-						if(has_input) {                  \
-							compute_residual_stats(&residual_stats, data, offset, result_gof_offset, data_ser, offset_ser, input_gof_offset, gof_ts, stat_name=="Spearman's RCC");     \
-							val = residual_stats.handle; \
-						} else                             \
-							stat_plot.plot.SetTitle("Select an input series to compute the residual stat"); \
-					}
-				#include "support/stat_types.incl"
-				#include "support/residual_types.incl"
-				#undef SET_STATISTIC
-				#undef SET_RESIDUAL
+				int type = stat_plot.select_stat.GetData();
 				
+				if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)
+					compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
+				else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end);
+					compute_residual_stats(&residual_stats, data, offset, result_gof_offset, data_ser, offset_ser, input_gof_offset, gof_ts, type==(int)Residual_Type::srcc);
+				
+				double val = get_stat(&stats, &residual_stats, type);
 				stat_series->set_y(run, val);
 			}
 			
