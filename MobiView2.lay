@@ -29,21 +29,6 @@ LAYOUT(ChangeIndexesLayout, 568, 536)
 	ITEM(Upp::Button, PushAddIndex, SetLabel(t_("Add index")).RightPosZ(100, 88).TopPosZ(332, 24))
 END_LAYOUT
 
-LAYOUT(AdditionalPlotViewLayout, 532, 320)
-	ITEM(Upp::Option, LinkAll, SetLabel(t_("Link axes")).RightPosZ(192, 68).TopPosZ(4, 16))
-	ITEM(Upp::EditIntSpin, EditNumRows, Min(1).Max(10).RightPosZ(264, 64).TopPosZ(4, 19))
-	ITEM(Upp::Label, RowLabel, SetLabel(t_("Rows:")).RightPosZ(332, 32).TopPosZ(4, 19))
-	ITEM(Upp::Label, OverrideLabel, SetLabel(t_("Override mode:")).RightPosZ(108, 80).TopPosZ(4, 16))
-	ITEM(Upp::DropList, OverrideList, RightPosZ(4, 100).TopPosZ(4, 19))
-END_LAYOUT
-
-LAYOUT(MiniPlotLayout, 568, 100)
-	ITEM(MyPlot, Plot, HSizePosZ(0, 308).VSizePosZ(0, 0))
-	ITEM(MyRichView, PlotInfo, RightPosZ(0, 308).VSizePosZ(0, 16))
-	ITEM(Upp::Button, CopyMain, SetLabel(t_("<<")).RightPosZ(276, 32).BottomPosZ(1, 15))
-	ITEM(Upp::Button, PushMain, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
-END_LAYOUT
-
 LAYOUT(OptimizationLayout, 688, 256)
 	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 28))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 108).BottomPosZ(4, 20))

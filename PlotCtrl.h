@@ -49,6 +49,13 @@ enum class Y_Axis_Mode {
 	logarithmic,
 };
 
+// denotes whether or not it makes sense to link the x axis of this one to other plots.
+inline bool is_linkable(Plot_Mode mode) {
+	return (mode==Plot_Mode::regular || mode==Plot_Mode::stacked
+		|| mode==Plot_Mode::stacked_share || mode==Plot_Mode::profile2D
+		|| mode==Plot_Mode::compare_baseline || mode==Plot_Mode::residuals);
+}
+
 struct Plot_Setup {
 	Plot_Mode          mode;
 	Aggregation_Type   aggregation_type;

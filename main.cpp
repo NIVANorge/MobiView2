@@ -15,7 +15,9 @@ std::stringstream global_warning_stream;
 
 using namespace Upp;
 
-MobiView2::MobiView2() : params(this), plotter(this), stat_settings(this), search_window(this), sensitivity_window(this), info_window(this) {
+MobiView2::MobiView2() :
+	params(this), plotter(this), stat_settings(this), search_window(this),
+	sensitivity_window(this), info_window(this), additional_plots(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -203,7 +205,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	//bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(run_model)).Tip("Run model").Key(K_F7);
-	//bar.Add(IconImg::ViewMorePlots(), THISBACK(OpenAdditionalPlotView)).Tip("Open additional plot view");
+	bar.Add(IconImg::ViewMorePlots(), THISBACK(open_additional_plots)).Tip("Open additional plot view");
 	//bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Separator();
 	//bar.Gap(60);
@@ -224,18 +226,16 @@ void MobiView2::delete_model() {
 	model = nullptr;
 	if(data_set) delete data_set;
 	data_set = nullptr;
+	if(baseline){
+		delete baseline;
+		baseline = nullptr;
+	}
 }
 
 void MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
 	if(model_is_loaded())	{
 		//TODO!
-		
-		if(baseline){
-			delete baseline;
-			baseline = nullptr;
-		}
-		
 		delete_model();
 		
 		params.changed_since_last_save = false;
@@ -449,9 +449,8 @@ void MobiView2::save_parameters_as() {
 
 void MobiView2::plot_rebuild() {
 	plotter.re_plot(true);
-	//TODO!
-	//if(OtherPlots.IsOpen())
-	//	OtherPlots.BuildAll(true);
+	if(additional_plots.IsOpen())
+		additional_plots.build_all(true);
 	baseline_was_just_saved = false;
 }
 
@@ -560,6 +559,7 @@ void MobiView2::clean_interface() {
 	
 	params.clean();
 	plotter.clean();
+	additional_plots.clean();
 	
 	baseline_was_just_saved = false;
 }
@@ -816,6 +816,13 @@ void MobiView2::open_info_window() {
 	if(!info_window.IsOpen()) {
 		info_window.refresh_text();
 		info_window.Open();
+	}
+}
+
+void MobiView2::open_additional_plots() {
+	if(!additional_plots.IsOpen()) {
+		additional_plots.Open();
+		additional_plots.build_all();
 	}
 }
 

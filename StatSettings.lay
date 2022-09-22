@@ -29,3 +29,4 @@ LAYOUT(EditStatSettingsLayout, 268, 340)
 	ITEM(Upp::EditDouble, eckhardt_edit, NotNull(true).LeftPosZ(104, 64).TopPosZ(208, 19))
 	ITEM(Upp::Option, display_initial, SetLabel(t_("Show initial values (debug feature)")).LeftPosZ(8, 188).TopPosZ(228, 19))
 END_LAYOUT
+

@@ -139,11 +139,11 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 }
 
 void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
-	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts) {
+	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode) {
 	if(level == draw->setup.selected_indexes.size()) {
 
 		Color &graph_color = draw->colors.next();
-		bool stacked = var_id.type == 0 && (draw->setup.mode == Plot_Mode::stacked || draw->setup.mode == Plot_Mode::stacked_share);
+		bool stacked = var_id.type == 0 && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
 		add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
 
 	} else {
@@ -155,11 +155,11 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		if(!loop) {
 			indexes[level] = invalid_index;
-			add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts);
+			add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts);
+				add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 			}
 		}
 	}
@@ -730,30 +730,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	Time gof_end_setting    = parent->calib_end.GetData();
 	get_gof_offsets(gof_start_setting, gof_end_setting, input_start, input_ts, result_start, result_ts, gof_start, gof_end,
 		input_gof_offset, result_gof_offset, gof_ts, app->time_step_size, !setup.selected_results.empty());
-	/*
-	{
-		
-		Date_Time gof_min = result_start;
-		s64 max_ts = result_ts;
-		if(setup.selected_results.empty()) {
-			gof_min = input_start;
-			max_ts  = input_ts;
-		}
-		Date_Time gof_max = advance(gof_min, app->time_step_size, max_ts-1);
-		
-		gof_start = IsNull(gof_start_setting) ? gof_min : convert_time(gof_start_setting);
-		gof_end   = IsNull(gof_end_setting)   ? gof_max   : convert_time(gof_end_setting);
-		
-		if(gof_start < gof_min || gof_start > gof_max)
-			gof_start = gof_min;
-		if(gof_end   < gof_min || gof_end   > gof_max || gof_end < gof_start)
-			gof_end   = gof_max;
-		
-		gof_ts = steps_between(gof_start, gof_end, app->time_step_size) + 1; //NOTE: if start time = end time, there is still one timestep.
-		result_gof_offset = steps_between(result_start, gof_start, app->time_step_size); //NOTE: this could be negative, but only in the case when no result series are selected
-		input_gof_offset = steps_between(input_start, gof_start, app->time_step_size);
-	}
-	*/
 	
 	bool gof_available = false;
 	bool want_gof = (bool)parent->gof_option.GetData() || mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq;
@@ -797,12 +773,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			std::vector<Index_T> indexes(MAX_INDEX_SETS);
 			for(auto var_id : setup.selected_results) {
 				const std::vector<Entity_Id> &index_sets = app->result_structure.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, input_start, result_start, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts);
+				add_plot_recursive(this, app, var_id, indexes, 0, input_start, result_start, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts, mode);
 			}
 			
 			for(auto var_id : setup.selected_series) {
 				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_structure.get_index_sets(var_id) : app->additional_series_structure.get_index_sets(var_id);
-				add_plot_recursive(this, app, var_id, indexes, 0, input_start, input_start, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts);
+				add_plot_recursive(this, app, var_id, indexes, 0, input_start, input_start, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts, mode);
 			}
 		} else if (mode == Plot_Mode::histogram) {
 			

@@ -24,6 +24,7 @@
 #include "SearchWindow.h"
 #include "SensitivityViewWindow.h"
 #include "ModelInfoWindow.h"
+#include "AdditionalPlotView.h"
 
 /*
 class ChangeIndexesWindow;
@@ -79,48 +80,6 @@ public:
 	void SelectedBranchListUpdate();
 	
 	void BuildConnectionEditFromDataset();
-};
-
-#define MAX_ADDITIONAL_PLOTS 10
-
-class MiniPlot : public WithMiniPlotLayout<ParentCtrl>
-{
-public:
-	typedef MiniPlot CLASSNAME;
-	
-	MiniPlot();
-};
-
-class AdditionalPlotView : public WithAdditionalPlotViewLayout<TopWindow>
-{
-public:
-	typedef AdditionalPlotView CLASSNAME;
-	
-	AdditionalPlotView();
-	
-	void CopyMainPlot(int Which);
-	
-	void BuildAll(bool CausedByReRun = false);
-	void ClearAll();
-	
-	MobiView *ParentWindow;
-	
-	void NumRowsChanged(bool Rebuild = true);
-	void UpdateLinkStatus();
-	
-	void WriteToJson();
-	void LoadFromJson();
-	
-	void SetAll(std::vector<plot_setup> &Setups);
-	
-private:
-	Splitter VerticalSplitter;
-	
-	MiniPlot Plots[MAX_ADDITIONAL_PLOTS];
-	
-	ToolBar Tool;
-	
-	void SubBar(Bar &bar);
 };
 
 class OptimizationParameterSetup : public WithOptimizationLayout<ParentCtrl>
@@ -493,10 +452,11 @@ public:
 	
 	PlotCtrl        plotter;
 	
-	EditStatSettings stat_settings;
-	SearchWindow     search_window;
+	EditStatSettings      stat_settings;
+	SearchWindow          search_window;
 	SensitivityViewWindow sensitivity_window;
-	ModelInfoWindow  info_window;
+	ModelInfoWindow       info_window;
+	AdditionalPlotView    additional_plots;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -539,6 +499,7 @@ public:
 	void open_search_window();
 	void open_sensitivity_window();
 	void open_info_window();
+	void open_additional_plots();
 	
 private :
 	void delete_model();

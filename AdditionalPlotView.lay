@@ -1,0 +1,14 @@
+LAYOUT(AdditionalPlotViewLayout, 532, 320)
+	ITEM(Upp::Option, link_all, SetLabel(t_("Link axes")).RightPosZ(192, 68).TopPosZ(4, 16))
+	ITEM(Upp::EditIntSpin, edit_n_rows, Min(1).Max(10).RightPosZ(264, 64).TopPosZ(4, 19))
+	ITEM(Upp::Label, row_label, SetLabel(t_("Rows:")).RightPosZ(332, 32).TopPosZ(4, 19))
+	ITEM(Upp::Label, override_label, SetLabel(t_("Override mode:")).RightPosZ(108, 80).TopPosZ(4, 16))
+	ITEM(Upp::DropList, override_list, RightPosZ(4, 100).TopPosZ(4, 19))
+END_LAYOUT
+
+LAYOUT(MiniPlotLayout, 568, 100)
+	ITEM(MyPlot, plot, HSizePosZ(0, 308).VSizePosZ(0, 0))
+	ITEM(MyRichView, plot_info, RightPosZ(0, 308).VSizePosZ(0, 16))
+	ITEM(Upp::Button, copy_main, SetLabel(t_("<<")).RightPosZ(276, 32).BottomPosZ(1, 15))
+	ITEM(Upp::Button, push_main, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
+END_LAYOUT
