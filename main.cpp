@@ -17,7 +17,8 @@ using namespace Upp;
 
 MobiView2::MobiView2() :
 	params(this), plotter(this), stat_settings(this), search_window(this),
-	sensitivity_window(this), info_window(this), additional_plots(this) {
+	sensitivity_window(this), info_window(this), additional_plots(this),
+	optimization_window(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -212,7 +213,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	bar.Add(IconImg::SaveBaseline(), THISBACK(save_baseline)).Tip("Save baseline");
 	bar.Add(IconImg::RevertBaseline(), THISBACK(revert_baseline)).Tip("Revert to baseline");
 	bar.Add(IconImg::Perturb(), THISBACK(open_sensitivity_window)).Tip("Parameter perturbation (sensitivity)");
-	//bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization and MCMC setup");
+	bar.Add(IconImg::Optimize(), THISBACK(open_optimization_window)).Tip("Optimization and MCMC setup");
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(open_stat_settings)).Tip("Edit statistics settings");
 	//bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
@@ -560,6 +561,7 @@ void MobiView2::clean_interface() {
 	params.clean();
 	plotter.clean();
 	additional_plots.clean();
+	optimization_window.clean();
 	
 	baseline_was_just_saved = false;
 }
@@ -824,6 +826,11 @@ void MobiView2::open_additional_plots() {
 		additional_plots.Open();
 		additional_plots.build_all();
 	}
+}
+
+void MobiView2::open_optimization_window() {
+	if(!optimization_window.IsOpen())
+		optimization_window.Open();
 }
 
 GUI_APP_MAIN {

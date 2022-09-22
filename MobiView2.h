@@ -25,6 +25,7 @@
 #include "SensitivityViewWindow.h"
 #include "ModelInfoWindow.h"
 #include "AdditionalPlotView.h"
+#include "OptimizationWindow.h"
 
 /*
 class ChangeIndexesWindow;
@@ -457,6 +458,7 @@ public:
 	SensitivityViewWindow sensitivity_window;
 	ModelInfoWindow       info_window;
 	AdditionalPlotView    additional_plots;
+	OptimizationWindow    optimization_window;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -467,8 +469,6 @@ public:
 	
 	std::string model_file;
 	std::string data_file;
-	
-	
 	
 
 	void sub_bar(Upp::Bar &bar);
@@ -500,6 +500,7 @@ public:
 	void open_sensitivity_window();
 	void open_info_window();
 	void open_additional_plots();
+	void open_optimization_window();
 	
 private :
 	void delete_model();

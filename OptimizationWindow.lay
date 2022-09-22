@@ -1,0 +1,81 @@
+LAYOUT(OptimizationLayout, 688, 256)
+	ITEM(Upp::ArrayCtrl, parameter_view, HSizePosZ(4, 4).VSizePosZ(24, 28))
+	ITEM(Upp::Button, push_add_parameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 108).BottomPosZ(4, 20))
+	ITEM(Upp::Button, push_clear_parameters, SetLabel(t_("Clear all")).LeftPosZ(336, 108).BottomPosZ(4, 20))
+	ITEM(Upp::Button, push_add_group, SetLabel(t_("Add group")).LeftPosZ(116, 108).BottomPosZ(4, 20))
+	ITEM(Upp::Button, push_remove_parameter, SetLabel(t_("Remove sel.")).LeftPosZ(228, 104).BottomPosZ(4, 20))
+	ITEM(Upp::Button, push_add_virtual, SetLabel(t_("Add virtual")).LeftPosZ(448, 108).BottomPosZ(4, 20))
+	ITEM(Upp::Label, warning_label, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 16))
+	ITEM(Upp::Option, option_use_expr, NotNull(true).SetLabel(t_("Enable expressions")).RightPosZ(4, 108).BottomPosZ(4, 20))
+END_LAYOUT
+
+LAYOUT(OptimizationTargetLayout, 688, 428)
+	ITEM(Upp::Label, error_label, HSizePosZ(4, 4).BottomPosZ(156, 20))
+	ITEM(Upp::ArrayCtrl, target_view, HSizePosZ(4, 4).VSizePosZ(4, 204))
+	ITEM(Upp::Button, push_remove_target, SetLabel(t_("Remove sel.")).LeftPosZ(116, 108).BottomPosZ(180, 20))
+	ITEM(Upp::Button, push_clear_targets, SetLabel(t_("Clear all")).LeftPosZ(228, 108).BottomPosZ(180, 20))
+	ITEM(Upp::Button, push_display, SetLabel(t_("Target plots")).RightPosZ(4, 108).BottomPosZ(180, 20))
+	ITEM(Upp::Button, push_add_target, SetLabel(t_("Add target")).LeftPosZ(4, 108).BottomPosZ(180, 20))
+	ITEM(Upp::TabCtrl, optimizer_type_tab, HSizePosZ(4, 4).BottomPosZ(28, 124))
+	ITEM(Upp::EditInt64, edit_timeout, NotNull(true).LeftPosZ(256, 64).BottomPosZ(5, 19))
+	ITEM(Upp::Label, label_timeout, SetLabel(t_("Individual run timeout (ms). Negative: no timeout.")).LeftPosZ(4, 248).BottomPosZ(5, 19))
+END_LAYOUT
+
+LAYOUT(OptimizerSetupLayout, 672, 52)
+	ITEM(Upp::Button, push_run, SetLabel(t_("Run")).RightPosZ(4, 108).TopPosZ(4, 20))
+	ITEM(Upp::Label, max_evals_label, SetLabel(t_("Max evals.:")).LeftPosZ(40, 56).TopPosZ(4, 20))
+	ITEM(Upp::Label, min_delta_label, SetLabel(t_("Epsilon:")).LeftPosZ(276, 44).TopPosZ(4, 20))
+	ITEM(Upp::EditIntSpin, edit_max_evals, NotNull(true).LeftPosZ(100, 108).TopPosZ(4, 20))
+	ITEM(Upp::Option, option_show_progress, SetLabel(t_("Show progress")).LeftPosZ(4, 92).TopPosZ(28, 20))
+	ITEM(Upp::Label, progress_label, HSizePosZ(100, 4).TopPosZ(28, 20))
+	ITEM(Upp::EditDoubleNotNull, edit_epsilon, LeftPosZ(324, 108).TopPosZ(4, 19))
+END_LAYOUT
+
+LAYOUT(MCMCSetupLayout, 672, 88)
+	ITEM(Upp::Button, push_view_chains, SetLabel(t_("View results")).RightPosZ(4, 108).TopPosZ(52, 20))
+	ITEM(Upp::Button, push_run, SetLabel(t_("Run")).RightPosZ(4, 108).TopPosZ(4, 20))
+	ITEM(Upp::Button, push_extend_run, SetLabel(t_("Extend run")).RightPosZ(4, 108).TopPosZ(28, 20))
+	ITEM(Upp::Label, steps_label, SetLabel(t_("Steps:")).LeftPosZ(16, 32).TopPosZ(28, 20))
+	ITEM(Upp::Label, walkers_label, SetLabel(t_("Walkers:")).LeftPosZ(4, 44).TopPosZ(4, 20))
+	ITEM(Upp::EditIntSpin, edit_steps, NotNull(true).LeftPosZ(52, 108).TopPosZ(28, 20))
+	ITEM(Upp::EditIntSpin, edit_walkers, NotNull(true).LeftPosZ(52, 108).TopPosZ(4, 20))
+	ITEM(Upp::Switch, initial_type_switch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(52, 80).TopPosZ(52, 32))
+	ITEM(Upp::DropList, select_sampler, LeftPosZ(232, 108).TopPosZ(4, 19))
+	ITEM(Upp::Label, label_sampler, SetLabel(t_("Sampler")).LeftPosZ(164, 64).TopPosZ(4, 19))
+	ITEM(Upp::ArrayCtrl, sampler_param_view, LeftPosZ(164, 328).TopPosZ(28, 56))
+	ITEM(Upp::Label, label_sampler_param, SetLabel(t_("Sampler parameters:")).LeftPosZ(368, 124).TopPosZ(4, 19))
+END_LAYOUT
+
+LAYOUT(SensitivitySetupLayout, 672, 52)
+	ITEM(Upp::Button, push_view_results, SetLabel(t_("View results")).RightPosZ(4, 108).TopPosZ(28, 20))
+	ITEM(Upp::Button, push_run, SetLabel(t_("Run")).RightPosZ(4, 108).TopPosZ(4, 20))
+	ITEM(Upp::Label, sample_size_label, SetLabel(t_("Sample size:")).LeftPosZ(36, 60).TopPosZ(4, 20))
+	ITEM(Upp::EditIntSpin, edit_sample_size, NotNull(true).LeftPosZ(100, 108).TopPosZ(4, 20))
+	ITEM(Upp::DropList, select_method, LeftPosZ(100, 108).TopPosZ(28, 19))
+	ITEM(Upp::Label, method_label, SetLabel(t_("Sampling method:")).LeftPosZ(4, 92).TopPosZ(28, 19))
+END_LAYOUT
+
+LAYOUT(MCMCResultLayout, 856, 432)
+	ITEM(Upp::TabCtrl, choose_plots_tab, HSizePosZ(0, 0).VSizePosZ(0, 24))
+	ITEM(Upp::SliderCtrl, burnin_slider, HSizePosZ(60, 64).BottomPosZ(0, 24))
+	ITEM(Upp::EditIntSpin, burnin_edit, RightPosZ(0, 64).BottomPosZ(5, 19))
+	ITEM(Upp::Label, label_set_burnin, SetLabel(t_("Set burnin:")).HSizePosZ(4, 796).BottomPosZ(0, 24))
+END_LAYOUT
+
+LAYOUT(MCMCProjectionLayout, 680, 588)
+	ITEM(Upp::TabCtrl, plot_select_tab, HSizePosZ(4, 4).VSizePosZ(4, 48))
+	ITEM(Upp::EditIntSpin, edit_samples, LeftPosZ(56, 104).BottomPosZ(25, 19))
+	ITEM(Upp::Label, samples_label, SetLabel(t_("Samples:")).LeftPosZ(4, 48).BottomPosZ(25, 19))
+	ITEM(Upp::Button, push_generate, SetLabel(t_("Generate plots")).LeftPosZ(504, 96).BottomPosZ(24, 20))
+	ITEM(Upp::Option, option_uncertainty, SetLabel(t_("Parametric uncertainty only")).LeftPosZ(164, 156).BottomPosZ(24, 20))
+	ITEM(Upp::ProgressIndicator, generate_progress, HSizePosZ(4, 4).BottomPosZ(4, 20))
+	ITEM(Upp::EditDoubleNotNull, confidence_edit, LeftPosZ(440, 64).BottomPosZ(25, 19))
+	ITEM(Upp::Label, label_confidence, SetLabel(t_("Confidence interval (%)")).LeftPosZ(324, 116).BottomPosZ(24, 20))
+END_LAYOUT
+
+LAYOUT(VarSensitivityResultLayout, 528, 612)
+	ITEM(Upp::ArrayCtrl, results_data, HSizePosZ(4, 4).VSizePosZ(4, 388))
+	ITEM(Upp::ProgressIndicator, show_progress, HSizePosZ(0, 0).BottomPosZ(0, 24))
+	ITEM(Upp::Label, note_label, SetLabel(t_("Note: Very small numbers are often unreliable unless the sample size is very high.\nNumbers should be positive, and the total effect index should be larger than the first-order coefficient.\nIf not, the sample size may be too low")).HSizePosZ(4, 4).BottomPosZ(344, 40))
+	ITEM(MyPlot, plot, HSizePosZ(4, 4).BottomPosZ(24, 316))
+END_LAYOUT

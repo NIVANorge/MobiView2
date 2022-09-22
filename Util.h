@@ -36,4 +36,37 @@ parse_percent_list(String &list_str, std::vector<double> &result) {
 	return success;
 }
 
+template<typename Val_T, typename Handle_T>
+inline Upp::String
+make_index_string(Storage_Structure<Val_T, Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle) {
+
+	Upp::String result = "[";
+	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
+	int idx = 0;
+	for(Entity_Id &index_set : index_sets) {
+		if(idx++ != 0) result << " ";
+		ASSERT(indexes[index_set.id].index_set == index_set);
+		result << "\"" << str(structure->parent->index_names[index_set.id][indexes[index_set.id].index]) << "\"";
+	}
+	result << "]";
+	return result;
+}
+
+inline Upp::String
+make_parameter_index_string(Storage_Structure<Parameter_Value, Entity_Id> *structure, Indexed_Parameter *par) {
+	Upp::String result = "[";
+	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(par->id);
+	int idx = 0;
+	for(const Entity_Id &index_set : index_sets) {
+		if(idx++ != 0) result << " ";
+		ASSERT(par->indexes[index_set.id].index_set == index_set);
+		if(par->locks[idx])
+			result << "locked(\"" << str(structure->parent->model->find_entity<Reg_Type::index_set>(index_set)->name) << "\")";
+		else
+			result << "\"" << str(structure->parent->index_names[index_set.id][par->indexes[index_set.id].index]) << "\"";
+	}
+	result << "]";
+	return result;
+}
+
 #endif
