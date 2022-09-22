@@ -267,10 +267,11 @@ SensitivityViewWindow::run() {
 			//TODO: This is a bit inefficient.
 			if(has_stat) {
 				int type = stat_plot.select_stat.GetData();
+				int typetype = is_stat_type(type);
 				
-				if(type > (int)Stat_Type::offset && type < (int)Stat_Type::end)
+				if(typetype == 0)
 					compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
-				else if(type > (int)Residual_Type::offset && type < (int)Residual_Type::end);
+				else if(typetype == 1);
 					compute_residual_stats(&residual_stats, data, offset, result_gof_offset, data_ser, offset_ser, input_gof_offset, gof_ts, type==(int)Residual_Type::srcc);
 				
 				double val = get_stat(&stats, &residual_stats, type);
