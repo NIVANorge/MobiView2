@@ -295,6 +295,8 @@ void ParameterCtrl::refresh(bool values_only) {
 					par_data.indexes[expanded_set.id] = exp_idx;
 				
 				listed_pars.push_back(par_data);
+			} else {
+				par_data = listed_pars[row];
 			}
 			
 			ValueMap row_data;

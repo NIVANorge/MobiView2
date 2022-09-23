@@ -1114,20 +1114,28 @@ void OptimizationWindow::run_clicked(int run_type)
 	Date_Time end   = app->data.get_end_date_parameter();
 	s64 ms_timeout = target_setup.edit_timeout.GetData();
 	
-	//TODO: make the ui update callback
-	/*
-	Label *ProgressLabel = nullptr;
-	if(RunSetup.OptionShowProgress.Get())
-		ProgressLabel = &RunSetup.ProgressLabel;
-	*/
+	s64 update_step;
 	
+	Optim_Callback callback = nullptr;
+	if(run_setup.option_show_progress.Get() && run_type == 0) {
+		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
+			if(update_step % n_evals == 0) {
+				//GUILock lock;
+				run_setup.progress_label.SetText(Format("Current evaluations: %d, timeouts: %d, best score: %g (initial: %g)", n_evals, n_timeouts, best_score, initial_score));
+				//if(View->IsOpen())
+				//View->BuildAll(true);
+			
+				parent->ProcessEvents();
+			}
+		};
+	}
 	
 	try {
 		Timer timer;     // TODO: callback
-		Dlib_Optimization_Model opt_model(data, parameters, targets, initial_pars.data(), nullptr, ms_timeout);
+		Dlib_Optimization_Model opt_model(data, parameters, targets, initial_pars.data(), callback, ms_timeout);
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
 		
-		s64 update_step = std::ceil(4000.0 / (double)ms);
+		update_step = std::ceil(4000.0 / (double)ms);
 		if(update_step <= 0) update_step = 1;
 		
 		bool push_extend_enabled = mcmc_setup.push_extend_run.IsEnabled();
@@ -1165,7 +1173,7 @@ void OptimizationWindow::run_clicked(int run_type)
 			if(was_improvement) {
 				app->data.parameters.copy_from(&data->parameters);
 				app->data.results.copy_from(&data->results);
-				//parent->params.refresh(true);
+				parent->params.refresh(true);
 				parent->plot_rebuild();
 				parent->log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
 					(double)ms*1e-3, opt_model.best_score, opt_model.initial_score));
