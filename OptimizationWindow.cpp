@@ -1,17 +1,13 @@
 #include "OptimizationWindow.h"
 #include "MobiView2.h"
 
+#include "support/dlib_optimization.h"
+
 /*
 #ifdef _WIN32
 	#include <winsock2.h>          //NOTE: For some reason dlib includes some windows headers in an order that upp's clang setup doesn't like
 #endif
 
-#define DLIB_NO_GUI_SUPPORT  //NOTE: Turns off dlib's own GUI since we are using upp.
-
-#include "dlib/optimization.h"
-#include "dlib/global_optimization.h"
-
-#include <unordered_map>
 */
 
 #define IMAGECLASS IconImg4
@@ -64,7 +60,7 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	target_setup.target_view.AddColumn(Id("__targetstat"), "Statistic");
 	target_setup.target_view.AddColumn(Id("__errparam"), "Error param(s).");
 	target_setup.target_view.AddColumn(Id("__weight"), "Weight");
-	target_setup.target_view.AddColumn(Id("__begin"), "Begin");
+	target_setup.target_view.AddColumn(Id("__start"), "Start");
 	target_setup.target_view.AddColumn(Id("__end"), "End");
 	
 	target_setup.edit_timeout.SetData(-1);
@@ -304,83 +300,86 @@ void OptimizationWindow::clear_parameters_clicked() {
 	edit_expr_ctrls.Clear();
 }
 
-
 void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	targets.push_back(target);
 	
-	//TODO!
+	auto app = parent->app;
+	
+	Data_Storage<double, Var_Id> *sim_data, *obs_data;
+	State_Variable *var_sim, *var_obs;
+	get_storage_and_var(&app->data, target.sim_id, &sim_data, &var_sim);
+	String sim_index_str = make_index_string(sim_data->structure, target.indexes, target.sim_id);
+	
+	String obs_index_str;
+	String obs_name;
+	if(is_valid(target.obs_id)) {
+		get_storage_and_var(&app->data, target.obs_id, &obs_data, &var_obs);
+		String obs_index_str = make_index_string(obs_data->structure, target.indexes, target.obs_id);
+		obs_name = str(var_obs->name);
+	}
+	
+	target_stat_ctrls.Create<DropList>();
+	DropList &sel_stat = target_stat_ctrls.Top();
+	
+	int tab = target_setup.optimizer_type_tab.Get();
+	if(tab == 2) {
+		#define SET_STATISTIC(handle, name) sel_stat.Add((int)Stat_Type::handle, name);
+		#include "support/stat_types.incl"
+		#undef SET_STATISTIC
+	}
+	if(tab == 0 || tab == 2) {
+		#define SET_RESIDUAL(handle, name, type) if(type != -1) sel_stat.Add((int)Residual_Type::handle, name);
+		#include "support/residual_types.incl"
+		#undef SET_RESIDUAL
+	}
+	// TODO: MCMC
 	/*
-	String InputIndexStr = MakeIndexString(Target.InputIndexes);
-	String ResultIndexStr = MakeIndexString(Target.ResultIndexes);
-	
-	int TargetStat = (int)Target.Stat;;
-	
-	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight, Target.Begin.data(), Target.End.data());
-	
-	TargetStatCtrls.Create<DropList>();
-	DropList &SelectStat = TargetStatCtrls.Top();
-	
-	TargetErrCtrls.Create<EditField>();
-	EditField &ErrCtrl = TargetErrCtrls.Top();
-	
-	int TabNum = TargetSetup.OptimizerTypeTab.Get();
-	
-	if(TabNum == 2)
-	{
-		#define SET_SETTING(Handle, Name, Type) SelectStat.Add((int)StatType_##Handle, Name);
-		#define SET_RES_SETTING(Handle, Name, Type)
-		#include "SetStatSettings.h"
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-	}
-	if(TabNum == 0 || TabNum == 2)
-	{
-		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
-		#include "SetStatSettings.h"
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-	}
 	if(TabNum == 0 || TabNum == 1)
 	{
 		#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
 		#include "LLSettings.h"
 		#undef SET_LL_SETTING
 	}
-	
-	
-	int Row = TargetSetup.TargetView.GetCount() - 1;
-	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
-	TargetSetup.TargetView.SetCtrl(Row, Col, SelectStat);
-	SelectStat.WhenAction << [this, Row](){ StatEdited(Row); };
-	
-	Col     = TargetSetup.TargetView.GetPos(Id("__errparam"));
-	TargetSetup.TargetView.SetCtrl(Row, Col, ErrCtrl);
-	ErrCtrl.WhenAction << [this, Row](){ ErrSymEdited(Row); };
-	
-	TargetWeightCtrls.Create<EditDoubleNotNull>();
-	EditDoubleNotNull &EditWt = TargetWeightCtrls.Top();
-	EditWt.Min(0.0);
-	Col     = TargetSetup.TargetView.GetPos(Id("__weight"));
-	TargetSetup.TargetView.SetCtrl(Row, Col, EditWt);
-	EditWt.WhenAction << [this, Row](){ WeightEdited(Row); };
-	
-	TargetBeginCtrls.Create<EditTimeNotNull>();
-	EditTimeNotNull &EditBegin = TargetBeginCtrls.Top();
-	Col = TargetSetup.TargetView.GetPos(Id("__begin"));
-	TargetSetup.TargetView.SetCtrl(Row, Col, EditBegin);
-	EditBegin.WhenAction << [this, Row](){ BeginEdited(Row); };
-	
-	TargetEndCtrls.Create<EditTimeNotNull>();
-	EditTimeNotNull &EditEnd = TargetEndCtrls.Top();
-	Col = TargetSetup.TargetView.GetPos(Id("__end"));
-	TargetSetup.TargetView.SetCtrl(Row, Col, EditEnd);
-	EditEnd.WhenAction << [this, Row](){ EndEdited(Row); };
 	*/
+	
+		//TODO: error parameters (for MCMC).
+	target_setup.target_view.Add(str(var_sim->name), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight, convert_time(target.start), convert_time(target.end));
+	
+	int row = target_setup.target_view.GetCount()-1;
+	int col = target_setup.target_view.GetPos(Id("__targetstat"));
+	target_setup.target_view.SetCtrl(row, col, sel_stat);
+	sel_stat.WhenAction << [this, row]() { stat_edited(row); };
+	
+	//sel_stat.GoBegin();
+	
+	target_err_ctrls.Create<EditField>();
+	EditField &err_ctrl = target_err_ctrls.Top();
+	col     = target_setup.target_view.GetPos(Id("__errparam"));
+	target_setup.target_view.SetCtrl(row, col, err_ctrl);
+	err_ctrl.WhenAction << [this, row](){ err_sym_edited(row); };
+	
+	target_weight_ctrls.Create<EditDoubleNotNull>();
+	EditDoubleNotNull &edit_wt = target_weight_ctrls.Top();
+	edit_wt.Min(0.0);
+	col     = target_setup.target_view.GetPos(Id("__weight"));
+	target_setup.target_view.SetCtrl(row, col, edit_wt);
+	edit_wt.WhenAction << [this, row](){ weight_edited(row); };
+	
+	target_start_ctrls.Create<EditTimeNotNull>();
+	EditTimeNotNull &edit_start = target_start_ctrls.Top();
+	col = target_setup.target_view.GetPos(Id("__start"));
+	target_setup.target_view.SetCtrl(row, col, edit_start);
+	edit_start.WhenAction << [this, row](){ start_edited(row); };
+	
+	target_end_ctrls.Create<EditTimeNotNull>();
+	EditTimeNotNull &edit_end = target_end_ctrls.Top();
+	col = target_setup.target_view.GetPos(Id("__end"));
+	target_setup.target_view.SetCtrl(row, col, edit_end);
+	edit_end.WhenAction << [this, row](){ end_edited(row); };
 }
 
 void OptimizationWindow::stat_edited(int row) {
-	targets[row].stat_type = (int)target_setup.target_view.Get(row, "__targetstat");
+	targets[row].stat_type = (int)target_stat_ctrls[row].GetData();//.target_view.GetData(row, "__targetstat");
 }
 
 void OptimizationWindow::err_sym_edited(int row) {
@@ -392,8 +391,8 @@ void OptimizationWindow::weight_edited(int row) {
 	targets[row].weight = (double)target_setup.target_view.Get(row, "__weight");
 }
 
-void OptimizationWindow::begin_edited(int row) {
-	targets[row].start = convert_time((Time)target_setup.target_view.Get(row, "__begin"));
+void OptimizationWindow::start_edited(int row) {
+	targets[row].start = convert_time((Time)target_setup.target_view.Get(row, "__start"));
 }
 
 void OptimizationWindow::end_edited(int row) {
@@ -401,71 +400,44 @@ void OptimizationWindow::end_edited(int row) {
 }
 
 void OptimizationWindow::add_target_clicked() {
-	//TODO
-	/*
-	plot_setup PlotSetup;
-	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
 	
-	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() > 1)
-	{
-		SetError("This only works with a single selected result series and at most one input series.");
+	Plot_Setup setup;
+	parent->plotter.get_plot_setup(setup);
+	
+	if(setup.selected_results.size() != 1 || setup.selected_series.size() > 1) {
+		set_error("Can only add a target that has a single selected result series and at most one input series.");
 		return;
 	}
 	
-	for(int Idx = 0; Idx < PlotSetup.SelectedIndexes.size(); ++Idx)
-	{
-		if(PlotSetup.SelectedIndexes[Idx].size() != 1 && PlotSetup.IndexSetIsActive[Idx])
-		{
-			SetError("This currently only works with a single selected index combination");
+	for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
+		if(setup.selected_indexes[idx].size() != 1 && setup.index_set_is_active[idx]) {
+			set_error("Can only add a target with one single selected index per index set.");
 			return;
 		}
 	}
+
+	Optimization_Target target;
+	target.sim_id = setup.selected_results[0];
+	target.obs_id = setup.selected_series.empty() ? invalid_var : setup.selected_series[0];
+	get_single_indexes(target.indexes, setup);
+	target.weight = 1.0;
 	
-	optimization_target Target = {};
-	Target.ResultName = PlotSetup.SelectedResults[0];
-	std::vector<char *> ResultIndexes;
-	bool Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.ResultName, 0, ResultIndexes);
-	if(!Success) return;
-	//Ugh, super annoying to have to convert back and forth between char* and string to ensure
-	//storage...
-	for(const char *Idx : ResultIndexes)
-			Target.ResultIndexes.push_back(std::string(Idx));
-	
-	if(PlotSetup.SelectedInputs.size() == 1)
-	{
-		Target.InputName  = PlotSetup.SelectedInputs[0];
-		std::vector<char *> InputIndexes;
-		bool Success = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.InputName, 1, InputIndexes);
-		if(!Success) return;
-		for(const char *Idx : InputIndexes)
-			Target.InputIndexes.push_back(std::string(Idx));
-	}
-	
-	int TabNum = TargetSetup.OptimizerTypeTab.Get(); 
+	int tab = target_setup.optimizer_type_tab.Get();
 	//NOTE: Defaults.
-	if(TabNum == 0) Target.ResidualStat = ResidualType_MAE;
-	else if(TabNum == 1) Target.ErrStruct = MCMCError_NormalHet1; //This is the easiest one to start with maybe. Or should we just do Normal?
-	else if(TabNum == 2) Target.Stat = StatType_Mean;
-
-	Target.Weight = 1.0;
+	if(tab == 0) target.stat_type = (int)Residual_Type::offset + 2; // +1 would give mean error, which can't be optimized.
+	//else if(tab == 1) target.stat_type = (int)LL_Type + 1;         //TODO: MCMC
+	else if(tab == 2) target.stat_type = (int)Stat_Type::offset + 1;
 	
-	//NOTE for you to be able to add a target, the model has to have been run once any way, so
-	//there is no problem using these time stamps for that.
-	char TimeStr[256];
-	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet);
-	ParentWindow->ModelDll.GetStartDate(ParentWindow->DataSet, TimeStr);
-	Time ResultStartTime;
-	StrToTime(ResultStartTime, TimeStr);
-
-	Time GofStartTime, GofEndTime;
-	int64 GofOffset, GofTimesteps;
-	ParentWindow->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
-	Target.Begin = Format(GofStartTime).ToStd();
-	Target.End   = Format(GofEndTime).ToStd();
+	Time start_setting = parent->calib_start.GetData();
+	Time end_setting   = parent->calib_end.GetData();
+	Date_Time result_start = parent->app->data.get_start_date_parameter();
+	Date_Time result_end   = parent->app->data.get_end_date_parameter();
+	target.start = IsNull(start_setting) ? result_start : convert_time(start_setting);
+	target.end   = IsNull(end_setting)   ? result_end   : convert_time(end_setting);
 	
-	AddOptimizationTarget(Target);
-	*/
+	add_optimization_target(target);
 }
+
 /*
 void OptimizationWindow::TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups)
 {
@@ -517,8 +489,7 @@ void OptimizationWindow::TargetsToPlotSetups(std::vector<optimization_target> &T
 }
 */
 
-void OptimizationWindow::display_clicked() {
-	
+void OptimizationWindow::display_clicked() {	
 	if(targets.empty()) {
 		set_error("There are no targets to display the plots of");
 		return;
@@ -552,7 +523,7 @@ void OptimizationWindow::remove_target_clicked() {
 	target_weight_ctrls.Remove(sel_row);
 	target_stat_ctrls.Remove(sel_row);
 	target_err_ctrls.Remove(sel_row);
-	target_begin_ctrls.Remove(sel_row);
+	target_start_ctrls.Remove(sel_row);
 	target_end_ctrls.Remove(sel_row);
 }
 
@@ -562,7 +533,7 @@ void OptimizationWindow::clear_targets_clicked() {
 	target_weight_ctrls.Clear();
 	target_stat_ctrls.Clear();
 	target_err_ctrls.Clear();
-	target_begin_ctrls.Clear();
+	target_start_ctrls.Clear();
 	target_end_ctrls.Clear();
 }
 	
@@ -1066,315 +1037,160 @@ void OptimizationWindow::run_clicked(int run_type)
 	//  2 = Extend MCMC
 	//  3 = Variance based sensitivity
 	
-	//TODO
-	
-	/*
 	set_error("");
 	
-	if(Parameters.empty())
-	{
-		SetError("At least one parameter must be added before running");
+	if(parameters.empty()) {
+		set_error("At least one parameter must be added before running");
 		ProcessEvents();
 		return;
 	}
 	
-	if(Targets.empty())
-	{
-		SetError("There must be at least one optimization target.");
+	if(targets.empty()) {
+		set_error("There must be at least one optimization target.");
 		return;
 	}
 	
-	int Cl = 1;
-	if(ParentWindow->ParametersWereChangedSinceLastSave)
-		Cl = PromptYesNo("The main parameter set has been edited since the last save. If run the optimizer now it will overwrite these changes. Do you still want to run the optimizer?");
-	if(!Cl)
+	int cl = 1;
+	if(parent->params.changed_since_last_save)
+		cl = PromptYesNo("The main parameter set has been edited since the last save. If run the optimizer now it will overwrite these changes. Do you still want to run the optimizer?");
+	if(!cl)
 		return;
 	
-	bool Success = ErrSymFixup();
-	if(!Success) return;
+	//bool Success = ErrSymFixup(); //TODO
+	//if(!Success) return;
 	
-	char TimeStr[256];
-	uint64 ResultTimesteps = ParentWindow->ModelDll.GetNextTimesteps(ParentWindow->DataSet);
-	ParentWindow->ModelDll.GetNextStartDate(ParentWindow->DataSet, TimeStr);
-	Time ResultStartTime;
-	StrToTime(ResultStartTime, TimeStr);
-	Time ResultEndTime = ResultStartTime;
-	AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, ParentWindow->TimestepSize);
+	auto app = parent->app;
 	
-	//NOTE: Since we haven't wired all of the background data to the edit fields, we have to
-	//gather some of it here.
-	bool PositiveGood;
-	int Row = 0;
-	for(optimization_target &Target : Targets)
-	{
-		target_stat_class StatClass = GetStatClass(Target);
-		
-		if(
-			(StatClass == StatClass_Stat && (RunType==0||RunType==1||RunType==2))
-		  ||(StatClass == StatClass_LogLikelihood && (RunType==3))
-		  ||(StatClass == StatClass_Residual && (RunType==1||RunType==2))
-		  )
-		{
-			SetError("The selected stat for one of the targets is not valid for this type of run.");
-			return;
-		}
-		
-		if(RunType == 0)
-		{
-			bool PositiveGoodThis;
-			if(StatClass == StatClass_Residual)
-			{
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) \
-					else if(Target.ResidualStat == ResidualType_##Handle) PositiveGoodThis = (Type==1);
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
+	Model_Data *data = app->data.copy(); //TODO: more granular spec on what parts to copy.
+	
+	std::vector<double> initial_pars, min_vals, max_vals;
+	
+	int active_idx = 0;
+	int row = 0;
+	for(Indexed_Parameter &par : parameters) {
+		if(par.expr == "") {
+			double min = (double)par_setup.parameter_view.Get(row, Id("__min"));
+			double max = (double)par_setup.parameter_view.Get(row, Id("__max"));
+			double init;
+			if(par.virt) {
+				init = (max - min)*0.5;    //TODO: we should have a system for allowing you to set the initial value.
+			} else {
+				if(!is_valid(par.id)) { // This should technically not be possible
+					set_error("Somehow we got an invalid parameter id for one of the parameters in the setup.");
+					return;
+				}
+				s64 offset = data->parameters.structure->get_offset(par.id, par.indexes);
+				Parameter_Value val = *data->parameters.get_value(offset);
+				init = val.val_real;   // We already checked that the parameter was of type real when we added it.
 			}
-			else if(StatClass == StatClass_LogLikelihood)
-				PositiveGoodThis = true;
-			else
-				assert(!"Unsupported stat type for optimization");
-			
-			//NOTE: We could allow people to set negative weights in order to mix different types
-			//of target, but I don't see a good use case for it currently.
-			
-			if(Row != 0 && (PositiveGoodThis != PositiveGood))
-			{
-				SetError("All optimization targets have to be either minimized or maximized, no mixing is allowed.");
+			String name = par_setup.parameter_view.Get(row, Id("__name"));
+			if(min >= max) {
+				set_error(Format("The parameter \"%s\" has a min value %f that is larger than or equal to the max value %f", name, min, max));
 				return;
 			}
-			PositiveGood = PositiveGoodThis;
+			if(init < min) {
+				set_error(Format("The parameter \"%s\" has an initial value %f that is smaller than the min value %f", name, init, min));
+				return;
+			}
+			if(init > max) {
+				set_error(Format("The parameter \"%s\" has an initial value %f that is larger than the max value %f", name, init, max));
+				return;
+			}
+			if((run_type==1 || run_type==2 || run_type==3) && par.symbol == "") {
+				set_error("You should provide a symbol for all the parameters that don't have an expression.");
+				return;
+			}
+			
+			min_vals.push_back(min);
+			max_vals.push_back(max);
+			initial_pars.push_back(init);
+			
+			++active_idx;
 		}
-		++Row;
-		
-		if(Target.Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
-		{
-			SetError("Negative weights are not allowed.");
-			return;
-		}
-		
-		if(StatClass != StatClass_Stat && Target.InputName == "")
-		{
-			SetError(Format("Targets that compute an error need an input observed series. No comparison series were provided for result \"%s\"", Target.ResultName.data()));
-			return;
-		}
-		
-		Time Begin, End;
-		StrToTime(Begin, Target.Begin.data());
-		StrToTime(End, Target.End.data());
-		if(    !Begin.IsValid() || IsNull(Begin) || Begin < ResultStartTime || Begin > ResultEndTime || Begin > End
-			|| !End.IsValid()   || IsNull(End)   || End   < ResultStartTime || End   > ResultEndTime)
-		{
-			SetError("One of the targets has a begin-end interval that is not valid or does not lie within the model run interval");
-			return;
-		}
+		++row;
 	}
 	
-	int64 RunTimeout = TargetSetup.EditTimeout.GetData();
+	Date_Time start = app->data.get_start_date_parameter();
+	Date_Time end   = app->data.get_end_date_parameter();
+	s64 ms_timeout = target_setup.edit_timeout.GetData();
 	
+	//TODO: make the ui update callback
+	/*
 	Label *ProgressLabel = nullptr;
 	if(RunSetup.OptionShowProgress.Get())
 		ProgressLabel = &RunSetup.ProgressLabel;
+	*/
 	
-	void *DataSetBase = nullptr;
-	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, DataSetBase, RunTimeout);
 	
-	// Initial evaluation on the parameters given in the main dataset.
-	column_vector InitialPars(OptimizationModel.FreeParCount);
-	column_vector MinBound(OptimizationModel.FreeParCount);
-	column_vector MaxBound(OptimizationModel.FreeParCount);
-	
-	int ActiveIdx = 0;
-	for(int Row = 0; Row < Parameters.size(); ++Row)
-	{
-		if(Parameters[Row].Expr == "")
-		{
-			MinBound(ActiveIdx) = (double)ParSetup.ParameterView.Get(Row, Id("__min"));
-			MaxBound(ActiveIdx) = (double)ParSetup.ParameterView.Get(Row, Id("__max"));
+	try {
+		Timer timer;     // TODO: callback
+		Dlib_Optimization_Model opt_model(data, parameters, targets, initial_pars.data(), nullptr, ms_timeout);
+		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
+		
+		s64 update_step = std::ceil(4000.0 / (double)ms);
+		if(update_step <= 0) update_step = 1;
+		
+		bool push_extend_enabled = mcmc_setup.push_extend_run.IsEnabled();
+		run_setup.push_run.Disable();
+		mcmc_setup.push_run.Disable();
+		mcmc_setup.push_extend_run.Disable();
+		sensitivity_setup.push_run.Disable();
+		
+		if(run_type == 0) {
 			
-			if(MinBound(ActiveIdx) >= MaxBound(ActiveIdx))
-			{
-				SetError(Format("The min value is larger than or equal to the max value for the parameter %s", Parameters[Row].Name.data()));
-				return;
-			}
+			int max_function_calls = run_setup.edit_max_evals.GetData();
+			double epsilon         = run_setup.edit_epsilon.GetData();
+			double expected_duration = (double)ms * 1e-3 * (double)max_function_calls;
 			
-			++ActiveIdx;
+			parent->log(Format("Running optimization. Expected duration around %g seconds.", expected_duration));
+			set_error("Running optimization. This may take a few minutes or more.");
+			parent->ProcessEvents();
+			
+			//TODO: We need to disable some interactions with the main dataset when this is running
+			//(such as running the model or editing parameters!)
+			
+			//TODO: Something goes wrong when we capture the OptimizationModel by reference. It somehow loses the cached
+			//input data inside the run... This should not happen, as the input data should be
+			//cached in the first initialization run above, and not changed after that!
+					// above comment is for MobiView 1, not checked for MobiView 2, which has a
+					// significantly different definition of that struct.
+			
+			//TODO: Threading here sometimes crashes on some machines, but not all!
+			
+			//Thread().Run([=, & InitialEvals](){
+			timer = Timer();
+			bool was_improvement = run_optimization(opt_model, min_vals.data(), max_vals.data(), epsilon, max_function_calls);
+			ms = timer.get_milliseconds();
+			//});
+			if(was_improvement) {
+				app->data.parameters.copy_from(&data->parameters);
+				app->data.results.copy_from(&data->results);
+				//parent->params.refresh(true);
+				parent->plot_rebuild();
+				parent->log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
+					(double)ms*1e-3, opt_model.best_score, opt_model.initial_score));
+			} else
+				parent->log("The optimizer was unable to find a better result using the given number of function evaluations");
+			
+		} else if (run_type == 1 || run_type == 2) {
+			//TODO
+		} else if (run_type == 3) {
+			//TODO
 		}
-	}
+		
+		run_setup.push_run.Enable();
+		mcmc_setup.push_run.Enable();
+		if(push_extend_enabled) mcmc_setup.push_extend_run.Enable();
+		sensitivity_setup.push_run.Enable();
+		run_setup.progress_label.SetText("");
+		set_error("");
+	} catch(int) {}
+	parent->log_warnings_and_errors(); //TODO: we should ideally print the errors in a log in this window instead!
 
-	int ExprCount = 0;
-	ActiveIdx = 0;
-	for(indexed_parameter Par : Parameters)
-	{
-		if(Par.Expr == "")
-		{
-			if(Par.Virtual)
-			{
-				//NOTE: The best guess we have for the initial value of a virtual parameter is
-				//in the middle of its range. We could add a field to allow people to fill it
-				//in though.
-				InitialPars(ActiveIdx) = 0.5 * (MinBound(ActiveIdx) + MaxBound(ActiveIdx));
-			}
-			else
-			{
-				std::vector<const char *> Indexes;
-				for(parameter_index &Index : Par.Indexes)
-					Indexes.push_back(Index.Name.data());
-				
-				InitialPars(ActiveIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
-			}
-			if(InitialPars(ActiveIdx) < MinBound(ActiveIdx))
-			{
-				SetError(Format("The parameter \"%s\" %s has an initial value that is smaller than the assigned min bound", Par.Name.data(), MakeParameterIndexString(Par)));
-				return;
-			}
-			if(InitialPars(ActiveIdx) > MaxBound(ActiveIdx))
-			{
-				SetError(Format("The parameter \"%s\" %s has an initial value that is larger than the assigned max bound", Par.Name.data(), MakeParameterIndexString(Par)));
-				return;
-			}
-			
-			if((RunType==1 || RunType==2 || RunType==3) && Par.Symbol == "")
-			{
-				SetError("You should provide a symbol for all the parameters that don't have an expression.");
-				return;
-			}
-			
-			++ActiveIdx;
-		}
-		else
-			++ExprCount;
-
-	}
-	if(ParentWindow->CheckDllUserError()) return;
+	delete data; // Delete the copy that we ran the optimization on.
 	
-	//NOTE: This sets the parameters twice, but that should not be a problem
-	int ErrorAtRow = SetParameters(ParentWindow->DataSet, &Parameters, InitialPars, ExprCount > 0, ParentWindow->ModelDll);
-	if(ErrorAtRow != -1)
-	{
-		SetError(Format("Unable to parse the expression \"%s\" at row %d", Parameters[ErrorAtRow].Expr.data(), ErrorAtRow));
-		return;
-	}
-	
-	auto Begin = std::chrono::high_resolution_clock::now();
-	
-	double InitialScore;
-	if(RunType == 0)
-		InitialScore = OptimizationModel(InitialPars);
-	else
-	{
-		void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-		InitialScore = OptimizationModel.EvaluateObjectives(DataSet, InitialPars);
-		ParentWindow->ModelDll.DeleteDataSet(DataSet);
-	}
-	
-	if(ParentWindow->CheckDllUserError()) return;
-	
-	auto End = std::chrono::high_resolution_clock::now();
-	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
-	
-	OptimizationModel.InitialScore = InitialScore;
-	OptimizationModel.BestScore    = InitialScore;
-	OptimizationModel.NumEvals     = 0;
-	OptimizationModel.IsMaximizing = PositiveGood;
-	//NOTE: Try to update about every 4 seconds (in practice it is faster since the first run is slower):
-	int UpdateStep = std::ceil(4000.0/Ms);
-	if(UpdateStep <= 0) UpdateStep = 1;
-	OptimizationModel.UpdateStep = UpdateStep;
-		
-	bool PushExtendEnabled = MCMCSetup.PushExtendRun.IsEnabled();
-	
-	RunSetup.PushRun.Disable();
-	MCMCSetup.PushRun.Disable();
-	MCMCSetup.PushExtendRun.Disable();
-	SensitivitySetup.PushRun.Disable();
-	
-	#define END_CLEANUP() \
-	RunSetup.PushRun.Enable(); \
-	MCMCSetup.PushRun.Enable(); \
-	if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable(); \
-	SensitivitySetup.PushRun.Enable(); \
-	RunSetup.ProgressLabel.SetText(""); \
-	SetError("");
-	
-	
-	if(RunType == 0)
-	{
-		dlib::function_evaluation InitialEval;
-		InitialEval.x = InitialPars;
-		InitialEval.y = PositiveGood ? InitialScore : -InitialScore;
-		
-		std::vector<dlib::function_evaluation> InitialEvals = {InitialEval};
-		
-		if(ParentWindow->CheckDllUserError())
-			return;
-		
-		int MaxFunctionCalls = RunSetup.EditMaxEvals.GetData();
-		double Epsilon       = RunSetup.EditEpsilon.GetData();
-
-		double ExpectedDuration = Ms*1e-3*(double)MaxFunctionCalls;
-			
-		ParentWindow->Log(Format("Running optimization. Expected duration around %g seconds.", ExpectedDuration));
-	
-		SetError("Running optimization. This may take a few minutes or more.");
-		
-		ParentWindow->ProcessEvents();
-		
-		//TODO: We need to disable some interactions with the main dataset when this is running
-		//(such as running the model or editing parameters!)
-		
-		//TODO: Something goes wrong when we capture the OptimizationModel by reference. It somehow loses the cached
-		//input data inside the run... This should not happen, as the input data should be
-		//cached in the first initialization run above, and not changed after that!
-		
-		//TODO: Threading here sometimes crashes on some machines, but not all!
-		
-		//TODO: Sometimes the new best score (Result.y) is reported as higher than what you get
-		//when setting the parameters to be Result.x and re-running!!! What is going on there?
-		//Also, sometimes the reported initial value is wrong.!!
-		
-		Thread().Run([=, & InitialEvals](){
-			
-			auto BeginTime = std::chrono::high_resolution_clock::now();
-			
-			std::vector<bool> Dummy;
-			dlib::function_evaluation Result 
-				= dlib::find_max_global(OptimizationModel, 
-										MinBound, 
-										MaxBound,
-										dlib::max_function_calls(MaxFunctionCalls), 
-										dlib::FOREVER, 
-										Epsilon, 
-										InitialEvals
-				);
-				
-			auto EndTime = std::chrono::high_resolution_clock::now();
-			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
-			
-			double NewScore = Result.y;
-			if(!PositiveGood) NewScore = -NewScore;
-			
-			GuiLock Lock;
-			if((PositiveGood && (NewScore <= InitialScore)) || (!PositiveGood && (NewScore >= InitialScore)) || !std::isfinite(NewScore))
-			{
-				//ParentWindow->Log(Format("Initial %g new %g", InitialScore, NewScore));
-				ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
-			}
-			else
-			{
-				SetParameters(ParentWindow->DataSet, &Parameters, Result.x, ExprCount > 0, ParentWindow->ModelDll);
-				ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
-					Duration, NewScore, InitialScore));
-				ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
-			}
-			
-			END_CLEANUP();
-		});
-
-	}
+	Close(); //NOTE: otherwise the window gets hidden behind the main window some times. TODO: find a better way to fix it.
+/*
 	else if(RunType == 1 || RunType == 2)
 	{
 		int NWalkers    = MCMCSetup.EditWalkers.GetData();

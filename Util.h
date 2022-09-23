@@ -43,7 +43,7 @@ make_index_string(Storage_Structure<Val_T, Handle_T> *structure, std::vector<Ind
 	Upp::String result = "[";
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
 	int idx = 0;
-	for(Entity_Id &index_set : index_sets) {
+	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
 		ASSERT(indexes[index_set.id].index_set == index_set);
 		result << "\"" << str(structure->parent->index_names[index_set.id][indexes[index_set.id].index]) << "\"";

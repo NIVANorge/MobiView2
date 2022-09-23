@@ -84,9 +84,16 @@ file
 	C:\Data\Mobius2\src\units.cpp,
 	C:\Data\Mobius2\src\support\parameter_editing.cpp,
 	C:\Data\Mobius2\src\support\parameter_editing.h,
+	C:\Data\Mobius2\src\support\optimization.h,
+	C:\Data\Mobius2\src\support\optimization.cpp,
+	C:\Data\Mobius2\src\support\dlib_optimization.h,
+	C:\Data\Mobius2\src\support\dlib_optimization.cpp,
 	C:\Data\Mobius2\src\support\statistics.cpp,
 	C:\Data\Mobius2\src\support\statistics.h,
-	C:\Data\Mobius2\src\units.h;
+	C:\Data\Mobius2\src\units.h,
+	C:\Data\Mobius2\third_party\dlib\threads\thread_pool_extension.cpp,
+	C:\Data\Mobius2\third_party\dlib\test_for_odr_violations.cpp,
+	C:\Data\Mobius2\third_party\dlib\global_optimization\global_function_search.cpp;
 
 mainconfig
 	"" = "GUI";

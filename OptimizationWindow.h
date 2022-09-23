@@ -71,7 +71,7 @@ public:
 	void err_sym_edited(int row);
 	void weight_edited(int row);
 	void stat_edited(int row);
-	void begin_edited(int row);
+	void start_edited(int row);
 	void end_edited(int row);
 	
 	void sampler_method_selected();
@@ -111,7 +111,7 @@ private:
 	Upp::Array<Upp::DropList>          target_stat_ctrls;
 	Upp::Array<Upp::EditDoubleNotNull> target_weight_ctrls;
 	Upp::Array<Upp::EditField>         target_err_ctrls;
-	Upp::Array<Upp::EditTimeNotNull>   target_begin_ctrls;
+	Upp::Array<Upp::EditTimeNotNull>   target_start_ctrls;
 	Upp::Array<Upp::EditTimeNotNull>   target_end_ctrls;
 	
 	Upp::Array<Upp::EditDoubleNotNull> mcmc_sampler_param_ctrls;
