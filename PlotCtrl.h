@@ -179,8 +179,10 @@ private :
 				agg_y.resize(steps);
 				for(s64 ts = 0; ts < steps; ++ts) agg_y[ts] = source->y(ts);
 			}
-		} else
+		} else {
 			aggregate_data(ref_x_start, start, source, setup->aggregation_period, setup->aggregation_type, ts_size, agg_x, agg_y);
+			copied_y = true;
+		}
 
 		max = -std::numeric_limits<double>::infinity();
 		if(y_axis_mode == Y_Axis_Mode::normalized) {

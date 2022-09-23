@@ -130,19 +130,6 @@ void PlotCtrl::plot_change() {
 	} else
 		aggregation.Disable();
 	
-	// If the calibration interval is not set, set it based on the last model run.
-	s64 time_steps = parent->app->data.results.time_steps;
-	if(time_steps > 0) {
-		Time start_time = parent->calib_start.GetData();
-		Time end_time   = parent->calib_end.GetData();
-		if (IsNull(start_time))
-			parent->calib_start.SetData(convert_time(parent->app->data.results.start_date));
-		if (IsNull(end_time)) {
-			Date_Time end_date = advance(parent->app->data.results.start_date, parent->app->time_step_size, time_steps-1);
-			parent->calib_end.SetData(convert_time(end_date));
-		}
-	}
-	
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
 		index_list[idx]->Enable(main_plot.setup.index_set_is_active[idx]);
 	

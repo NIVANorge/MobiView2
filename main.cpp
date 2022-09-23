@@ -449,6 +449,19 @@ void MobiView2::save_parameters_as() {
 }
 
 void MobiView2::plot_rebuild() {
+	// If the calibration interval is not set, set it based on the last model run.
+	s64 time_steps = app->data.results.time_steps;
+	if(time_steps > 0) {
+		Time start_time = calib_start.GetData();
+		Time end_time   = calib_end.GetData();
+		if (IsNull(start_time))
+			calib_start.SetData(convert_time(app->data.results.start_date));
+		if (IsNull(end_time)) {
+			Date_Time end_date = advance(app->data.results.start_date, app->time_step_size, time_steps-1);
+			calib_end.SetData(convert_time(end_date));
+		}
+	}
+	
 	plotter.re_plot(true);
 	if(additional_plots.IsOpen())
 		additional_plots.build_all(true);
