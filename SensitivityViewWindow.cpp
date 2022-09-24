@@ -88,9 +88,8 @@ SensitivityViewWindow::update() {
 	}
 	
 	String unit = ""; //TODO
-	String label_text = Format("%s [%s] ", str(par_data->name), unit);
-	// TODO: indexes
-	//LabelText << MakeParameterIndexString(CurrentParameter);
+	String index_str = make_parameter_index_string(&parent->app->parameter_structure, &par);
+	String label_text = Format("%s [%s] %s", str(par_data->name), unit, index_str);
 	
 	param_label.SetText(label_text);
 	if(prev_id != par.id) {
@@ -203,10 +202,11 @@ SensitivityViewWindow::run() {
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	s64 offset_ser = -1;
 	
-	//TODO: This should say indexes too!
-	plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to %s",
+	String index_str = make_index_string(&parent->app->result_structure, indexes, var_id);
+	plot.SetTitle(Format("Sensitivity of \"%s\" [%s] %s to %s",
 		str(var->name),
 		result_unit,
+		index_str,
 		param_label.GetText()));
 	
 	std::vector<double> stat_data(n_runs), par_values(n_runs);

@@ -101,7 +101,7 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
 	// TODO: indexes and unit
-	String legend = str(var->name);
+	String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id);
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	String unit;
@@ -815,7 +815,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
-			String legend = str(var->name);
+			String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id);
 			String unit; // TODO
 			
 			Color &color = colors.next();
@@ -842,8 +842,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			s64 offset_obs = data_obs->structure->get_offset(var_id_obs, indexes);
 			
 			// TODO: indexes in legend
-			String legend_obs = str(var_obs->name);
-			String legend_sim = str(var_sim->name);
+			String legend_obs = str(var_obs->name) + " " + make_index_string(data_obs->structure, indexes, var_id_obs);
+			String legend_sim = str(var_sim->name) + " " + make_index_string(data_sim->structure, indexes, var_id_sim);
 			String legend = String("Residuals of ") + legend_obs + " vs. " + legend_sim;
 			String unit; //TODO!
 			
