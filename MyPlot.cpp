@@ -68,21 +68,21 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 
 // TODO: This could maybe be a utility function in the Model_Application itself!
 void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var) {
-	if(var_id.type == 0) {
+	if(var_id.type == Var_Id::Type::state_var) {
 		*data = &md->results;
 		*var = md->app->model->state_vars[var_id];
-	} else if(var_id.type == 1) {
+	} else if(var_id.type == Var_Id::Type::series) {
 		*data = &md->series;
 		*var  = md->app->model->series[var_id];
-	} else if(var_id.type == 2) {
+	} else if(var_id.type == Var_Id::Type::additional_series) {
 		*data = &md->additional_series;
 		*var = md->app->additional_series[var_id];
 	}
 }
 
-void format_plot(MyPlot *draw, int type, Color &color, String &legend, String &unit) {
+void format_plot(MyPlot *draw, Var_Id::Type type, Color &color, String &legend, String &unit) {
 	draw->Legend(legend).Units(unit);
-	if(type == 0 || !draw->setup.scatter_inputs)
+	if(type == Var_Id::Type::state_var || !draw->setup.scatter_inputs)
 		draw->NoMark().Stroke(1.5, color).Dash("");
 	else {
 		draw->MarkBorderColor(color).Stroke(0.0, color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
@@ -143,7 +143,7 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 	if(level == draw->setup.selected_indexes.size()) {
 
 		Color &graph_color = draw->colors.next();
-		bool stacked = var_id.type == 0 && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
+		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
 		add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
 
 	} else {
@@ -751,7 +751,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Var_Id id_sim = setup.selected_results[0];
 			Var_Id id_obs = setup.selected_series[0];
 			Data_Storage<double, Var_Id> *data_sim = &app->data.results;
-			Data_Storage<double, Var_Id> *data_obs = id_obs.type == 1 ? &app->data.series : &app->data.additional_series;
+			Data_Storage<double, Var_Id> *data_obs = id_obs.type == Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);
 			offset_sim = data_sim->structure->get_offset(id_sim, indexes);
@@ -777,7 +777,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			}
 			
 			for(auto var_id : setup.selected_series) {
-				const std::vector<Entity_Id> &index_sets = var_id.type == 1 ? app->series_structure.get_index_sets(var_id) : app->additional_series_structure.get_index_sets(var_id);
+				const std::vector<Entity_Id> &index_sets = var_id.type == Var_Id::Type::series ? app->series_structure.get_index_sets(var_id) : app->additional_series_structure.get_index_sets(var_id);
 				add_plot_recursive(this, app, var_id, indexes, 0, input_start, input_start, input_ts, x_data.data(), index_sets, input_gof_offset, gof_ts, mode);
 			}
 		} else if (mode == Plot_Mode::histogram) {
@@ -860,7 +860,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					input_start, result_start, app->time_step_size, &setup);
 					
 				AddSeries(series_data.Top());
-				format_plot(this, 1, colors.next(), legend, unit);
+				format_plot(this, Var_Id::Type::series, colors.next(), legend, unit);
 				
 				double first_x = (double)(gof_start.seconds_since_epoch - input_start.seconds_since_epoch);
 				double last_x  = (double)(gof_end  .seconds_since_epoch - input_start.seconds_since_epoch);

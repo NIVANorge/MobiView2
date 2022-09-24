@@ -253,7 +253,7 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	}
 	
 	for(Var_Id var_id : ps.selected_series) {
-		const std::vector<Entity_Id> &var_index_sets = var_id.type == 1 ? parent->app->series_structure.get_index_sets(var_id) : parent->app->additional_series_structure.get_index_sets(var_id);
+		const std::vector<Entity_Id> &var_index_sets = var_id.type == Var_Id::Type::series ? parent->app->series_structure.get_index_sets(var_id) : parent->app->additional_series_structure.get_index_sets(var_id);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
 				ps.index_set_is_active[idx] = true;

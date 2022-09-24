@@ -288,7 +288,7 @@ void MobiView2::reload() {
 	for(Var_Id var_id : setup.selected_results)
 		sel_results.push_back(std::string(app->model->state_vars[var_id]->name));
 	for(Var_Id var_id : setup.selected_series) {
-		if(var_id.type == 1)
+		if(var_id.type == Var_Id::Type::series)
 			sel_inputs.push_back(std::string(app->model->series[var_id]->name));
 		else
 			sel_additional.push_back(std::string(app->additional_series[var_id]->name));
