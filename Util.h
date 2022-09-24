@@ -36,9 +36,9 @@ parse_percent_list(String &list_str, std::vector<double> &result) {
 	return success;
 }
 
-template<typename Val_T, typename Handle_T>
+template<typename Handle_T>
 inline Upp::String
-make_index_string(Storage_Structure<Val_T, Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle) {
+make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle) {
 
 	Upp::String result = "[";
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
@@ -53,7 +53,7 @@ make_index_string(Storage_Structure<Val_T, Handle_T> *structure, std::vector<Ind
 }
 
 inline Upp::String
-make_parameter_index_string(Storage_Structure<Parameter_Value, Entity_Id> *structure, Indexed_Parameter *par) {
+make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Parameter *par) {
 	Upp::String result = "[";
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(par->id);
 	int idx = 0;
