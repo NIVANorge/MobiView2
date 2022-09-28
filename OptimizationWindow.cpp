@@ -438,58 +438,31 @@ void OptimizationWindow::add_target_clicked() {
 	add_optimization_target(target);
 }
 
-/*
-void OptimizationWindow::TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups)
-{
-	PlotSetups.clear();
-	PlotSetups.reserve(Targets.size());
+Plot_Setup
+target_to_plot_setup(Optimization_Target &target, PlotCtrl *plotter) {
+	Plot_Setup setup = {};
+	setup.selected_indexes.resize(MAX_INDEX_SETS);
+	setup.index_set_is_active.resize(MAX_INDEX_SETS);
 	
-	for(optimization_target &Target : Targets)
-	{
-		plot_setup PlotSetup = {};
-		PlotSetup.SelectedIndexes.resize(MAX_INDEX_SETS);
-		PlotSetup.IndexSetIsActive.resize(MAX_INDEX_SETS);
-		
-		PlotSetup.MajorMode = MajorMode_Regular;//MajorMode_Residuals;
-		PlotSetup.AggregationPeriod = Aggregation_None;
-		PlotSetup.ScatterInputs = true;
-		
-		std::vector<char *> IndexSets;
-		
-		if(Target.InputName != "")
-		{
-			PlotSetup.SelectedInputs.push_back(Target.InputName);
-		
-			bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.InputName, 1, IndexSets);
-			if(!Success) return;
-			
-			for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
-			{
-				size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
-				PlotSetup.IndexSetIsActive[Id] = true;
-				PlotSetup.SelectedIndexes[Id].push_back(Target.InputIndexes[IdxIdx]);
-			}
-		}
+	setup.mode = Plot_Mode::regular;
+	setup.aggregation_period = Aggregation_Period::none;
+	setup.scatter_inputs = true;
+	
+	setup.selected_results.push_back(target.sim_id);
+	if(is_valid(target.obs_id))
+		setup.selected_series.push_back(target.obs_id);
 
-		PlotSetup.SelectedResults.push_back(Target.ResultName);
-
-		IndexSets.clear();
-		bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.ResultName, 0, IndexSets);
-		if(!Success) return;
-		
-		for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
-		{
-			size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
-			PlotSetup.IndexSetIsActive[Id] = true;
-			PlotSetup.SelectedIndexes[Id].push_back(Target.ResultIndexes[IdxIdx]);
-		}
-		
-		PlotSetups.push_back(PlotSetup);
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		if(is_valid(target.indexes[idx]))
+			setup.selected_indexes[idx].push_back(target.indexes[idx]);
 	}
+	
+	// TODO: not that clean to have this as a function on the Plot_Ctrl...
+	plotter->register_if_index_set_is_active(setup);
+	return setup;
 }
-*/
 
-void OptimizationWindow::display_clicked() {	
+void OptimizationWindow::display_clicked() {
 	if(targets.empty()) {
 		set_error("There are no targets to display the plots of");
 		return;
@@ -498,24 +471,18 @@ void OptimizationWindow::display_clicked() {
 	set_error("");
 	
 	std::vector<Plot_Setup> plot_setups;
-	//TargetsToPlotSetups(Targets, PlotSetups);   //TODO!
+	for(auto &target : targets) {
+		plot_setups.push_back(target_to_plot_setup(target, &parent->plotter));
+	}
 
+	//TODO: Same issue as for sensitivity view. Would like to zoom it to the area of the result
+	//series only, not the entire input data span.
 	parent->additional_plots.set_all(plot_setups);
 	parent->open_additional_plots();
 }
 
 void OptimizationWindow::remove_target_clicked() {
 	int sel_row = target_setup.target_view.GetCursor();
-	/*
-	for(int Row = 0; Row < TargetSetup.TargetView.GetCount(); ++Row)
-	{
-		if(TargetSetup.TargetView.IsSel(Row))
-		{
-			SelectedRow = Row;
-			break;
-		}
-	}
-	*/
 	if(sel_row < 0) return;
 	
 	target_setup.target_view.Remove(sel_row);
@@ -1349,37 +1316,38 @@ void OptimizationWindow::tab_change() {
 //// Serialization:
 	
 void OptimizationWindow::read_from_json_string(const String &json) {
-	//TODO
+	
+	//TODO: To make this work we need a way for the base Mobius2 framework to serialize
+	//Entity_Id and Var_Id . We can't simply use the name of the entity since it is not
+	//guaranteed to be unique.
+	
 	/*
-	ClearAll();
+	clean();
 	
-	Value SetupJson  = ParseJSON(JsonData);
+	Value setup_json  = ParseJSON(json);
 	
-	Value MaxEvalsJson = SetupJson["MaxEvals"];
-	if(!IsNull(MaxEvalsJson))
-		RunSetup.EditMaxEvals.SetData((int)MaxEvalsJson);
+	Value max_eval = SetupJson["MaxEvals"];
+	if(!IsNull(max_eval))
+		run_setup.edit_max_evals.SetData((int)max_eval);
 	
-	Value EpsilonJson = SetupJson["Epsilon"];
-	if(!IsNull(EpsilonJson))
-		RunSetup.EditEpsilon.SetData((double)EpsilonJson);
+	Value eps = SetupJson["Epsilon"];
+	if(!IsNull(eps))
+		run_setup.edit_epsilon.SetData((double)eps);
 
-	
-	ValueArray ParameterArr = SetupJson["Parameters"];
-	if(!IsNull(ParameterArr))
-	{
-		int Count = ParameterArr.GetCount();
-		int ValidRow = 0;
-		for(int Row = 0; Row < Count; ++Row)
-		{
-			Value ParamJson = ParameterArr[Row];
+	ValueArray par_arr = SetupJson["Parameters"];
+	if(!IsNull(par_arr)) {
+		int count = par_arr.GetCount();
+		int valid_row = 0;
+		for(int row = 0; row < count; ++row) {
+			Value par_json = par_arr[row];
 			
-			indexed_parameter Parameter = {};
-			Parameter.Valid = true;
-			Parameter.Type  = ParameterType_Double;
-			
-			Value NameVal = ParamJson["Name"];
-			if(!IsNull(NameVal)) Parameter.Name = NameVal.ToString().ToStd();
-			else continue; // Should never happen though
+			Indexed_Parameter par = {};
+			par.id = invalid_entity_id;
+
+			Value name = par_json["Name"];
+			if(!IsNull(name)) {
+				par.id = parent->app->model.find
+			}
 			
 			Value VirtualVal = ParamJson["Virtual"];
 			if(!IsNull(VirtualVal)) Parameter.Virtual = (bool)VirtualVal;
@@ -1562,32 +1530,28 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 }
 
 void OptimizationWindow::read_from_json() {
-	//TODO
-	/*
-	FileSel Sel;
+	FileSel sel;
 	
-	Sel.Type("Calibration setups", "*.json");
+	sel.Type("Calibration setups", "*.json");
 	
-	if(!ParentWindow->ParameterFile.empty())
-		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	if(!parent->data_file.empty())
+		sel.ActiveDir(GetFileFolder(parent->data_file.data()));
 	else
-		Sel.ActiveDir(GetCurrentDirectory());
+		sel.ActiveDir(GetCurrentDirectory());
 	
-	Sel.ExecuteOpen();
-	String Filename = Sel.Get();
+	sel.ExecuteOpen();
+	String file_name = sel.Get();
 	
-	if(!FileExists(Filename)) return;
+	if(!FileExists(file_name)) return;
 	
-	if(GetFileName(Filename) == "settings.json")
-	{
+	if(GetFileName(file_name) == "settings.json") {
 		PromptOK("settings.json is used by MobiView to store various settings and should not be used to store calibration setups.");
 		return;
 	}
 	
-	String JsonData = LoadFile(Filename);
+	String json = LoadFile(file_name);
 	
-	LoadFromJsonString(JsonData);
-	*/
+	read_from_json_string(json);
 }
 
 String OptimizationWindow::write_to_json_string() {

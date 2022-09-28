@@ -626,7 +626,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	
 	int parent_id = top_node;
 	if(is_located(loc)) {
-		if(loc.n_dissolved == 0) {
+		if(loc.n_dissolved == 0 && var->type != Decl_Type::flux) {
 			auto find = nodes_compartment.find(loc.compartment);
 			if(find == nodes_compartment.end()) {
 				auto comp = model->find_entity<Reg_Type::compartment>(loc.compartment);
@@ -694,6 +694,7 @@ void MobiView2::build_interface() {
 	}
 	
 	par_group_selecter.Set(0, str(model->model_name));
+	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
 	
 	int module_idx = 0;
 	for(auto mod : model->modules) {

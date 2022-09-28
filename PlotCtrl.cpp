@@ -204,6 +204,23 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 	
 	plot_major_mode.Enable();
 }
+
+void PlotCtrl::register_if_index_set_is_active(Plot_Setup &ps) {
+	for(Var_Id var_id : ps.selected_series) {
+		const std::vector<Entity_Id> &var_index_sets = var_id.type == Var_Id::Type::series ? parent->app->series_structure.get_index_sets(var_id) : parent->app->additional_series_structure.get_index_sets(var_id);
+		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
+				ps.index_set_is_active[idx] = true;
+		}
+	}
+	for(Var_Id var_id : ps.selected_results) {
+		const std::vector<Entity_Id> &var_index_sets = parent->app->result_structure.get_index_sets(var_id);
+		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
+				ps.index_set_is_active[idx] = true;
+		}
+	}
+}
 	
 void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	ps.selected_results.clear();
@@ -252,20 +269,7 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 		}
 	}
 	
-	for(Var_Id var_id : ps.selected_series) {
-		const std::vector<Entity_Id> &var_index_sets = var_id.type == Var_Id::Type::series ? parent->app->series_structure.get_index_sets(var_id) : parent->app->additional_series_structure.get_index_sets(var_id);
-		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
-				ps.index_set_is_active[idx] = true;
-		}
-	}
-	for(Var_Id var_id : ps.selected_results) {
-		const std::vector<Entity_Id> &var_index_sets = parent->app->result_structure.get_index_sets(var_id);
-		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_sets[idx]) != var_index_sets.end())
-				ps.index_set_is_active[idx] = true;
-		}
-	}
+	register_if_index_set_is_active(ps);
 }
 
 void recursive_select(TreeCtrl &tree, int node, std::vector<Var_Id> &select) {

@@ -309,8 +309,11 @@ void ParameterCtrl::refresh(bool values_only) {
 			// each parameter
 			if(show_additional) {
 				row_data.Set("__name", str(par->name));
-				// TODO: generate strings for units
-				//if(Unit) RowData.Set("__unit", Unit);
+				if(is_valid(par->unit)) {
+					auto unit = parent->app->model->find_entity<Reg_Type::unit>(par->unit);
+					std::string unit_str = unit->data.to_utf8();
+					row_data.Set("__unit", unit_str.data());
+				}
 				if(par->description) row_data.Set("__description", str(par->description));
 			}
 			

@@ -100,11 +100,10 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	get_storage_and_var(md, var_id, &data, &var);
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
-	// TODO: indexes and unit
-	String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id);
+	String unit = var->unit.to_utf8();
+	String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
-	String unit;
 	
 	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup, always_copy_y);
 	if(stacked) {

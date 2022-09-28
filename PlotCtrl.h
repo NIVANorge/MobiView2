@@ -420,6 +420,8 @@ public:
 	void clean();
 	void build_index_set_selecters(Model_Application *app);
 	
+	void register_if_index_set_is_active(Plot_Setup &ps);
+	
 	std::vector<Entity_Id> index_sets;
 	Upp::ArrayCtrl *index_list[MAX_INDEX_SETS];
 	

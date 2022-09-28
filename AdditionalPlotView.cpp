@@ -120,7 +120,11 @@ void AdditionalPlotView::clean() {
 }
 
 void AdditionalPlotView::set_all(std::vector<Plot_Setup> &setups) {
-	//TODO!
+	int count = std::min(MAX_ADDITIONAL_PLOTS, (int)setups.size());
+	for(int row = 0; row < count; ++row)
+		plots[row].plot.setup = setups[row];
+	edit_n_rows.SetData(count);
+	n_rows_changed(true);
 }
 
 void AdditionalPlotView::read_from_json() {
