@@ -116,7 +116,7 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	if(draw->plot_info) {
 		Time_Series_Stats stats;
 		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
-		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend, unit);
+		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend);
 	}
 }
 
@@ -814,12 +814,12 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
-			String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id);
-			String unit; // TODO
+			String unit = var->unit.to_utf8();
+			String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
 			
 			Color &color = colors.next();
 			n_bins_histogram = add_histogram(this, &series_data.Top(), stats.min, stats.max, stats.data_points, legend, unit, color);
-			display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, color, legend, unit);
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, color, legend);
 			
 		} else if(mode == Plot_Mode::residuals || mode == Plot_Mode::residuals_histogram || mode == Plot_Mode::qq) {
 			if(!gof_available) {
@@ -840,19 +840,20 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			s64 offset_sim = data_sim->structure->get_offset(var_id_sim, indexes);
 			s64 offset_obs = data_obs->structure->get_offset(var_id_obs, indexes);
 			
-			// TODO: indexes in legend
-			String legend_obs = str(var_obs->name) + " " + make_index_string(data_obs->structure, indexes, var_id_obs);
-			String legend_sim = str(var_sim->name) + " " + make_index_string(data_sim->structure, indexes, var_id_sim);
+			// TODO: make some kind of check that the units match?
+			String unit = var_sim->unit.to_utf8();
+			String obs_unit = var_obs->unit.to_utf8();
+			String legend_obs = str(var_obs->name) + " " + make_index_string(data_obs->structure, indexes, var_id_obs) + "[" + obs_unit + "]";
+			String legend_sim = str(var_sim->name) + " " + make_index_string(data_sim->structure, indexes, var_id_sim) + "[" + unit + "]";
 			String legend = String("Residuals of ") + legend_obs + " vs. " + legend_sim;
-			String unit; //TODO!
 			
 			Time_Series_Stats obs_stats;
 			compute_time_series_stats(&obs_stats, &parent->stat_settings.settings, data_obs, offset_obs, input_gof_offset, gof_ts);
-			display_statistics(plot_info, &parent->stat_settings.display_settings, &obs_stats, Black(), legend_obs, unit);
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &obs_stats, Black(), legend_obs);
 			
 			Time_Series_Stats sim_stats;
 			compute_time_series_stats(&sim_stats, &parent->stat_settings.settings, data_sim, offset_sim, result_gof_offset, gof_ts);
-			display_statistics(plot_info, &parent->stat_settings.display_settings, &sim_stats, Black(), legend_sim, unit);
+			display_statistics(plot_info, &parent->stat_settings.display_settings, &sim_stats, Black(), legend_sim);
 			
 			if(mode == Plot_Mode::residuals) {
 				series_data.Create<Agg_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, result_ts, x_data.data(),
@@ -946,8 +947,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Data_Storage<double, Var_Id> *data;
 			State_Variable *var;
 			get_storage_and_var(&app->data, var_id, &data, &var);
-			profile_legend = str(var->name);
-			profile_unit   = ""; //TODO
+			profile_unit   = var->unit.to_utf8();
+			profile_legend = str(var->name) + "[" + profile_unit + "]";
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
 				labels << str(app->index_names[profile_set_idx][index.index]);
 			

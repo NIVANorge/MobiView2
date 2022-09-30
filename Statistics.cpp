@@ -37,11 +37,11 @@ display_stat(const char *name, int type, double val_old, double val_new, bool di
 }
 
 void
-display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, Time_Series_Stats *stats, Color &color, String &label, String &unit) {
+display_statistics(MyRichView *plot_info, Display_Stat_Settings *settings, Time_Series_Stats *stats, Color &color, String &label) {
 	
 	int precision = settings->decimal_precision;
 	
-	String display = label + " [" + unit + "]:&";
+	String display = label + " :&";
 	display.Replace("[", "`[");
 	display.Replace("]", "`]");
 	display.Replace("_", "`_");

@@ -40,8 +40,10 @@ template<typename Handle_T>
 inline Upp::String
 make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle) {
 
-	Upp::String result = "[";
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
+	if(index_sets.empty()) return "";
+	
+	Upp::String result = "[";
 	int idx = 0;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
@@ -54,8 +56,11 @@ make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> i
 
 inline Upp::String
 make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Parameter *par) {
-	Upp::String result = "[";
+	
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(par->id);
+	if(index_sets.empty()) return "";
+	
+	Upp::String result = "[";
 	int idx = 0;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";

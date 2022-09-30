@@ -87,9 +87,12 @@ SensitivityViewWindow::update() {
 		return;
 	}
 	
-	String unit = ""; //TODO
+	String unit = "";
+	if(is_valid(par_data->unit))
+		unit = parent->app->model->find_entity<Reg_Type::unit>(par_data->unit)->data.to_utf8();
+
 	String index_str = make_parameter_index_string(&parent->app->parameter_structure, &par);
-	String label_text = Format("%s [%s] %s", str(par_data->name), unit, index_str);
+	String label_text = Format("%s %s [%s]", str(par_data->name), unit, index_str);
 	
 	param_label.SetText(label_text);
 	if(prev_id != par.id) {
@@ -198,7 +201,7 @@ SensitivityViewWindow::run() {
 	data_ser = nullptr;
 	var_ser = nullptr;
 	get_storage_and_var(model_data, var_id, &data, &var);
-	String result_unit; //TODO
+	String result_unit = var->unit.to_utf8();
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	s64 offset_ser = -1;
 	

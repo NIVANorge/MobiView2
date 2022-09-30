@@ -303,6 +303,22 @@ void MobiView2::reload() {
 		}
 	}
 	
+	// Selected parameter group.
+	//TODO: not sure if scoping it to the module will be necessary eventually.
+	String selected_group;
+	String group_module;
+	Vector<int> selected_groups = par_group_selecter.GetSel();
+	if(!selected_groups.empty()) {
+		Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
+		if(ctrl) {
+			Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
+			auto par_group = model->find_entity<Reg_Type::par_group>(par_group_id);
+			selected_group = str(par_group->name);
+			auto mod = model->modules[par_group_id.module_id];
+			group_module = str(mod->module_name);
+		}
+	}
+	
 	bool resized = plotter.main_plot.was_auto_resized;
 	
 	do_the_load();
@@ -335,6 +351,29 @@ void MobiView2::reload() {
 	
 	plotter.main_plot.was_auto_resized = resized; // A bit hacky, but should cause it to not re-size x axis if it is already set.
 	plotter.set_plot_setup(setup);
+	
+	// TODO: doesn't work for top level parameter groups. Factor out stuff from search window
+	// instead.
+	bool breakout = false;
+	if(selected_group != "") {
+		for(int node_id = 0; node_id < par_group_selecter.GetChildCount(0); ++node_id) {
+			for(int node_id2 = 0; node_id2 < par_group_selecter.GetChildCount(node_id); ++node_id2) {
+				Ctrl *ctrl = ~par_group_selecter.GetNode(node_id2).ctrl;
+				if(ctrl) {
+					Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
+					auto par_group = model->find_entity<Reg_Type::par_group>(par_group_id);
+					auto mod = model->modules[par_group_id.module_id];
+					if(selected_group == str(par_group->name) && group_module == str(mod->module_name)) {
+						par_group_selecter.SetFocus();
+						par_group_selecter.SetCursor(node_id2);
+						breakout = true;
+						break;
+					}
+				}
+			}
+			if(breakout) break;
+		}
+	}
 	
 	run_model();
 }
@@ -694,7 +733,7 @@ void MobiView2::build_interface() {
 	}
 	
 	par_group_selecter.Set(0, str(model->model_name));
-	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false));
+	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 	
 	int module_idx = 0;
 	for(auto mod : model->modules) {
