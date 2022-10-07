@@ -241,7 +241,7 @@ public :
 			max = std::max(max, val->y(ts));
 	}
 	void set_ts(s64 _ts) { ts = _ts; }
-	void clear() { data.clear(); ts = 0; }
+	void clear() { data.clear(); ts = 0; max = -std::numeric_limits<double>::infinity(); }
 	double get_max() { return max; }
 	
 	virtual double x(s64 id) { return (double)id + 0.5; }

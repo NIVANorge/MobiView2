@@ -530,7 +530,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			if(mode == Plot_Mode::profile2D) {
 				plot->ZoomToFitZ();
 				plot->SetMajorUnits(Null, 1.0);
-				s64 count = plot->profile2D.lenxAxis;
+				s64 count = plot->labels.size();
 				plot->cbModifFormatY <<
 				[count, plot](String &s, int i, double d) {
 					int idx = (int)d;
@@ -1064,7 +1064,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 }
 
 void MyPlot::replot_profile() {
-	//RemoveAllSeries();
 	profile.set_ts(setup.profile_time_step);
 	Refresh();
 }

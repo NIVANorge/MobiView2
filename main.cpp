@@ -684,7 +684,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 			
 			auto find = nodes_quantity.find(parent_loc);
 			if(find == nodes_quantity.end()) {
-				window->log("Something went wrong with looking up quantities", false);
+				window->log("Something went wrong with looking up quantities", true);
 				return;
 			}
 			parent_id = find->second;
