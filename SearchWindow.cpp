@@ -23,17 +23,23 @@ void SearchWindow::find() {
 	std::string match = search_field.GetData().ToStd();
 	std::transform(match.begin(), match.end(), match.begin(), ::tolower);  //TODO: trim leading whitespace
 	
-	for(auto mod : parent->model->modules) {
-		for(auto group_id : mod->par_groups) {
-			auto group = mod->par_groups[group_id];
+	// Hmm, this is a bit cumbersome. See also same in model_application.cpp
+	for(int idx = -1; idx < parent->model->modules.count(); ++idx) {
+		Entity_Id module_id = invalid_entity_id;
+		if(idx >= 0) module_id = { Reg_Type::module, idx };
+		
+		auto mod = parent->model->modules[module_id];
+		if(!mod->has_been_processed) continue;
+		for(auto group_id : parent->model->by_scope<Reg_Type::par_group>(module_id)) {
+			auto group = parent->model->par_groups[group_id];
 			for(auto par_id : group->parameters) {
-				auto par = mod->parameters[par_id];
-				std::string par_name = std::string(par->name);
+				auto par = parent->model->parameters[par_id];
+				std::string par_name = par->name;
 				std::transform(par_name.begin(), par_name.end(), par_name.begin(), ::tolower);
 				size_t pos = par_name.find(match);
 				
 				if(pos != std::string::npos) {
-					result_field.Add(str(par->name), str(mod->module_name), str(group->name));
+					result_field.Add(par->name.data(), mod->name.data(), group->name.data());
 					par_list.push_back( {group_id, par_id} );
 				}
 			}

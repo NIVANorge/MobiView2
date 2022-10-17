@@ -1,10 +1,12 @@
 #ifndef _MobiView2_Util_h_
 #define _MobiView2_Util_h_
 
+/*
 inline Upp::String
 str(const String_View &str) {
 	return Upp::String(str.data, str.data+str.count);
 }
+*/
 
 inline Upp::Time
 convert_time(const Date_Time &dt) {
@@ -48,7 +50,7 @@ make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> i
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
 		ASSERT(indexes[index_set.id].index_set == index_set);
-		result << "\"" << str(structure->parent->index_names[index_set.id][indexes[index_set.id].index]) << "\"";
+		result << "\"" << structure->parent->index_names[index_set.id][indexes[index_set.id].index].data() << "\"";
 	}
 	result << "]";
 	return result;
@@ -66,9 +68,9 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 		if(idx++ != 0) result << " ";
 		ASSERT(par->indexes[index_set.id].index_set == index_set);
 		if(par->locks[idx])
-			result << "locked(\"" << str(structure->parent->model->find_entity<Reg_Type::index_set>(index_set)->name) << "\")";
+			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << "\"" << str(structure->parent->index_names[index_set.id][par->indexes[index_set.id].index]) << "\"";
+			result << "\"" << structure->parent->index_names[index_set.id][par->indexes[index_set.id].index] << "\"";
 	}
 	result << "]";
 	return result;

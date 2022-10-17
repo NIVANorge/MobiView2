@@ -101,7 +101,7 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
 	String unit = var->unit.to_utf8();
-	String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
+	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
@@ -530,11 +530,10 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			if(mode == Plot_Mode::profile2D) {
 				plot->ZoomToFitZ();
 				plot->SetMajorUnits(Null, 1.0);
-				s64 count = plot->labels.size();
 				plot->cbModifFormatY <<
-				[count, plot](String &s, int i, double d) {
+				[plot](String &s, int i, double d) {
 					int idx = (int)d;
-					if(d >= 0 && d < count) s = plot->labels[idx];
+					if(d >= 0 && d < plot->labels.size()) s = plot->labels[idx];
 				};
 			} else {
 				// Set the minimum of the y range to be 0 unless the minimum is already below 0
@@ -815,7 +814,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
 			String unit = var->unit.to_utf8();
-			String legend = str(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
+			String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
 			
 			Color &color = colors.next();
 			n_bins_histogram = add_histogram(this, &series_data.Top(), stats.min, stats.max, stats.data_points, legend, unit, color);
@@ -843,8 +842,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			// TODO: make some kind of check that the units match?
 			String unit = var_sim->unit.to_utf8();
 			String obs_unit = var_obs->unit.to_utf8();
-			String legend_obs = str(var_obs->name) + " " + make_index_string(data_obs->structure, indexes, var_id_obs) + "[" + obs_unit + "]";
-			String legend_sim = str(var_sim->name) + " " + make_index_string(data_sim->structure, indexes, var_id_sim) + "[" + unit + "]";
+			String legend_obs = String(var_obs->name) + " " + make_index_string(data_obs->structure, indexes, var_id_obs) + "[" + obs_unit + "]";
+			String legend_sim = String(var_sim->name) + " " + make_index_string(data_sim->structure, indexes, var_id_sim) + "[" + unit + "]";
 			String legend = String("Residuals of ") + legend_obs + " vs. " + legend_sim;
 			
 			Time_Series_Stats obs_stats;
@@ -948,9 +947,9 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			State_Variable *var;
 			get_storage_and_var(&app->data, var_id, &data, &var);
 			profile_unit   = var->unit.to_utf8();
-			profile_legend = str(var->name) + "[" + profile_unit + "]";
+			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
-				labels << str(app->index_names[profile_set_idx][index.index]);
+				labels << String(app->index_names[profile_set_idx][index.index]);
 			
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);

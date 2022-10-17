@@ -26,7 +26,7 @@ void ModelInfoWindow::refresh_text() {
 	}
 	
 	String buf;
-	String model_name = str(parent->model->model_name);
+	String model_name = parent->model->model_name.data();
 	if(model_name.StartsWith("INCA"))
 		buf << "@@iml:1512*768`LogoImg:INCALogo`&&";
 	else if(model_name.StartsWith("Simply"))
@@ -38,19 +38,15 @@ void ModelInfoWindow::refresh_text() {
 	
 	MarkdownConverter mdc;
 	
-	int module_id = 0;
-	for(auto mod : parent->app->model->modules) {
-		if(module_id++ == 0) continue;
+	for(auto module_id : parent->app->model->modules) {
+		auto mod = parent->app->model->modules[module_id];
 		
-		String module_name = str(mod->module_name);
-		buf += Format("\n[* %s (v. %d.%d.%d)]\n", module_name, mod->version.major, mod->version.minor, mod->version.revision);
-		if(mod->doc_string)
-			buf += mdc.ToQtf(str(mod->doc_string));
+		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->name.data(), mod->version.major, mod->version.minor, mod->version.revision);
+		if(!mod->doc_string.empty())
+			buf += mdc.ToQtf(mod->doc_string.data());
 		else
 			buf +=  "(no description provided by model creator)";
 		buf += "\n";
-		
-		++module_id;
 	}
 	buf += "]";
 	buf.Replace("\n", "&");

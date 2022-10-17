@@ -181,13 +181,13 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 	//NOTE: this relies on all the index sets being registered in the "global module":
 	index_sets.resize(MAX_INDEX_SETS, invalid_entity_id);
 	int idx = 0;
-	for(auto index_set_id : model->modules[0]->index_sets) {
-		auto index_set = model->find_entity<Reg_Type::index_set>(index_set_id);
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
 		
-		index_list[idx]->HeaderTab(0).SetText(str(index_set->name));
+		index_list[idx]->HeaderTab(0).SetText(index_set->name.data());
 		
-		for(String_View index_name : app->index_names[index_set_id.id])
-			index_list[idx]->Add(str(index_name));
+		for(auto &index_name : app->index_names[index_set_id.id])
+			index_list[idx]->Add(index_name.data());
 		
 		index_list[idx]->GoBegin();
 		index_list[idx]->Show();

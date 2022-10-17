@@ -306,16 +306,13 @@ void MobiView2::reload() {
 	// Selected parameter group.
 	//TODO: not sure if scoping it to the module will be necessary eventually.
 	String selected_group;
-	String group_module;
 	Vector<int> selected_groups = par_group_selecter.GetSel();
 	if(!selected_groups.empty()) {
 		Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
 		if(ctrl) {
 			Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-			auto par_group = model->find_entity<Reg_Type::par_group>(par_group_id);
-			selected_group = str(par_group->name);
-			auto mod = model->modules[par_group_id.module_id];
-			group_module = str(mod->module_name);
+			auto par_group = model->par_groups[par_group_id];
+			selected_group = par_group->name;
 		}
 	}
 	
@@ -361,9 +358,8 @@ void MobiView2::reload() {
 				Ctrl *ctrl = ~par_group_selecter.GetNode(node_id2).ctrl;
 				if(ctrl) {
 					Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-					auto par_group = model->find_entity<Reg_Type::par_group>(par_group_id);
-					auto mod = model->modules[par_group_id.module_id];
-					if(selected_group == str(par_group->name) && group_module == str(mod->module_name)) {
+					auto par_group = model->par_groups[par_group_id];
+					if(selected_group == String(par_group->name)) {
 						par_group_selecter.SetFocus();
 						par_group_selecter.SetCursor(node_id2);
 						breakout = true;
@@ -659,7 +655,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	}
 	
 	if(!is_located(loc) && !is_input) {
-		window->log(Format("Unable to identify why a variable \"%s\" was not located.", str(var->name)), true);
+		window->log(Format("Unable to identify why a variable \"%s\" was not located.", var->name.data()), true);
 		return;
 	}
 	
@@ -668,8 +664,8 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		if(loc.n_dissolved == 0 && var->type != Decl_Type::flux) {
 			auto find = nodes_compartment.find(loc.compartment);
 			if(find == nodes_compartment.end()) {
-				auto comp = model->find_entity<Reg_Type::compartment>(loc.compartment);
-				window->series_nodes.Create(invalid_var, str(comp->name));
+				auto comp = model->compartments[loc.compartment];
+				window->series_nodes.Create(invalid_var, comp->name.data());
 				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
 				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
 				nodes_compartment[loc.compartment] = parent_id;
@@ -694,7 +690,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	String name;
 	
 	if(is_input) {
-		name = str(var->name);
+		name = var->name;
 	} else if(diss_conc) {
 		name = "concentration";
 	} else if(var->type == Decl_Type::flux) {
@@ -703,11 +699,11 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		while(var2->flags & State_Variable::Flags::f_dissolved_flux)
 			var2 = model->state_vars[var2->dissolved_flux];
 		
-		name = str(var2->name);
+		name = var2->name;
 		//TODO: aggregate fluxes!
 	} else {
-		auto quant = model->find_entity<Reg_Type::property_or_quantity>(loc.property_or_quantity);
-		name = str(quant->name);
+		auto quant = model->properties_and_quantities[loc.property_or_quantity];
+		name = quant->name;
 	}
 
 	Image *img;
@@ -732,25 +728,30 @@ void MobiView2::build_interface() {
 		return;
 	}
 	
-	par_group_selecter.Set(0, str(model->model_name));
+	par_group_selecter.Set(0, model->model_name.data());
 	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 	
-	int module_idx = 0;
-	for(auto mod : model->modules) {
+	// Hmm, this is a bit cumbersome. See similar note in model_application.cpp
+	PromptOK(Format("Count is %d", (int)model->modules.count()));
+	for(int idx = -1; idx < model->modules.count(); ++idx) {
+		Entity_Id module_id = invalid_entity_id;
 		int id = 0;
-		if(module_idx > 0) {
-			String name = Format("%s v. %d.%d.%d", str(mod->module_name), mod->version.major, mod->version.minor, mod->version.revision);
+		
+		if(idx >= 0) {
+			module_id = { Reg_Type::module, idx };
+			
+			auto mod = model->modules[module_id];
+			if(!mod->has_been_processed) continue;
+			
+			String name = Format("%s v. %d.%d.%d", mod->name.data(), mod->version.major, mod->version.minor, mod->version.revision);
 			id = par_group_selecter.Add(0, Null, name, false);
 			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 		}
-		
-		for(auto par_group_id : mod->par_groups) {
-			auto par_group = mod->par_groups[par_group_id];
-			par_group_nodes.Create(par_group_id, str(par_group->name));
+		for(auto group_id : model->by_scope<Reg_Type::par_group>(module_id)) {
+			auto par_group = model->par_groups[group_id];
+			par_group_nodes.Create(group_id, par_group->name.data());
 			par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
 		}
-		
-		++module_idx;
 	}
 	par_group_selecter.OpenDeep(0, true);
 	

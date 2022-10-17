@@ -77,7 +77,7 @@ SensitivityViewWindow::update() {
 		return;
 	}
 	
-	auto par_data = parent->app->model->find_entity<Reg_Type::parameter>(par.id);
+	auto par_data = parent->app->model->parameters[par.id];
 	
 	if(par_data->decl_type != Decl_Type::par_real) {
 		//TODO: Allow par_int too?
@@ -89,10 +89,10 @@ SensitivityViewWindow::update() {
 	
 	String unit = "";
 	if(is_valid(par_data->unit))
-		unit = parent->app->model->find_entity<Reg_Type::unit>(par_data->unit)->data.to_utf8();
+		unit = parent->app->model->units[par_data->unit]->data.to_utf8();
 
 	String index_str = make_parameter_index_string(&parent->app->parameter_structure, &par);
-	String label_text = Format("%s %s [%s]", str(par_data->name), unit, index_str);
+	String label_text = Format("%s %s [%s]", par_data->name.data(), unit, index_str);
 	
 	param_label.SetText(label_text);
 	if(prev_id != par.id) {
@@ -207,7 +207,7 @@ SensitivityViewWindow::run() {
 	
 	String index_str = make_index_string(&parent->app->result_structure, indexes, var_id);
 	plot.SetTitle(Format("Sensitivity of \"%s\" [%s] %s to %s",
-		str(var->name),
+		var->name.data(),
 		result_unit,
 		index_str,
 		param_label.GetText()));

@@ -186,7 +186,7 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter) {
 	
 	Entity_Registration<Reg_Type::parameter> *par;
 	if(!parameter.virt) {
-		par = app->model->find_entity<Reg_Type::parameter>(parameter.id);
+		par = app->model->parameters[parameter.id];
 		if(par->decl_type != Decl_Type::par_real) return false; //TODO: Dlib has provision for allowing integer parameters
 	}
 	
@@ -216,8 +216,8 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter) {
 			min     = par->min_val.val_real;
 			max     = par->max_val.val_real;
 			//unit = ; //TODO
-			sym     = str(par->handle_name);
-			name    = str(par->name);
+			//sym     = str(par->handle_name); //TODO
+			name    = par->name.data();
 		}
 		
 		parameter.symbol = sym.ToStd();
@@ -315,7 +315,7 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	if(is_valid(target.obs_id)) {
 		get_storage_and_var(&app->data, target.obs_id, &obs_data, &var_obs);
 		String obs_index_str = make_index_string(obs_data->structure, target.indexes, target.obs_id);
-		obs_name = str(var_obs->name);
+		obs_name = var_obs->name.data();
 	}
 	
 	target_stat_ctrls.Create<DropList>();
@@ -343,7 +343,8 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	*/
 	
 		//TODO: error parameters (for MCMC).
-	target_setup.target_view.Add(str(var_sim->name), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight, convert_time(target.start), convert_time(target.end));
+	target_setup.target_view.Add(var_sim->name.data(), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight,
+		convert_time(target.start), convert_time(target.end));
 	
 	int row = target_setup.target_view.GetCount()-1;
 	int col = target_setup.target_view.GetPos(Id("__targetstat"));

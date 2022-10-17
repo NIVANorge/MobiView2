@@ -76,16 +76,16 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 	//NOTE: this relies on all the index sets being registered in the "global module":
 	index_sets.resize(MAX_INDEX_SETS, invalid_entity_id);
 	int idx = 0;
-	for(auto index_set_id : model->modules[0]->index_sets) {
-		auto index_set = model->find_entity<Reg_Type::index_set>(index_set_id);
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
 		index_lock[idx]->Show();
 		index_expand[idx]->Show();
 
-		index_set_name[idx]->SetText(str(index_set->name));
+		index_set_name[idx]->SetText(index_set->name.data());
 		index_set_name[idx]->Show();
 		
-		for(String_View index_name : app->index_names[index_set_id.id])
-			index_list[idx]->Add(str(index_name));
+		for(auto &index_name : app->index_names[index_set_id.id])
+			index_list[idx]->Add(index_name);
 		
 		index_list[idx]->GoBegin();
 		index_list[idx]->Show();
@@ -149,7 +149,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	if(!ctrl) return;
 	
 	Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-	auto par_group = parent->model->find_entity<Reg_Type::par_group>(par_group_id);
+	auto par_group = parent->model->par_groups[par_group_id];
 	
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		index_expand[idx]->Enable();
@@ -179,8 +179,8 @@ void ParameterCtrl::refresh(bool values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
 		
 		if(is_valid(expanded_set)) {
-			auto name = parent->app->model->find_entity<Reg_Type::index_set>(expanded_set)->name;
-			parameter_view.AddColumn(Id("__index"), str(name));
+			auto &name = parent->app->model->index_sets[expanded_set]->name;
+			parameter_view.AddColumn(Id("__index"), name.data());
 		}
 		
 		parameter_view.AddColumn(Id("__value"), "Value");
@@ -283,7 +283,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	Color row_colors[2] = {{255, 255, 255}, {240, 240, 255}};
 	
 	for(Entity_Id par_id : par_group->parameters) {
-		auto par = parent->model->find_entity<Reg_Type::parameter>(par_id);
+		auto par = parent->model->parameters[par_id];
 		
 		for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
 			if(!values_only) {
@@ -301,20 +301,20 @@ void ParameterCtrl::refresh(bool values_only) {
 			ValueMap row_data;
 			
 			if(is_valid(expanded_set))
-				row_data.Set("__index", str(parent->app->index_names[expanded_set.id][exp_idx.index])); //TODO: should be an api for this in model_application
+				row_data.Set("__index", parent->app->index_names[expanded_set.id][exp_idx.index].data()); //TODO: should be an api for this in model_application
 			
 			bool show_additional = exp_idx.index == 0;
 			
 			// For expanded index sets, only show name, description, etc for the first row of
 			// each parameter
 			if(show_additional) {
-				row_data.Set("__name", str(par->name));
+				row_data.Set("__name", par->name.data());
 				if(is_valid(par->unit)) {
-					auto unit = parent->app->model->find_entity<Reg_Type::unit>(par->unit);
+					auto unit = parent->app->model->units[par->unit];
 					std::string unit_str = unit->data.to_utf8();
 					row_data.Set("__unit", unit_str.data());
 				}
-				if(par->description) row_data.Set("__description", str(par->description));
+				if(!par->description.empty()) row_data.Set("__description", par->description.data());
 			}
 			
 			//for(char *SecondExpandedIndex : SecondExpandedIndexSet)
@@ -399,8 +399,8 @@ void ParameterCtrl::refresh(bool values_only) {
 						DropList *enum_list = (DropList *)&parameter_controls[ctrl_idx];
 						
 						int64 key = 0;
-						for(String_View name : par->enum_values)
-							enum_list->Add(key++, str(name));
+						for(auto &name : par->enum_values)
+							enum_list->Add(key++, name.data());
 						enum_list->GoBegin();
 						
 						parameter_controls[ctrl_idx].WhenAction = [row, ctrl_idx, this]() {
