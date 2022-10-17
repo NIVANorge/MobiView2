@@ -26,10 +26,13 @@ void SearchWindow::find() {
 	// Hmm, this is a bit cumbersome. See also same in model_application.cpp
 	for(int idx = -1; idx < parent->model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
-		if(idx >= 0) module_id = { Reg_Type::module, idx };
-		
-		auto mod = parent->model->modules[module_id];
-		if(!mod->has_been_processed) continue;
+		String mod_name = "";
+		if(idx >= 0) {
+			module_id = { Reg_Type::module, idx };
+			auto mod = parent->model->modules[module_id];
+			mod_name = mod->name.data();
+			if(!mod->has_been_processed) continue;
+		}
 		for(auto group_id : parent->model->by_scope<Reg_Type::par_group>(module_id)) {
 			auto group = parent->model->par_groups[group_id];
 			for(auto par_id : group->parameters) {
@@ -39,7 +42,7 @@ void SearchWindow::find() {
 				size_t pos = par_name.find(match);
 				
 				if(pos != std::string::npos) {
-					result_field.Add(par->name.data(), mod->name.data(), group->name.data());
+					result_field.Add(par->name.data(), mod_name, group->name.data());
 					par_list.push_back( {group_id, par_id} );
 				}
 			}

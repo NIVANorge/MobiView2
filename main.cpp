@@ -732,7 +732,6 @@ void MobiView2::build_interface() {
 	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 	
 	// Hmm, this is a bit cumbersome. See similar note in model_application.cpp
-	PromptOK(Format("Count is %d", (int)model->modules.count()));
 	for(int idx = -1; idx < model->modules.count(); ++idx) {
 		Entity_Id module_id = invalid_entity_id;
 		int id = 0;
