@@ -233,7 +233,7 @@ void MobiView2::delete_model() {
 	}
 }
 
-void MobiView2::do_the_load() {
+bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
 	if(model_is_loaded())	{
 		//TODO!
@@ -266,9 +266,10 @@ void MobiView2::do_the_load() {
 	store_settings(false);
 
 	if(!success)
-		return;
+		return false;
 	
 	build_interface();
+	return true;
 }
 
 void MobiView2::reload() {

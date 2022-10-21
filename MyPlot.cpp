@@ -11,7 +11,8 @@ std::vector<Color> Plot_Colors::colors = {{0, 130, 200}, {230, 25, 75}, {245, 13
 
 MyPlot::MyPlot() {
 	//this->SetFastViewX(true); Can't be used with scatter plot data since it combines points.
-	SetSequentialXAll(true); // NOTE: with this on, lines that clip the plot area to the left are culled :(
+	//SetSequentialXAll(true); // NOTE: with this on, lines that clip the plot area to the left
+	//are culled :(   . Doesn't seem to matter that much to speed though, so just leave it off?
 	
 	Size plot_reticle_size = GetTextSize("00000000", GetReticleFont());
 	Size plot_unit_size    = GetTextSize("[dummy]", GetLabelsFont());
@@ -593,7 +594,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 	}
 	
 	bool allow_scroll_x = !(mode == Plot_Mode::profile || mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram);
-	bool allow_scroll_y = mode == Plot_Mode::qq;
+	bool allow_scroll_y = (mode == Plot_Mode::qq);
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 

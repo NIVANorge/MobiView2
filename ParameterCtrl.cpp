@@ -449,6 +449,12 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	parent->log_warnings_and_errors();
 }
 
+void
+ParameterCtrl::set_locks(Indexed_Parameter &par) {
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
+		par.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
+}
+
 Indexed_Parameter
 ParameterCtrl::get_selected_parameter() {
 	Indexed_Parameter result;
@@ -458,8 +464,16 @@ ParameterCtrl::get_selected_parameter() {
 	if(row < 0 || row >= listed_pars.size()) return std::move(result);
 	
 	result = listed_pars[row];
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
-		result.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
+	set_locks(result);
+	
+	return std::move(result);
+}
+
+std::vector<Indexed_Parameter>
+ParameterCtrl::get_all_parameters() {
+	std::vector<Indexed_Parameter> result = listed_pars;
+	for(auto &par : result)
+		set_locks(par);
 	
 	return std::move(result);
 }

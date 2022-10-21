@@ -30,8 +30,8 @@ void SearchWindow::find() {
 		if(idx >= 0) {
 			module_id = { Reg_Type::module, idx };
 			auto mod = parent->model->modules[module_id];
-			mod_name = mod->name.data();
 			if(!mod->has_been_processed) continue;
+			mod_name = mod->name.data();
 		}
 		for(auto group_id : parent->model->by_scope<Reg_Type::par_group>(module_id)) {
 			auto group = parent->model->par_groups[group_id];

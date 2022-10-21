@@ -380,17 +380,17 @@ public:
 	bool was_auto_resized = false;
 	
 	Upp::Array<Upp::DataSource> series_data;
-	std::vector<double> x_data;
-	MyDataStackedY data_stacked;
-	Upp::Histogram histogram;
-	Data_Source_Profile profile;
-	Table_Data_Profile2D profile2D;
+	std::vector<double>         x_data;
+	MyDataStackedY              data_stacked;
+	Upp::Histogram              histogram;
+	Data_Source_Profile         profile;
+	Table_Data_Profile2D        profile2D;
 	
-	Plot_Colors colors;
-	Residual_Stats cached_stats;
+	Plot_Colors                 colors;
+	Residual_Stats              cached_stats;
 	
-	Upp::Vector<Upp::String> labels;
-	Upp::String profile_legend, profile_unit;
+	Upp::Vector<Upp::String>    labels;
+	Upp::String                 profile_legend, profile_unit;
 };
 
 

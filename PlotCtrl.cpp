@@ -117,7 +117,8 @@ void PlotCtrl::plot_change() {
 		time_step_slider.Show();
 		time_step_edit.Show();
 		time_intervals.Enable();
-	}
+	} else if (mode == Plot_Mode::profile2D)
+		time_intervals.Enable();
 	
 	if(time_intervals.IsEnabled()) {
 		if(main_plot.setup.aggregation_period == Aggregation_Period::none)
@@ -308,6 +309,8 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 	
 	parent->input_selecter.ClearSelection();
 	recursive_select(parent->input_selecter, 0, ps.selected_series);
+	
+	//main_plot.setup = ps; //Hmm, should not be necessary
 	
 	plot_change();
 }

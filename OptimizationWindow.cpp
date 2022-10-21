@@ -215,8 +215,9 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter) {
 		if(!parameter.virt) {
 			min     = par->min_val.val_real;
 			max     = par->max_val.val_real;
-			//unit = ; //TODO
-			//sym     = str(par->handle_name); //TODO
+			if(is_valid(par->unit))
+				unit    = app->model->units[par->unit]->data.to_utf8();
+			sym     = par->symbol.data();
 			name    = par->name.data();
 		}
 		
@@ -265,7 +266,8 @@ void OptimizationWindow::add_virtual_clicked() {
 }
 
 void OptimizationWindow::add_group_clicked() {
-	for(Indexed_Parameter &par : parent->params.listed_pars)
+	auto pars = parent->params.get_all_parameters();
+	for(Indexed_Parameter &par : pars)
 		add_single_parameter(par);
 }
 
@@ -1083,15 +1085,16 @@ void OptimizationWindow::run_clicked(int run_type)
 	s64 ms_timeout = target_setup.edit_timeout.GetData();
 	
 	s64 update_step;
+	s64 *step_ptr = &update_step;
 	
 	Optim_Callback callback = nullptr;
 	if(run_setup.option_show_progress.Get() && run_type == 0) {
-		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
-			if(update_step % n_evals == 0) {
+		callback = [step_ptr, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
+			if(*step_ptr % n_evals == 0) {
 				//GUILock lock;
 				run_setup.progress_label.SetText(Format("Current evaluations: %d, timeouts: %d, best score: %g (initial: %g)", n_evals, n_timeouts, best_score, initial_score));
-				//if(View->IsOpen())
-				//View->BuildAll(true);
+				if(parent->additional_plots.IsOpen())
+					parent->additional_plots.build_all(true);
 			
 				parent->ProcessEvents();
 			}
@@ -1104,7 +1107,7 @@ void OptimizationWindow::run_clicked(int run_type)
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
 		
 		update_step = std::ceil(4000.0 / (double)ms);
-		if(update_step <= 0) update_step = 1;
+		if(update_step <= 0) update_step = 20;
 		
 		bool push_extend_enabled = mcmc_setup.push_extend_run.IsEnabled();
 		run_setup.push_run.Disable();
