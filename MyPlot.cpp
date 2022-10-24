@@ -71,10 +71,10 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var) {
 	if(var_id.type == Var_Id::Type::state_var) {
 		*data = &md->results;
-		*var = md->app->model->state_vars[var_id];
+		*var = md->app->state_vars[var_id];
 	} else if(var_id.type == Var_Id::Type::series) {
 		*data = &md->series;
-		*var  = md->app->model->series[var_id];
+		*var  = md->app->series[var_id];
 	} else if(var_id.type == Var_Id::Type::additional_series) {
 		*data = &md->additional_series;
 		*var = md->app->additional_series[var_id];

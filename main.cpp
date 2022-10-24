@@ -227,10 +227,8 @@ void MobiView2::delete_model() {
 	model = nullptr;
 	if(data_set) delete data_set;
 	data_set = nullptr;
-	if(baseline){
-		delete baseline;
-		baseline = nullptr;
-	}
+	if(baseline) delete baseline;
+	baseline = nullptr;
 }
 
 bool MobiView2::do_the_load() {
@@ -249,13 +247,12 @@ bool MobiView2::do_the_load() {
 	bool success = true;
 	try {
 		model = load_model(model_file.data());
-		model->compose();
-		
 		app = new Model_Application(model);
 			
 		data_set = new Data_Set;
 		data_set->read_from_file(data_file.data());
 		
+		app->compose();
 		app->build_from_data_set(data_set);
 		app->compile();
 	} catch(int) {
@@ -287,10 +284,10 @@ void MobiView2::reload() {
 	std::vector<std::string> sel_additional;
 	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
 	for(Var_Id var_id : setup.selected_results)
-		sel_results.push_back(std::string(app->model->state_vars[var_id]->name));
+		sel_results.push_back(std::string(app->state_vars[var_id]->name));
 	for(Var_Id var_id : setup.selected_series) {
 		if(var_id.type == Var_Id::Type::series)
-			sel_inputs.push_back(std::string(app->model->series[var_id]->name));
+			sel_inputs.push_back(std::string(app->series[var_id]->name));
 		else
 			sel_additional.push_back(std::string(app->additional_series[var_id]->name));
 	}
@@ -326,11 +323,11 @@ void MobiView2::reload() {
 	setup.selected_results.clear();
 	setup.selected_series.clear();
 	for(auto &name : sel_results) {
-		auto &ids = app->model->state_vars[name];
+		auto &ids = app->state_vars[name];
 		setup.selected_results.insert(setup.selected_results.end(), ids.begin(), ids.end());
 	}
 	for(auto &name : sel_inputs) {
-		auto &ids = app->model->series[name];
+		auto &ids = app->series[name];
 		setup.selected_series.insert(setup.selected_series.end(), ids.begin(), ids.end());
 	}
 	for(auto &name : sel_additional) {
@@ -615,7 +612,7 @@ void MobiView2::clean_interface() {
 	baseline_was_just_saved = false;
 }
 
-void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
+void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *app, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
 	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, bool is_input = false) {
 		
 	//TODO: We should make our own ctrl. for the nodes to store the var_id and have the
@@ -642,7 +639,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 	Var_Location loc = var->loc1;
 	
 	if(var->flags & State_Variable::Flags::f_dissolved_conc) {
-		auto diss_in = model->state_vars[var->dissolved_conc];
+		auto diss_in = app->state_vars[var->dissolved_conc];
 		loc = diss_in->loc1;
 		diss_conc = true;
 	}
@@ -665,7 +662,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		if(loc.n_dissolved == 0 && var->type != Decl_Type::flux) {
 			auto find = nodes_compartment.find(loc.compartment);
 			if(find == nodes_compartment.end()) {
-				auto comp = model->compartments[loc.compartment];
+				auto comp = app->model->compartments[loc.compartment];
 				window->series_nodes.Create(invalid_var, comp->name.data());
 				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
 				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
@@ -698,12 +695,12 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Mobius_Model *model,
 		// NOTE: we don't want to use the generated name here, only the name of the base flux
 		auto var2 = var;
 		while(var2->flags & State_Variable::Flags::f_dissolved_flux)
-			var2 = model->state_vars[var2->dissolved_flux];
+			var2 = app->state_vars[var2->dissolved_flux];
 		
 		name = var2->name;
 		//TODO: aggregate fluxes!
 	} else {
-		auto quant = model->properties_and_quantities[loc.property_or_quantity];
+		auto quant = app->model->properties_and_quantities[loc.property_or_quantity];
 		name = quant->name;
 	}
 
@@ -759,22 +756,22 @@ void MobiView2::build_interface() {
 	std::unordered_map<Var_Location, int, Var_Location_Hash> nodes_quantity;
 
 	try {
-		for(Var_Id var_id : model->state_vars) {
-			auto var = model->state_vars[var_id];
+		for(Var_Id var_id : app->state_vars) {
+			auto var = app->state_vars[var_id];
 			if(var->type == Decl_Type::quantity)
-				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
-		for(Var_Id var_id : model->state_vars) {
-			auto var = model->state_vars[var_id];
+		for(Var_Id var_id : app->state_vars) {
+			auto var = app->state_vars[var_id];
 			if(var->type == Decl_Type::property)
-				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
-		for(Var_Id var_id : model->state_vars) {
-			auto var = model->state_vars[var_id];
+		for(Var_Id var_id : app->state_vars) {
+			auto var = app->state_vars[var_id];
 			if(var->type == Decl_Type::flux)
-				add_series_node(this, result_selecter, model, var_id, var, 0, nodes_compartment, nodes_quantity);
+				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
 		}
 		
 		nodes_compartment.clear();
@@ -786,15 +783,15 @@ void MobiView2::build_interface() {
 		input_selecter.SetNode(input_id, input_selecter.GetNode(input_id).CanSelect(false));
 		input_selecter.SetNode(additional_id, input_selecter.GetNode(additional_id).CanSelect(false));
 		
-		for(Var_Id var_id : model->series) {
-			auto var = model->series[var_id];
-			add_series_node(this, input_selecter, model, var_id, var, input_id, nodes_compartment, nodes_quantity, true);
+		for(Var_Id var_id : app->series) {
+			auto var = app->series[var_id];
+			add_series_node(this, input_selecter, app, var_id, var, input_id, nodes_compartment, nodes_quantity, true);
 		}
 		
 		
 		for(Var_Id var_id : app->additional_series) {
 			auto var = app->additional_series[var_id];
-			add_series_node(this, input_selecter, model, var_id, var, additional_id, nodes_compartment, nodes_quantity, true);
+			add_series_node(this, input_selecter, app, var_id, var, additional_id, nodes_compartment, nodes_quantity, true);
 		}
 		
 	} catch (int) {}
