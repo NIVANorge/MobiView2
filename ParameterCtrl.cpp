@@ -447,6 +447,12 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 		changed_since_last_save = true;
 	} catch(int) {}
 	parent->log_warnings_and_errors();
+	
+	// TODO: Do we really want to do this here?
+	if(std::find(app->baked_parameters.begin(), app->baked_parameters.end(), par_data.id) != app->baked_parameters.end()) {
+		parent->reload(true);
+		parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
+	}
 }
 
 void

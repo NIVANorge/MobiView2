@@ -199,7 +199,7 @@ void MobiView2::log_warnings_and_errors() {
 
 void MobiView2::sub_bar(Bar &bar) {
 	bar.Add(IconImg::Open(), THISBACK(load)).Tip("Load model and data files").Key(K_CTRL_O);
-	bar.Add(IconImg::ReLoad(), THISBACK(reload)).Tip("Reload the already loaded model and data files.").Key(K_F5);
+	bar.Add(IconImg::ReLoad(), [this](){ reload(); } ).Tip("Reload the already loaded model and data files.").Key(K_F5);
 	bar.Add(IconImg::Save(), THISBACK(save_parameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(save_parameters_as)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(open_search_window)).Tip("Search parameters").Key(K_CTRL_F);
@@ -252,7 +252,6 @@ bool MobiView2::do_the_load() {
 		data_set = new Data_Set;
 		data_set->read_from_file(data_file.data());
 		
-		app->compose();
 		app->build_from_data_set(data_set);
 		app->compile();
 	} catch(int) {
@@ -269,7 +268,7 @@ bool MobiView2::do_the_load() {
 	return true;
 }
 
-void MobiView2::reload() {
+void MobiView2::reload(bool recompile_only) {
 	if(!model_is_loaded()) {
 		log("Not able to reload when there is nothing loaded to begin with.", true);
 		return;
@@ -316,7 +315,21 @@ void MobiView2::reload() {
 	
 	bool resized = plotter.main_plot.was_auto_resized;
 	
-	do_the_load();
+	if(!recompile_only) {
+		do_the_load();
+	} else {
+		try {
+			app->save_to_data_set();
+			delete app;
+			app = new Model_Application(model);
+			app->build_from_data_set(data_set);
+			app->compile();
+		} catch(int) {
+			delete_model();
+		}
+		log_warnings_and_errors();
+		//store_settings(false);
+	}
 	
 	// TODO: it is not ideal for this functionality that series names may not be unique. Fix
 	// this in Mobius 2?
@@ -369,7 +382,8 @@ void MobiView2::reload() {
 		}
 	}
 	
-	run_model();
+	if(!recompile_only)
+		run_model();
 }
 
 void MobiView2::load() {

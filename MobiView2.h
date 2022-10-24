@@ -307,7 +307,7 @@ public:
 	void log_warnings_and_errors();
 	
 	void load();
-	void reload();
+	void reload(bool recompile_only = false);
 	void save_parameters();
 	void save_parameters_as();
 	void run_model();
