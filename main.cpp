@@ -673,14 +673,14 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	int parent_id = top_node;
 	if(is_located(loc)) {
-		if(loc.n_dissolved == 0 && var->type != Decl_Type::flux) {
-			auto find = nodes_compartment.find(loc.compartment);
+		if(!loc.is_dissolved() && var->type != Decl_Type::flux) {
+			auto find = nodes_compartment.find(loc.first());
 			if(find == nodes_compartment.end()) {
-				auto comp = app->model->compartments[loc.compartment];
+				auto comp = app->model->compartments[loc.first()];
 				window->series_nodes.Create(invalid_var, comp->name.data());
 				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
 				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
-				nodes_compartment[loc.compartment] = parent_id;
+				nodes_compartment[loc.first()] = parent_id;
 			} else
 				parent_id = find->second;
 			
@@ -714,7 +714,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		name = var2->name;
 		//TODO: aggregate fluxes!
 	} else {
-		auto quant = app->model->properties_and_quantities[loc.property_or_quantity];
+		auto quant = app->model->properties_and_quantities[loc.last()];
 		name = quant->name;
 	}
 
