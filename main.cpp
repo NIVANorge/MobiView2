@@ -315,8 +315,9 @@ void MobiView2::reload(bool recompile_only) {
 	
 	bool resized = plotter.main_plot.was_auto_resized;
 	
+	bool success = true;
 	if(!recompile_only) {
-		do_the_load();
+		success = do_the_load();
 	} else {
 		try {
 			app->save_to_data_set();
@@ -326,10 +327,13 @@ void MobiView2::reload(bool recompile_only) {
 			app->compile();
 		} catch(int) {
 			delete_model();
+			success = false;
 		}
 		log_warnings_and_errors();
 		//store_settings(false);
 	}
+	
+	if(!success) return;
 	
 	// TODO: it is not ideal for this functionality that series names may not be unique. Fix
 	// this in Mobius 2?

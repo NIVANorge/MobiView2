@@ -168,6 +168,13 @@ SensitivityViewWindow::run() {
 	Date_Time result_start = model_data->get_start_date_parameter();
 	s64 result_ts          = steps_between(result_start, model_data->get_end_date_parameter(), parent->app->time_step_size) + 1;
 	
+	// NOTE: it is a bit annoying that we have to do this: Maybe it should be functionality on
+	// the Model_Application instead
+	if(input_ts == 0) {
+		input_start = result_start;
+		input_ts    = result_ts;
+	}
+	
 	Date_Time gof_start;
 	Date_Time gof_end;
 	s64 input_gof_offset;

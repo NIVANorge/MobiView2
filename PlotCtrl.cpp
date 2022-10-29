@@ -287,6 +287,8 @@ void recursive_select(TreeCtrl &tree, int node, std::vector<Var_Id> &select) {
 }
 
 void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
+	if(ps.selected_indexes.empty()) return;   // Means that it was not properly initialized. Can happen when setting it from additional plot view.
+	
 	plot_major_mode.SetData((int)ps.mode);
 	scatter_inputs.SetData((int)ps.scatter_inputs);
 	y_axis_mode.SetData((int)ps.y_axis_mode);

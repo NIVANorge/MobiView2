@@ -72,13 +72,6 @@ struct Plot_Setup {
 	int profile_time_step;
 };
 
-/*
-TODO: should maybe have some composable classes
-Mobius_Base_Data_Source
-(2 x Mobius_Base_Data_Source) -> Residual_Data_Source
-(Mobius_Base_Data_Source -> Agg_Data_Source)
-*/
-
 class Mobius_Data_Source : public Upp::DataSource {
 public :
 	Mobius_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
