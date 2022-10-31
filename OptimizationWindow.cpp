@@ -512,7 +512,7 @@ void OptimizationWindow::sampler_method_selected() {
 		} break;
 		
 		case MCMC_Sampler::differential_evolution : {
-			mcmc_setup.sampler_param_view.Add("\u03B3", -1.0, "Stretch factor. If negative, will be set to default of 2.38/sqrt(2*dim)");
+			mcmc_setup.sampler_param_view.Add("γ", -1.0, "Stretch factor. If negative, will be set to default of 2.38/sqrt(2*dim)");
 			mcmc_setup.sampler_param_view.Add("b", 1e-3, "Max. random walk step (multiplied by |max - min| for each par.)");
 			mcmc_setup.sampler_param_view.Add("CR", 1.0, "Crossover probability");
 		} break;
@@ -882,92 +882,77 @@ VarianceSensitivityWindow::VarianceSensitivityWindow()
 	Plot.SetLabels("Combined statistic", "Frequency");
 }
 
-bool OptimizationWindow::ErrSymFixup()
-{
-	std::unordered_map<std::string, std::pair<int,int>> SymRow;
+*/
+
+bool
+OptimizationWindow::err_sym_fixup() {
+	std::unordered_map<std::string, std::pair<int,int>> sym_row;
 	
-	//if((bool)ParSetup.OptionUseExpr.Get() || RunType==1 || RunType==2 || RunType==3)    //TODO: Non-ideal. Instead we should maybe force use exprs for MCMC RunTypes
-	//{
-	int ActiveIdx = 0;
-	int Row = 0;
-	for(indexed_parameter &Parameter : Parameters)
-	{
-		if(Parameter.Symbol != "")
-		{
-			if(SymRow.find(Parameter.Symbol) != SymRow.end())
-			{
-				SetError(Format("The parameter symbol %s appears twice", Parameter.Symbol.data()));
+	int active_idx = 0;
+	int row = 0;
+	for(Indexed_Parameter &parameter : parameters) {
+		if(!parameter.symbol.empty()) {
+			if(sym_row.find(parameter.symbol) != sym_row.end()) {
+				set_error(Format("The parameter symbol %s appears twice", parameter.symbol.data()));
 				return false;
 			}
-			SymRow[Parameter.Symbol] = {Row, ActiveIdx};
+			sym_row[parameter.symbol] = {row, active_idx};
 		}
 		
-		if(Parameter.Expr == "")
-			++ActiveIdx;
-		
-		++Row;
+		if(parameter.expr.empty())
+			++active_idx;
+		++row;
 	}
-	//}
 	
-	//if(RunType == 1 || RunType == 2)
-	//{
-	for(optimization_target &Target : Targets)
-	{
-		Target.ErrParNum.clear();
-			
-		Vector<String> Symbols = Split(Target.ErrParSym.data(), ',', true);
+	row = 0;
+	for(Optimization_Target &target : targets) {
+		target.err_par_idx.clear();
 		
-		if(GetStatClass(Target) == StatClass_LogLikelihood)
-		{
-			for(String &Symbol : Symbols) { Symbol = TrimLeft(TrimRight(Symbol)); }
+		String syms = target_setup.target_view.Get(row++, Id("__errparam"));
+		Vector<String> symbols = Split(syms, ',', true);
+		
+		auto stat_class = is_stat_class(target.stat_type);
+		if(stat_class == Stat_Class::log_likelihood) {
+			for(String &sym : symbols) { sym = TrimLeft(TrimRight(sym)); }
 			
-			#define SET_LL_SETTING(Handle, Name, NumErr) \
-				else if(Target.ErrStruct == MCMCError_##Handle && Symbols.size() != NumErr) {\
-					SetError(Format("The error structure %s requires %d error parameters. Only %d were provided. Provide them as a comma-separated list of parameter symbols", Name, NumErr, Symbols.size())); \
+			#define SET_LOG_LIKELIHOOD(handle, name, n_err) \
+				else if((LL_Type)target.stat_type == LL_Type::handle && symbols.size() != n_err) {\
+					set_error(Format("The error structure %s requires %d error parameters. Only %d were provided. Provide them as a comma-separated list of parameter symbols", name, n_err, symbols.size())); \
 					return false; \
 				}
 			if(false) {}
-			#include "LLSettings.h"
-			#undef SET_LL_SETTING
+			#include "support/log_likelihood_types.incl"
+			#undef SET_LOG_LIKELIHOOD
 			
-			for(String &Symbol : Symbols)
-			{
-				std::string Sym = Symbol.ToStd();
+			for(String &sym0 : symbols) {
+				std::string sym = sym0.ToStd();
 				
-				if(SymRow.find(Sym) == SymRow.end())
-				{
-					SetError(Format("The error parameter symbol %s is not the symbol of a parameter in the parameter list.", Sym.data()));
+				if(sym_row.find(sym) == sym_row.end()) {
+					set_error(Format("The error parameter symbol '%s' is not the symbol of a parameter in the parameter list.", sym.data()));
 					return false;
 				}
-				
-				int ParSymRow = SymRow[Sym].first;
-				indexed_parameter &Par = Parameters[SymRow[Sym].first];
-				if(!Par.Virtual)
-				{
-					SetError(Format("Only virtual parameters can be error parameters. The parameter with symbol %s is not virtual", Sym.data()));
+				int par_sym_row = sym_row[sym].first;
+				Indexed_Parameter &par = parameters[sym_row[sym].first];
+				if(!par.virt) {
+					set_error(Format("Only virtual parameters can be error parameters. The parameter with symbol '%s' is not virtual", sym.data()));
 					return false;
 				}
-				if(Par.Expr != "")
-				{
-					SetError(Format("Error parameters can not be results of expressions. The parameter with symbol %s was set as an error parameter, but also has an expression", Sym.data()));
+				if(!par.expr.empty()) {
+					set_error(Format("Error parameters can not be results of expressions. The parameter with symbol '%s' was set as an error parameter, but also has an expression", sym.data()));
 					return false;
 				}
-				
-				Target.ErrParNum.push_back(SymRow[Sym].second);
+				target.err_par_idx.push_back(sym_row[sym].second);
 			}
-		}
-		else if(GetStatClass(Target) == StatClass_Residual && !Symbols.empty())
-		{
-			SetError("An error symbol was provided for a stat does not use one");
+		} else if(!symbols.empty()) {
+			set_error("An error symbol was provided for a stat does not use one");
 			return false;
 		}
 	}
-	//}
 	
 	return true;
 }
 
-*/
+
 void OptimizationWindow::run_clicked(int run_type)
 {
 	//RunType:
@@ -995,8 +980,8 @@ void OptimizationWindow::run_clicked(int run_type)
 	if(!cl)
 		return;
 	
-	//bool Success = ErrSymFixup(); //TODO
-	//if(!Success) return;
+	bool success = err_sym_fixup();
+	if(!success) return;
 	
 	auto app = parent->app;
 	
@@ -1131,6 +1116,7 @@ void OptimizationWindow::run_clicked(int run_type)
 			double sampler_params[16]; //NOTE: We should not encounter a sampler with more parameters than this...
 			for(int par = 0; par < mcmc_setup.sampler_param_view.GetCount(); ++par)
 				sampler_params[par] = mcmc_setup.sampler_param_view.Get(par, 1);
+			
 			
 			auto n_cores = std::thread::hardware_concurrency();
 			int n_actual_steps = (run_type == 1) ? (n_steps) : (n_steps - mc_data.n_steps);

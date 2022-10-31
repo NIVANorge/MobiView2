@@ -76,8 +76,7 @@ public:
 	void end_edited(int row);
 	
 	void sampler_method_selected();
-	
-	//bool err_sym_fixup();
+	bool err_sym_fixup();
 	
 private:
 	
