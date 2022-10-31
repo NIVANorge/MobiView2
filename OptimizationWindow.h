@@ -8,7 +8,7 @@
 #include <CtrlCore/lay.h>
 
 #include "support/optimization.h"
-
+#include "support/mcmc.h"
 
 class OptimizationParameterSetup : public WithOptimizationLayout<Upp::ParentCtrl> {
 public:
@@ -78,9 +78,6 @@ public:
 	
 	//bool err_sym_fixup();
 	
-	//TODO: This should be a general function, not a member of this class...
-	//void TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups);
-	
 private:
 	
 	MobiView2 *parent;
@@ -95,9 +92,8 @@ private:
 	
 	void tab_change();
 	
-	//bool RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
-	//	double *InitialValue, double *MinBound, double *MaxBound, int InitialType,
-	//	int CallbackInterval, int RunType);
+	bool run_mcmc_from_window(MCMC_Sampler method, double *sampler_params, int n_walkers, int n_pars, int n_steps, Optimization_Model *optim,
+		double *initial_values, double *min_bound, double *max_bound, int init_type, int callback_interval, int run_type);
 		
 		
 	//bool RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound);
@@ -127,7 +123,7 @@ public:
 	MCMCRunSetup               mcmc_setup;
 	SensitivityRunSetup        sensitivity_setup;
 	
-	//MCMC_Data                  mcmc_data;
+	MC_Data                    mc_data;
 	
 	std::vector<Indexed_Parameter>   parameters;
 	std::vector<Optimization_Target> targets;

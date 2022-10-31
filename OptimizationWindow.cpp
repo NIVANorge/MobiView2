@@ -118,15 +118,13 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	mcmc_setup.sampler_param_view.ColumnWidths("3 2 5");
 	
 	//TODO!
-	/*
-	mcmc_setup.select_sampler.Add((int)MCMCMethod_AffineStretch,         "Affine stretch (recommended)");
-	mcmc_setup.select_sampler.Add((int)MCMCMethod_AffineWalk,            "Affine walk");
-	mcmc_setup.select_sampler.Add((int)MCMCMethod_DifferentialEvolution, "Differential evolution");
-	mcmc_setup.select_sampler.Add((int)MCMCMethod_MetropolisHastings,    "Metropolis-Hastings (independent chains)");
+	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::affine_stretch,         "Affine stretch (recommended)");
+	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::affine_walk,            "Affine walk");
+	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::differential_evolution, "Differential evolution");
+	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::metropolis_hastings,    "Metropolis-Hastings (independent chains)");
 	mcmc_setup.select_sampler.GoBegin();
-	mcmc_setup.select_sampler.WhenAction << THISBACK(SamplerMethodSelected);
+	mcmc_setup.select_sampler.WhenAction << THISBACK(sampler_method_selected);
 	sampler_method_selected(); //To set the sampler parameters for the initial selection
-	*/
 	
 	sensitivity_setup.edit_sample_size.Min(10);
 	sensitivity_setup.edit_sample_size.SetData(1000);
@@ -273,16 +271,6 @@ void OptimizationWindow::add_group_clicked() {
 
 void OptimizationWindow::remove_parameter_clicked() {
 	int sel_row = par_setup.parameter_view.GetCursor();
-	/*
-	for(int Row = 0; Row < ParSetup.ParameterView.GetCount(); ++Row)
-	{
-		if(ParSetup.ParameterView.IsSel(Row))
-		{
-			SelectedRow = Row;
-			break;
-		}
-	}
-	*/
 	if(sel_row < 0) return;
 	
 	par_setup.parameter_view.Remove(sel_row);
@@ -334,17 +322,13 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 		#include "support/residual_types.incl"
 		#undef SET_RESIDUAL
 	}
-	// TODO: MCMC
-	/*
-	if(TabNum == 0 || TabNum == 1)
+	if(tab == 0 || tab == 1)
 	{
-		#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
-		#include "LLSettings.h"
-		#undef SET_LL_SETTING
+		#define SET_LOG_LIKELIHOOD(handle, name, n_resid_par) sel_stat.Add((int)LL_Type::handle, name);
+		#include "support/log_likelihood_types.incl"
+		#undef SET_LOG_LIKELIHOOD
 	}
-	*/
 	
-		//TODO: error parameters (for MCMC).
 	target_setup.target_view.Add(var_sim->name.data(), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight,
 		convert_time(target.start), convert_time(target.end));
 	
@@ -382,12 +366,11 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 }
 
 void OptimizationWindow::stat_edited(int row) {
-	targets[row].stat_type = (int)target_stat_ctrls[row].GetData();//.target_view.GetData(row, "__targetstat");
+	targets[row].stat_type = (int)target_stat_ctrls[row].GetData();
 }
 
 void OptimizationWindow::err_sym_edited(int row) {
-	//TODO
-	//Targets[Row].ErrParSym = TargetSetup.TargetView.Get(Row, "__errparam").ToStd();
+	// NOTE: we don't update the stored err params here, instead we do it right before the run.
 }
 
 void OptimizationWindow::weight_edited(int row) {
@@ -514,141 +497,135 @@ void OptimizationWindow::clean() {
 
 void OptimizationWindow::sampler_method_selected() {
 	//TODO
-	/*
-	mcmc_sampler_method Method = (mcmc_sampler_method)(int)MCMCSetup.SelectSampler.GetData();
+	MCMC_Sampler method = (MCMC_Sampler)(int)mcmc_setup.select_sampler.GetData();
 	
-	MCMCSetup.SamplerParamView.Clear();
-	MCMCSamplerParamCtrls.Clear();
+	mcmc_setup.sampler_param_view.Clear();
+	mcmc_sampler_param_ctrls.Clear();
 	
-	switch(Method)
-	{
-		case MCMCMethod_AffineStretch :
-		{
-			MCMCSetup.SamplerParamView.Add("a", 2.0, "Max. stretch factor");
+	switch(method) {
+		case MCMC_Sampler::affine_stretch : {
+			mcmc_setup.sampler_param_view.Add("a", 2.0, "Max. stretch factor");
 		} break;
 		
-		case MCMCMethod_AffineWalk :
-		{
-			MCMCSetup.SamplerParamView.Add("|S|", 10.0, "Size of sub-ensemble. Has to be between 2 and NParams/2.");
+		case MCMC_Sampler::affine_walk : {
+			mcmc_setup.sampler_param_view.Add("|S|", 10.0, "Size of sub-ensemble. Has to be between 2 and NParams/2.");
 		} break;
 		
-		case MCMCMethod_DifferentialEvolution :
-		{
-			MCMCSetup.SamplerParamView.Add("\u03B3", -1.0, "Stretch factor. If negative, will be set to default of 2.38/sqrt(2*dim)");
-			MCMCSetup.SamplerParamView.Add("b", 1e-3, "Max. random walk step (multiplied by |max - min| for each par.)");
-			MCMCSetup.SamplerParamView.Add("CR", 1.0, "Crossover probability");
+		case MCMC_Sampler::differential_evolution : {
+			mcmc_setup.sampler_param_view.Add("\u03B3", -1.0, "Stretch factor. If negative, will be set to default of 2.38/sqrt(2*dim)");
+			mcmc_setup.sampler_param_view.Add("b", 1e-3, "Max. random walk step (multiplied by |max - min| for each par.)");
+			mcmc_setup.sampler_param_view.Add("CR", 1.0, "Crossover probability");
 		} break;
 		
-		case MCMCMethod_MetropolisHastings :
-		{
-			MCMCSetup.SamplerParamView.Add("b", 0.02, "Std. dev. of random walk step (multiplied by |max - min| for each par.)");
+		case MCMC_Sampler::metropolis_hastings : {
+			mcmc_setup.sampler_param_view.Add("b", 0.02, "Std. dev. of random walk step (multiplied by |max - min| for each par.)");
 		} break;
 	}
 	
-	int Rows = MCMCSetup.SamplerParamView.GetCount();
-	MCMCSamplerParamCtrls.InsertN(0, Rows);
-	for(int Row = 0; Row < Rows; ++Row)
-		MCMCSetup.SamplerParamView.SetCtrl(Row, 1, MCMCSamplerParamCtrls[Row]);
-	*/
+	int rows = mcmc_setup.sampler_param_view.GetCount();
+	mcmc_sampler_param_ctrls.InsertN(0, rows);
+	for(int row = 0; row < rows; ++row)
+		mcmc_setup.sampler_param_view.SetCtrl(row, 1, mcmc_sampler_param_ctrls[row]);
 }
 
-/*
-struct mcmc_run_data
-{
-	optimization_model *Model;
-	mcmc_data          *Data;
-	std::vector<void *> DataSets;
-	double *MinBound;
-	double *MaxBound;
+
+struct
+MCMC_Run_Data {
+	MC_Data                        *data;
+	std::vector<Optimization_Model> optim_models;
+	double *min_bound;
+	double *max_bound;
 };
 
-struct mcmc_callback_data
-{
-	MobiView *ParentWindow;
+struct
+MCMC_Callback_Data {
+	//MCMCResultWindow *win;
+	int dummy;
 };
 
-bool MCMCCallbackFun(void *CallbackData, int CurStep)
-{
-	mcmc_callback_data *CBD = (mcmc_callback_data *)CallbackData;
-	
-	
+bool
+mcmc_callback(void *callback_data, int step) {
+	auto *cbd = (MCMC_Callback_Data *)callback_data;
+
 	//if(CBD->ParentWindow->MCMCResultWin.HaltWasPushed)
 	//	return false;
 	
-	GuiLock Lock;
+	// TODO!
+	/*
+	GuiLock lock;
 	
-	CBD->ParentWindow->MCMCResultWin.RefreshPlots(CurStep);
-	CBD->ParentWindow->ProcessEvents();
+	cbd->win->refresh_plots(step);
+	cbd->win->ProcessEvents();
+	*/
 	
 	return true;
 }
 
-double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
-{
-	mcmc_run_data *RunData0 = (mcmc_run_data *)RunData;
-	mcmc_data     *Data     = RunData0->Data;
+double
+mcmc_ll_eval(void *run_data_0, int walker, int step) {
+	MCMC_Run_Data *run_data = (MCMC_Run_Data *)run_data_0;
+	MC_Data       *data     = run_data->data;
 	
-	column_vector Pars(Data->NPars);
-	
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		double Val = (*Data)(Walker, Par, Step);
+	std::vector<double> pars(data->n_pars);
+	for(int par = 0; par < data->n_pars; ++par) {
+		double val = (*data)(walker, par, step);
 		
-		if(Val < RunData0->MinBound[Par] || Val > RunData0->MaxBound[Par])
+		if(val < run_data->min_bound[par] || val > run_data->max_bound[par])
 			return -std::numeric_limits<double>::infinity();
 		
-		Pars(Par) = Val;
+		pars[par] = val;
 	}
 	
-	return RunData0->Model->EvaluateObjectives(RunData0->DataSets[Walker], Pars);
+	return run_data->optim_models[walker].evaluate(pars.data());
 }
 
-bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers0, size_t NSteps, optimization_model *OptimModel,
-	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType)
+bool
+OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_params, int n_walkers, int n_pars, int n_steps, Optimization_Model *optim,
+	double *initial_values, double *min_bound, double *max_bound, int init_type, int callback_interval, int run_type)
 {
-	size_t NPars = OptimModel->FreeParCount;
-	size_t NWalkers = NWalkers0;
+	int init_step = 0;
 	
-	int InitialStep = 0;
 	{
 		GuiLock Lock;
 		
+		//TODO
+		/*
 		MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
 		ResultWin->ClearPlots();
+		*/
 		
-		if(RunType == 2) // NOTE RunType==2 means extend the previous run.
-		{
-			if(Data.NSteps == 0)
-			{
-				SetError("Can't extend a run before the model has been run once");
+		if(run_type == 2) { // NOTE RunType==2 means extend the previous run.
+			if(mc_data.n_steps == 0) {
+				set_error("Can't extend a run before the model has been run once");
 				return false;
 			}
-			if(Data.NSteps >= NSteps)
-			{
-				SetError(Format("To extend the run, you must set a higher number of timesteps than previously. Previous was %d.", (int)Data.NSteps));
+			if(mc_data.n_steps >= n_steps) {
+				set_error(Format("To extend the run, you must set a higher number of timesteps than previously. Previous was %d.", (int)mc_data.n_steps));
 				return false;
 			}
-			if(Data.NWalkers != NWalkers)
-			{
-				SetError("To extend the run, you must have the same amount of walkers as before.");
+			if(mc_data.n_walkers != n_walkers) {
+				set_error("To extend the run, you must have the same amount of walkers as before.");
 				return false;
 			}
+			//TODO
+			/*
 			if(ResultWin->Parameters != Parameters || ResultWin->Targets != Targets)
 			{
 				//TODO: Could alternatively let you continue with the old parameter set.
 				SetError("You can't extend the run since the parameters or targets have changed.");
 				return false;
 			}
-			InitialStep = Data.NSteps-1;
+			*/
+			init_step = mc_data.n_steps - 1;
 			
-			Data.ExtendSteps(NSteps);
-		}
-		else
-		{
-			Data.Free();
-			Data.Allocate(NWalkers, NPars, NSteps);
+			mc_data.extend_steps(n_steps);
+		} else {
+			mc_data.free_data();
+			mc_data.allocate(n_walkers, n_pars, n_steps);
 		}
 		
+		//TODO
+		/*
 		Array<String> FreeSyms;
 		for(indexed_parameter &Parameter : Parameters)
 			if(Parameter.Expr == "") FreeSyms.push_back(String(Parameter.Symbol.data()));
@@ -663,76 +640,68 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 		ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
 		
 		ParentWindow->ProcessEvents();
+		*/
 		
-		if(RunType==1)
-		{
-			std::mt19937_64 Generator;
-			for(int Walker = 0; Walker < NWalkers; ++Walker)
-			{
-				for(int Par = 0; Par < NPars; ++Par)
-				{
-					double Initial = InitialValue[Par];
-					double Draw = Initial;
-					if(InitialType == 0)
-					{
+		if(run_type == 1) {
+			// For a completely new run, initialize the walkers randomly
+			std::mt19937_64 gen;
+			for(int walker = 0; walker < n_walkers; ++walker) {
+				for(int par = 0; par < n_pars; ++par) {
+					double initial = initial_values[par];
+					double draw = initial;
+					if(init_type == 0) {
 						//Initializing walkers to a gaussian ball around the initial parameter values.
-						double StdDev = (MaxBound[Par] - MinBound[Par])/400.0;   //TODO: How to choose scaling coefficient?
+						double std_dev = (max_bound[par] - min_bound[par])/400.0;   //TODO: How to choose scaling coefficient?
+						std::normal_distribution<double> distr(initial, std_dev);
 						
-						std::normal_distribution<double> Distribution(Initial, StdDev);
-						
-						Draw = Distribution(Generator);
-						Draw = std::max(MinBound[Par], Draw);
-						Draw = std::min(MaxBound[Par], Draw);
-			
-					}
-					else if(InitialType == 1)
-					{
-						std::uniform_real_distribution<double> Distribution(MinBound[Par], MaxBound[Par]);
-						Draw = Distribution(Generator);
-					}
-					else
+						draw = distr(gen);
+						draw = std::max(min_bound[par], draw);
+						draw = std::min(max_bound[par], draw);
+					} else if(init_type == 1) {
+						std::uniform_real_distribution<double> distr(min_bound[par], max_bound[par]);
+						draw = distr(gen);
+					} else
 						PromptOK("Internal error, wrong intial type");
-					
-					Data(Walker, Par, 0) = Draw;
+					mc_data(walker, par, 0) = draw;
 				}
 			}
 		}
 	}
 	
-	ParentWindow->ProcessEvents();
+	parent->ProcessEvents();
 	
-	std::vector<double> Scales(NPars);
-	for(int Par = 0; Par < NPars; ++Par)
-	{
-		Scales[Par] = MaxBound[Par] - MinBound[Par];
-		assert(Scales[Par] >= 0.0);
-	}
+	std::vector<double> scales(n_pars);
+	for(int par = 0; par < n_pars; ++par)
+		scales[par] = max_bound[par] - min_bound[par];
 	
-	mcmc_run_data RunData;
-	RunData.Model = OptimModel;
-	RunData.Data  = &Data;
-	RunData.MinBound = MinBound;
-	RunData.MaxBound = MaxBound;
-	RunData.DataSets.resize(NWalkers);
-	
-	//TODO: For Emcee we really only need a set of datasets that is the size of a
+	//TODO: We really only need a set of optim models that is the size of a
 	//partial ensemble, which is about half of the total ensemble.
-	for(int Walker = 0; Walker < NWalkers; ++Walker)
-		RunData.DataSets[Walker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-	
-	mcmc_callback_data CallbackData;
-	CallbackData.ParentWindow = ParentWindow;
+	MCMC_Run_Data run_data;
+	for(int walker = 0; walker < n_walkers; ++walker) {
+		Optimization_Model opt = *optim;
+		opt.data = optim->data->copy();
+		run_data.optim_models.push_back(opt);
+	}
+	run_data.data      = &mc_data;
+	run_data.min_bound = min_bound;
+	run_data.max_bound = max_bound;
+
+	MCMC_Callback_Data callback_data;
+	//callback_data.win = ParentWindow;
 	
 	//TODO: We have to check the SamplerParams for correctness somehow!
 	
-	bool Finished = RunMCMC(Method, SamplerParams, Scales.data(), MCMCLogLikelyhoodEval, (void *)&RunData, &Data, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	bool finished =
+		run_mcmc(method, sampler_params, scales.data(), mcmc_ll_eval, &run_data, mc_data, mcmc_callback, &callback_data, callback_interval, init_step);
 	
-	for(int Walker = 0; Walker < NWalkers; ++Walker)
-		ParentWindow->ModelDll.DeleteDataSet(RunData.DataSets[Walker]);
+	// Clean up copied data.
+	for(int walker = 0; walker < n_walkers; ++walker)
+		delete run_data.optim_models[walker].data;
 	
-	return Finished;
+	return finished;
 }
 
+/*
 bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound)
 {
 	
@@ -1152,7 +1121,50 @@ void OptimizationWindow::run_clicked(int run_type)
 				parent->log("The optimizer was unable to find a better result using the given number of function evaluations");
 			
 		} else if (run_type == 1 || run_type == 2) {
-			//TODO
+			int n_walkers   = mcmc_setup.edit_walkers.GetData();
+			int n_steps     = mcmc_setup.edit_steps.GetData();
+			int init_type   = mcmc_setup.initial_type_switch.GetData();
+			
+			int n_pars = initial_pars.size();
+			
+			MCMC_Sampler method = (MCMC_Sampler)(int)mcmc_setup.select_sampler.GetData();
+			double sampler_params[16]; //NOTE: We should not encounter a sampler with more parameters than this...
+			for(int par = 0; par < mcmc_setup.sampler_param_view.GetCount(); ++par)
+				sampler_params[par] = mcmc_setup.sampler_param_view.Get(par, 1);
+			
+			auto n_cores = std::thread::hardware_concurrency();
+			int n_actual_steps = (run_type == 1) ? (n_steps) : (n_steps - mc_data.n_steps);
+			String prefix = (run_type == 1) ? "Running MCMC." : "Extending MCMC run.";
+			
+			double exp_duration1 = ms*1e-3*(double)n_walkers*(double)n_actual_steps/(double)n_cores;
+			double exp_duration2 = 2.0*exp_duration1;   //TODO: This is just because we are not able to get the number of physical cores..
+			
+			parent->log(Format("%s Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.",
+				prefix, exp_duration1, exp_duration2, (int)n_cores));
+			parent->ProcessEvents();
+			
+			
+			int callback_interval = 50; //TODO: Make this configurable or dynamic?
+			
+			//TODO!
+			/*
+			if(!ParentWindow->MCMCResultWin.IsOpen())
+				ParentWindow->MCMCResultWin.Open();
+			*/
+			
+			timer = Timer();
+			bool finished = run_mcmc_from_window(method, &sampler_params[0], n_walkers, n_pars, n_steps, &opt_model,
+				initial_pars.data(), min_vals.data(), max_vals.data(),
+				init_type, callback_interval, run_type);
+			ms = timer.get_milliseconds();
+			
+			//GuiLock lock;
+			if(finished)
+				parent->log(Format("MCMC run finished after %g seconds.", (double)ms*1e-3));
+			else
+				parent->log("MCMC run was interrupted.");
+			
+			mcmc_setup.push_extend_run.Enable();
 		} else if (run_type == 3) {
 			//TODO
 		}
