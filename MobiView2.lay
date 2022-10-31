@@ -29,5 +29,3 @@ LAYOUT(ChangeIndexesLayout, 568, 536)
 	ITEM(Upp::Button, PushAddIndex, SetLabel(t_("Add index")).RightPosZ(100, 88).TopPosZ(332, 24))
 END_LAYOUT
 
-
-

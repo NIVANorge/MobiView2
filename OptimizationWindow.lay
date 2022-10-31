@@ -79,3 +79,4 @@ LAYOUT(VarSensitivityResultLayout, 528, 612)
 	ITEM(Upp::Label, note_label, SetLabel(t_("Note: Very small numbers are often unreliable unless the sample size is very high.\nNumbers should be positive, and the total effect index should be larger than the first-order coefficient.\nIf not, the sample size may be too low")).HSizePosZ(4, 4).BottomPosZ(344, 40))
 	ITEM(MyPlot, plot, HSizePosZ(4, 4).BottomPosZ(24, 316))
 END_LAYOUT
+

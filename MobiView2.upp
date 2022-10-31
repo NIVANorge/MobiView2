@@ -4,7 +4,8 @@ uses
 	CtrlLib,
 	AutoScroller,
 	ScatterCtrl,
-	plugin/md;
+	plugin/md,
+	AutoScroller;
 
 file
 	MobiView2.h,
@@ -30,6 +31,7 @@ file
 	AdditionalPlotView.cpp,
 	OptimizationWindow.h,
 	OptimizationWindow.cpp,
+	MCMCResultWindow.cpp,
 	Info.rc,
 	mobius.ico,
 	logos.iml,
