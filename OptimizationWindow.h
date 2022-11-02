@@ -93,7 +93,7 @@ private:
 	void tab_change();
 	
 	bool run_mcmc_from_window(MCMC_Sampler method, double *sampler_params, int n_walkers, int n_pars, int n_steps, Optimization_Model *optim,
-		double *initial_values, double *min_bound, double *max_bound, int init_type, int callback_interval, int run_type);
+		std::vector<double> &initial_values, std::vector<double> &min_bound, std::vector<double> &max_bound, int init_type, int callback_interval, int run_type);
 		
 		
 	//bool RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound);
@@ -139,7 +139,7 @@ class MCMCResultWindow : public WithMCMCResultLayout<Upp::TopWindow> {
 public:
 	typedef MCMCResultWindow CLASSNAME;
 	
-	MCMCResultWindow();
+	MCMCResultWindow(MobiView2 *parent);
 	
 	MobiView2 *parent;
 	

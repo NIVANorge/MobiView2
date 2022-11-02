@@ -83,140 +83,6 @@ public:
 	void BuildConnectionEditFromDataset();
 };
 
-target_stat_class
-GetStatClass(optimization_target &Target);
-
-inline bool operator==(const optimization_target &T1, const optimization_target &T2)
-{
-	return
-		   T1.ResultName    == T2.ResultName
-		&& T1.ResultIndexes == T2.ResultIndexes
-		&& T1.InputName     == T2.InputName
-		&& T1.InputIndexes  == T2.InputIndexes
-		&& T1.ErrParSym     == T2.ErrParSym
-		&& T1.ErrParNum     == T2.ErrParNum
-		&& T1.ResidualStat  == T2.ResidualStat
-		&& T1.Stat          == T2.Stat
-		&& T1.ErrStruct     == T2.ErrStruct
-		&& T1.Weight        == T2.Weight
-		&& T1.Begin         == T2.Begin
-		&& T1.End           == T2.End;
-}
-
-struct triangle_plot_data
-{
-	std::vector<double> DistrX;
-	std::vector<double> DistrY;
-	std::vector<double> DistrZ;
-};
-
-struct histogram_data
-{
-	std::vector<double> DistrX;
-	std::vector<double> DistrY;
-};
-
-class MCMCProjectionCtrl : public WithMCMCProjectionLayout<ParentCtrl>
-{
-public:
-	typedef MCMCProjectionCtrl CLASSNAME;
-	
-	MCMCProjectionCtrl();
-};
-
-
-class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
-{
-public:
-	typedef MCMCResultWindow CLASSNAME;
-	
-	MCMCResultWindow();
-	
-	MobiView *ParentWindow;
-	
-	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType);
-	void ClearPlots();
-	void ResizeChainPlots();
-	void RefreshPlots(int CurStep = -1);
-	
-	void BurninSliderEvent();
-	void BurninEditEvent();
-	
-	void SubBar(Bar &bar);
-	
-	void SaveResults();
-	bool LoadResults();
-	
-	void MAPToMainPushed();
-	void MedianToMainPushed();
-	
-	
-	void GenerateProjectionsPushed();
-
-	//bool HaltWasPushed;
-private:
-	
-	
-	void RefreshResultSummary(int CurStep = -1);
-	
-	ToolBar Tool;
-	
-	double Burnin[2];
-	//double BurninPlotY[2];
-	std::vector<double> BurninPlotY;
-	
-	Array<ScatterCtrl> ChainPlots;
-	
-	
-	mcmc_data *Data = nullptr;
-	//TODO: Pack these into Data?
-	Array<String> FreeSyms;
-	std::vector<double> MinBound;
-	std::vector<double> MaxBound;
-	
-	AutoScroller ChainPlotScroller;
-	AutoScroller TrianglePlotScroller;
-	
-	ParentCtrl ViewChainPlots;
-	ParentCtrl ViewTrianglePlots;
-	ParentCtrl ViewResultSummary;
-	MyRichView ResultSummary;
-	Button PushWriteMAP;
-	Button PushWriteMedian;
-	
-	std::vector<double> AcorTimes;
-	std::vector<bool>   AcorBelowTolerance;
-	
-	const int DistrResolution = 20;
-	
-	//Ugh, why not just use a plot_data_storage for this??
-	std::vector<triangle_plot_data> TrianglePlotData;
-	Array<TableDataCArray>          TrianglePlotDS;
-	Array<ScatterCtrl>              TrianglePlots;
-	
-	std::vector<histogram_data>     HistogramData;
-	Array<ScatterCtrl>              Histograms;
-	
-	MCMCProjectionCtrl  ViewProjections;
-	
-	AutoScroller        ProjectionPlotScroll;
-	ParentCtrl          ProjectionPlotPane;
-	Array<MyPlot>       ProjectionPlots;
-	
-	AutoScroller        ResidPlotScroll;
-	ParentCtrl          ResidPlotPane;
-	Array<MyPlot>       ResidPlots;
-	Array<MyPlot>       ResidHistograms;
-	
-	AutoScroller        AutoCorrPlotScroll;
-	ParentCtrl          AutoCorrPlotPane;
-	Array<MyPlot>       AutoCorrPlots;
-	
-public:
-	std::vector<indexed_parameter> Parameters;
-	std::vector<optimization_target> Targets;
-};
-
 
 class VarianceSensitivityWindow : public WithVarSensitivityResultLayout<TopWindow>
 {
@@ -289,6 +155,7 @@ public:
 	ModelInfoWindow       info_window;
 	AdditionalPlotView    additional_plots;
 	OptimizationWindow    optimization_window;
+	MCMCResultWindow      mcmc_window;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;

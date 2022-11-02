@@ -15,3 +15,4 @@ LAYOUT(SensitivityLayout, 884, 448)
 	ITEM(Upp::ProgressIndicator, run_progress, HSizePosZ(4, 4).BottomPosZ(4, 24))
 	ITEM(Upp::Label, param_label, HSizePosZ(352, 4).TopPosZ(4, 19))
 END_LAYOUT
+

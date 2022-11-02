@@ -98,11 +98,11 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	run_setup.edit_epsilon.SetData(0.0);
 	
 	
-	mcmc_setup.push_run.WhenPush         = [&](){ run_clicked(1); };
+	mcmc_setup.push_run.WhenPush         = [this](){ run_clicked(1); };
 	mcmc_setup.push_run.SetImage(IconImg4::Run());
-	//mcmc_setup.push_view_chains.WhenPush << [&]() { if(!ParentWindow->MCMCResultWin.IsOpen()) ParentWindow->MCMCResultWin.Open(); }; //TODO
+	mcmc_setup.push_view_chains.WhenPush << [this]() { if(!this->parent->mcmc_window.IsOpen()) this->parent->mcmc_window.Open(); };
 	mcmc_setup.push_view_chains.SetImage(IconImg4::ViewMorePlots());
-	mcmc_setup.push_extend_run.WhenPush   = [&](){ run_clicked(2); };
+	mcmc_setup.push_extend_run.WhenPush   = [this](){ run_clicked(2); };
 	mcmc_setup.push_extend_run.Disable();
 	mcmc_setup.push_extend_run.SetImage(IconImg4::Run());
 	
@@ -337,7 +337,7 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	target_setup.target_view.SetCtrl(row, col, sel_stat);
 	sel_stat.WhenAction << [this, row]() { stat_edited(row); };
 	
-	//sel_stat.GoBegin();
+	sel_stat.GoBegin();
 	
 	target_err_ctrls.Create<EditField>();
 	EditField &err_ctrl = target_err_ctrls.Top();
@@ -539,8 +539,8 @@ MCMC_Run_Data {
 
 struct
 MCMC_Callback_Data {
-	//MCMCResultWindow *win;
-	int dummy;
+	MobiView2        *parent_win;
+	MCMCResultWindow *result_win;
 };
 
 bool
@@ -551,12 +551,11 @@ mcmc_callback(void *callback_data, int step) {
 	//	return false;
 	
 	// TODO!
-	/*
-	GuiLock lock;
 	
-	cbd->win->refresh_plots(step);
-	cbd->win->ProcessEvents();
-	*/
+	//GuiLock lock;
+	
+	cbd->result_win->refresh_plots(step);
+	cbd->parent_win->ProcessEvents();
 	
 	return true;
 }
@@ -581,18 +580,18 @@ mcmc_ll_eval(void *run_data_0, int walker, int step) {
 
 bool
 OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_params, int n_walkers, int n_pars, int n_steps, Optimization_Model *optim,
-	double *initial_values, double *min_bound, double *max_bound, int init_type, int callback_interval, int run_type)
+	std::vector<double> &initial_values, std::vector<double> &min_bound, std::vector<double> &max_bound, int init_type, int callback_interval, int run_type)
 {
 	int init_step = 0;
 	
+	MCMCResultWindow *result_win = &parent->mcmc_window;
+	result_win->clean();
+	
 	{
-		GuiLock Lock;
-		
-		//TODO
-		/*
-		MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
-		ResultWin->ClearPlots();
-		*/
+		GuiLock lock;
+
+		if(!result_win->IsOpen())
+			result_win->Open();
 		
 		if(run_type == 2) { // NOTE RunType==2 means extend the previous run.
 			if(mc_data.n_steps == 0) {
@@ -624,23 +623,19 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 			mc_data.allocate(n_walkers, n_pars, n_steps);
 		}
 		
-		//TODO
-		/*
-		Array<String> FreeSyms;
-		for(indexed_parameter &Parameter : Parameters)
-			if(Parameter.Expr == "") FreeSyms.push_back(String(Parameter.Symbol.data()));
-		
+		std::vector<std::string> free_syms;
+		for(Indexed_Parameter &par : parameters)
+			if(par.expr.empty()) free_syms.push_back(par.symbol);
 		
 		//NOTE: These have to be cached so that we don't have to rely on the optimization window
 		//not being edited (and going out of sync with the data)
-		ResultWin->Parameters = Parameters;
-		ResultWin->Targets    = Targets;
+		result_win->parameters = parameters;
+		result_win->targets    = targets;
 		
-		ResultWin->ChoosePlotsTab.Set(0);
-		ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
+		result_win->choose_plots_tab.Set(0);
+		result_win->begin_new_plots(mc_data, min_bound, max_bound, free_syms, run_type);
 		
-		ParentWindow->ProcessEvents();
-		*/
+		//parent->ProcessEvents();
 		
 		if(run_type == 1) {
 			// For a completely new run, initialize the walkers randomly
@@ -679,20 +674,26 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 	MCMC_Run_Data run_data;
 	for(int walker = 0; walker < n_walkers; ++walker) {
 		Optimization_Model opt = *optim;
-		opt.data = optim->data->copy();
+		opt.data = optim->data->copy(false);
 		run_data.optim_models.push_back(opt);
 	}
 	run_data.data      = &mc_data;
-	run_data.min_bound = min_bound;
-	run_data.max_bound = max_bound;
+	run_data.min_bound = min_bound.data();
+	run_data.max_bound = max_bound.data();
 
 	MCMC_Callback_Data callback_data;
-	//callback_data.win = ParentWindow;
+	callback_data.parent_win = parent;
+	callback_data.result_win = result_win;
 	
-	//TODO: We have to check the SamplerParams for correctness somehow!
+	//TODO: We should check the sampler_params for correctness somehow!
 	
-	bool finished =
-		run_mcmc(method, sampler_params, scales.data(), mcmc_ll_eval, &run_data, mc_data, mcmc_callback, &callback_data, callback_interval, init_step);
+	bool finished = false;
+	try {
+		finished =
+			run_mcmc(method, sampler_params, scales.data(), mcmc_ll_eval, &run_data, mc_data, mcmc_callback, &callback_data, callback_interval, init_step);
+	} catch(int) {
+	}
+	parent->log_warnings_and_errors();
 	
 	// Clean up copied data.
 	for(int walker = 0; walker < n_walkers; ++walker)
@@ -1132,15 +1133,9 @@ void OptimizationWindow::run_clicked(int run_type)
 			
 			int callback_interval = 50; //TODO: Make this configurable or dynamic?
 			
-			//TODO!
-			/*
-			if(!ParentWindow->MCMCResultWin.IsOpen())
-				ParentWindow->MCMCResultWin.Open();
-			*/
-			
 			timer = Timer();
 			bool finished = run_mcmc_from_window(method, &sampler_params[0], n_walkers, n_pars, n_steps, &opt_model,
-				initial_pars.data(), min_vals.data(), max_vals.data(),
+				initial_pars, min_vals, max_vals,
 				init_type, callback_interval, run_type);
 			ms = timer.get_milliseconds();
 			

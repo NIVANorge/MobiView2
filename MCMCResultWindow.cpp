@@ -11,7 +11,7 @@ MCMCProjectionCtrl::MCMCProjectionCtrl() {
 	CtrlLayout(*this);
 }
 
-MCMCResultWindow::MCMCResultWindow() {
+MCMCResultWindow::MCMCResultWindow(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
 	
 	SetRect(0, 0, 1200, 900);

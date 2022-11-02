@@ -18,7 +18,7 @@ using namespace Upp;
 MobiView2::MobiView2() :
 	params(this), plotter(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
-	optimization_window(this) {
+	optimization_window(this), mcmc_window(this) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	

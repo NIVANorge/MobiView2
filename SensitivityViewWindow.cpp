@@ -92,7 +92,7 @@ SensitivityViewWindow::update() {
 		unit = parent->app->model->units[par_data->unit]->data.to_utf8();
 
 	String index_str = make_parameter_index_string(&parent->app->parameter_structure, &par);
-	String label_text = Format("%s %s [%s]", par_data->name.data(), unit, index_str);
+	String label_text = Format("%s [%s] %s", par_data->name.data(), unit, index_str);
 	
 	param_label.SetText(label_text);
 	if(prev_id != par.id) {
