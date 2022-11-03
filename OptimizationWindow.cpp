@@ -177,7 +177,7 @@ void OptimizationWindow::enable_expressions_clicked() {
 	}
 }
 
-bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter) {
+bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool lookup_default) {
 	if(!is_valid(parameter.id) && !parameter.virt) return false; //TODO: Some kind of error message explaining how to use the feature?
 	
 	auto app = parent->app;
@@ -215,8 +215,9 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter) {
 			max     = par->max_val.val_real;
 			if(is_valid(par->unit))
 				unit    = app->model->units[par->unit]->data.to_utf8();
-			sym     = par->symbol.data();
 			name    = par->name.data();
+			if(lookup_default)
+				sym     = par->symbol.data();
 		}
 		
 		parameter.symbol = sym.ToStd();
@@ -1163,70 +1164,6 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	Close(); //NOTE: otherwise the window gets hidden behind the main window some times. TODO: find a better way to fix it.
 /*
-	else if(RunType == 1 || RunType == 2)
-	{
-		int NWalkers    = MCMCSetup.EditWalkers.GetData();
-		int NSteps      = MCMCSetup.EditSteps.GetData();
-		int InitialType = MCMCSetup.InitialTypeSwitch.GetData();
-		
-		int NPars = OptimizationModel.FreeParCount;
-		
-		mcmc_sampler_method Method = (mcmc_sampler_method)(int)MCMCSetup.SelectSampler.GetData();
-		double SamplerParams[20]; //NOTE: We should not encounter a sampler with more parameters than this...
-		for(int Par = 0; Par < MCMCSetup.SamplerParamView.GetCount(); ++Par)
-			SamplerParams[Par] = MCMCSetup.SamplerParamView.Get(Par, 1);
-		
-		std::vector<double> InitialVals(NPars);
-		std::vector<double> MinVals(NPars);
-		std::vector<double> MaxVals(NPars);
-		
-		for(int Idx = 0; Idx < NPars; ++Idx)
-		{
-			InitialVals[Idx] = InitialPars(Idx);
-			MinVals[Idx]     = MinBound(Idx);
-			MaxVals[Idx]     = MaxBound(Idx);
-		}
-		
-		auto NCores = std::thread::hardware_concurrency();
-		int NActualSteps = (RunType==1) ? (NSteps) : (NSteps - Data.NSteps);
-		String Prefix = (RunType==1) ? "Running MCMC." : "Extending MCMC run.";
-		
-		double ExpectedDuration1 = Ms*1e-3*(double)NWalkers*(double)NActualSteps/(double)NCores;
-		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
-		
-		ParentWindow->Log(Format("%s Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
-		ParentWindow->ProcessEvents();
-		
-		
-		int CallbackInterval = 50; //TODO: Make this configurable or dynamic?
-		
-		if(!ParentWindow->MCMCResultWin.IsOpen())
-			ParentWindow->MCMCResultWin.Open();
-		
-		//NOTE: If we launch this from a separate thread, it can't launch its own threads, and
-		//the GUI doesn't update properly :(
-		
-		//Thread().Run([=, & OptimizationModel, & InitialVals, & MinVals, & MaxVals](){
-			
-			auto BeginTime = std::chrono::system_clock::now();
-			
-			bool Finished = RunMobiviewMCMC(Method, &SamplerParams[0], NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
-											InitialType, CallbackInterval, RunType);
-			
-			auto EndTime = std::chrono::system_clock::now();
-			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
-			
-			GuiLock Lock;
-			
-			if(Finished)
-				ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
-			else
-				ParentWindow->Log("MCMC run unsuccessful.");
-			
-			MCMCSetup.PushExtendRun.Enable();
-			
-		END_CLEANUP();
-		//});
 	}
 	else if(RunType == 3)
 	{
@@ -1265,49 +1202,38 @@ void OptimizationWindow::run_clicked(int run_type)
 }
 
 void OptimizationWindow::tab_change() {
-	//TODO:
-	/*
-	int TabNum = TargetSetup.OptimizerTypeTab.Get();
 	
-	if (TabNum == 2)             // variance based    -- hide err params
-		TargetSetup.TargetView.HeaderObject().HideTab(5);
+	int tab = target_setup.optimizer_type_tab.Get();
+	
+	if (tab == 2)             // variance based    -- hide err params
+		target_setup.target_view.HeaderObject().HideTab(5);
 	else                         // MCMC or optimizer -- show err params
-		TargetSetup.TargetView.HeaderObject().ShowTab(5);
+		target_setup.target_view.HeaderObject().ShowTab(5);
 	
-	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
-	{
-		DropList &SelectStat = TargetStatCtrls[TargetIdx];
-		SelectStat.Clear();
+	for(int idx = 0; idx < targets.size(); ++idx) {
+		DropList &sel_stat = target_stat_ctrls[idx];
+		sel_stat.Clear();
 
-		if(TabNum == 2)
-		{
-			#define SET_SETTING(Handle, Name, Type) SelectStat.Add((int)StatType_##Handle, Name);
-			#define SET_RES_SETTING(Handle, Name, Type)
-			#include "SetStatSettings.h"
-			#undef SET_SETTING
-			#undef SET_RES_SETTING
+		if(tab == 2) {
+			#define SET_STATISTIC(handle, name) sel_stat.Add((int)Stat_Type::handle, name);
+			#include "support/stat_types.incl"
+			#undef SET_STATISTIC
 		}
-		if(TabNum == 0 || TabNum == 2)
-		{
-			#define SET_SETTING(Handle, Name, Type)
-			#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
-			#include "SetStatSettings.h"
-			#undef SET_SETTING
-			#undef SET_RES_SETTING
+		if(tab == 0 || tab == 2) {
+			#define SET_RESIDUAL(handle, name, type) if(type != -1) sel_stat.Add((int)Residual_Type::handle, name);
+			#include "support/residual_types.incl"
+			#undef SET_RESIDUAL
 		}
-		if(TabNum == 0 || TabNum == 1)
-		{
-			#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
-			#include "LLSettings.h"
-			#undef SET_LL_SETTING
+		if(tab == 0 || tab == 1) {
+			#define SET_LOG_LIKELIHOOD(handle, name, n_err) sel_stat.Add((int)LL_Type::handle, name);
+			#include "support/log_likelihood_types.incl"
+			#undef SET_LOG_LIKELIHOOD
 		}
 		
-		optimization_target &Target = Targets[TargetIdx];
-		SelectStat.SetValue((int)Target.Stat);
-		TargetSetup.TargetView.Set(TargetIdx, "__targetstat", (int)Target.Stat);
-		//PromptOK(Format("Target stat is %d", (int)Target.Stat));
+		Optimization_Target &target = targets[idx];
+		sel_stat.SetValue((int)target.stat_type);
+		target_setup.target_view.Set(idx, "__targetstat", (int)target.stat_type);
 	}
-	*/
 }
 
 //// Serialization:
@@ -1318,20 +1244,22 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 	//Entity_Id and Var_Id . We can't simply use the name of the entity since it is not
 	//guaranteed to be unique.
 	
-	/*
+	auto app   = parent->app;
+	auto model = app->model;
+	
 	clean();
 	
 	Value setup_json  = ParseJSON(json);
 	
-	Value max_eval = SetupJson["MaxEvals"];
+	Value max_eval = setup_json["MaxEvals"];
 	if(!IsNull(max_eval))
 		run_setup.edit_max_evals.SetData((int)max_eval);
 	
-	Value eps = SetupJson["Epsilon"];
+	Value eps = setup_json["Epsilon"];
 	if(!IsNull(eps))
 		run_setup.edit_epsilon.SetData((double)eps);
 
-	ValueArray par_arr = SetupJson["Parameters"];
+	ValueArray par_arr = setup_json["Parameters"];
 	if(!IsNull(par_arr)) {
 		int count = par_arr.GetCount();
 		int valid_row = 0;
@@ -1341,189 +1269,169 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			Indexed_Parameter par = {};
 			par.id = invalid_entity_id;
 
+			// TODO: In the end it may not be sufficient to store parameters by name, they may
+			// have to be scoped to par group + module!
 			Value name = par_json["Name"];
-			if(!IsNull(name)) {
-				par.id = parent->app->model.find
+			if(!IsNull(name))
+				par.id = model->parameters.find_by_name(name.ToStd());
+			
+			Value virt_val = par_json["Virtual"];
+			if(!IsNull(virt_val)) par.virt = (bool)virt_val;
+			
+			ValueArray idxs_val = par_json["Indexes"];
+			for(int idx = 0; idx < idxs_val.GetCount(); ++idx) {
+				Value idx_val = idxs_val[idx];
+				Index_T   index = invalid_index;
+				Entity_Id index_set;
+				
+				// TODO: May need better error handling here:
+				Value idx_set_name_val = idx_val["IndexSetName"];
+				if(!IsNull(idx_set_name_val)) index_set = model->index_sets.find_by_name(idx_set_name_val.ToStd());;
+				Value name_val = idx_val["Name"];
+				if(!IsNull(name_val) && name_val != "") index = parent->app->get_index(index_set, name_val.ToStd());
+				Value locked_val = idx_val["Locked"];
+				bool locked = false;
+				if(!IsNull(locked_val)) locked = (bool)locked_val;
+				
+				par.indexes.push_back(index);
+				par.locks.push_back(locked);
 			}
 			
-			Value VirtualVal = ParamJson["Virtual"];
-			if(!IsNull(VirtualVal)) Parameter.Virtual = (bool)VirtualVal;
+			Value sym_val  = par_json["Sym"];
+			if(!IsNull(sym_val)) par.symbol = sym_val.ToStd();
+			Value expr_val = par_json["Expr"];
+			if(!IsNull(expr_val)) par.expr = expr_val.ToStd();
 			
-			ValueArray IndexesVal = ParamJson["Indexes"];
-			for(int Idx = 0; Idx < IndexesVal.GetCount(); ++Idx)
-			{
-				Value IndexJson = IndexesVal[Idx];
-				parameter_index Index;
-				
-				Value NameVal = IndexJson["Name"];
-				if(!IsNull(NameVal)) Index.Name = NameVal.ToString().ToStd();
-				Value IndexSetVal = IndexJson["IndexSetName"];
-				if(!IsNull(IndexSetVal)) Index.IndexSetName = IndexSetVal.ToString().ToStd();
-				Value LockedVal = IndexJson["Locked"];
-				if(!IsNull(LockedVal)) Index.Locked = (bool)LockedVal;
-				
-				Parameter.Indexes.push_back(Index);
-			}
+			bool added = add_single_parameter(par, false);
 			
-			Value SymVal  = ParamJson["Sym"];
-			if(!IsNull(SymVal)) Parameter.Symbol = SymVal.ToStd();
-			Value ExprVal = ParamJson["Expr"];
-			if(!IsNull(ExprVal)) Parameter.Expr = ExprVal.ToStd();
-			
-			bool Added = AddSingleParameter(Parameter, 0, false);
-			
-			if(Added)
-			{
-				Value UnitVal = ParamJson["Unit"];
-				ParSetup.ParameterView.Set(ValidRow, Id("__unit"), UnitVal);
-				Value MinVal  = ParamJson["Min"];
-				ParSetup.ParameterView.Set(ValidRow, Id("__min"), MinVal);
-				Value MaxVal  = ParamJson["Max"];
-				ParSetup.ParameterView.Set(ValidRow, Id("__max"), MaxVal);
-				
-				++ValidRow;
+			if(added) {
+				Value min_val  = par_json["Min"];
+				par_setup.parameter_view.Set(valid_row, Id("__min"), min_val);
+				Value max_val  = par_json["Max"];
+				par_setup.parameter_view.Set(valid_row, Id("__max"), max_val);
+				++valid_row;
 			}
 		}
 	}
 	
-	Value EnableExpr = SetupJson["EnableExpr"];
-	if(!IsNull(EnableExpr))
-		ParSetup.OptionUseExpr.Set((int)EnableExpr);
+	Value enable_expr = setup_json["EnableExpr"];
+	if(!IsNull(enable_expr))
+		par_setup.option_use_expr.Set((int)enable_expr);
 	
-	Value ShowProgress = SetupJson["ShowProgress"];
-	if(!IsNull(ShowProgress))
-		RunSetup.OptionShowProgress.Set((int)ShowProgress);
+	Value show_progress = setup_json["ShowProgress"];
+	if(!IsNull(show_progress))
+		run_setup.option_show_progress.Set((int)show_progress);
 	
-	Value NWalkers = SetupJson["Walkers"];
-	if(!IsNull(NWalkers))
-		MCMCSetup.EditWalkers.SetData(NWalkers);
+	Value n_walkers = setup_json["Walkers"];
+	if(!IsNull(n_walkers))
+		mcmc_setup.edit_walkers.SetData(n_walkers);
 	
-	Value NSteps   = SetupJson["Steps"];
-	if(!IsNull(NSteps))
-		MCMCSetup.EditSteps.SetData(NSteps);
+	Value n_steps   = setup_json["Steps"];
+	if(!IsNull(n_steps))
+		mcmc_setup.edit_steps.SetData(n_steps);
 	
-	Value InitType = SetupJson["InitType"];
-	if(!IsNull(InitType))
-		MCMCSetup.InitialTypeSwitch.SetData(InitType);
+	Value init_type = setup_json["InitType"];
+	if(!IsNull(init_type))
+		mcmc_setup.initial_type_switch.SetData(init_type);
 	
-	Value Sampler = SetupJson["Sampler"];
-	if(!IsNull(Sampler))
-	{
-		int Key = MCMCSetup.SelectSampler.FindValue(Sampler);
-		MCMCSetup.SelectSampler.SetData(Key);
+	Value sampler = setup_json["Sampler"];
+	if(!IsNull(sampler)) {
+		int key = mcmc_setup.select_sampler.FindValue(sampler);
+		mcmc_setup.select_sampler.SetData(key);
 	}
-	SamplerMethodSelected();
-	ValueArray SamplerPars = SetupJson["SamplerPars"];
-	if(!IsNull(SamplerPars) && SamplerPars.GetCount() == MCMCSetup.SamplerParamView.GetCount())
-	{
-		for(int Par = 0; Par < SamplerPars.GetCount(); ++Par)
-			MCMCSetup.SamplerParamView.Set(Par, 1, (double)SamplerPars[Par]);
+	sampler_method_selected();
+	ValueArray sampler_pars = setup_json["SamplerPars"];
+	if(!IsNull(sampler_pars) && sampler_pars.GetCount() == mcmc_setup.sampler_param_view.GetCount()) {
+		for(int par = 0; par < sampler_pars.GetCount(); ++par)
+			mcmc_setup.sampler_param_view.Set(par, 1, (double)sampler_pars[par]);
 	}
 	
-	Value NSamples = SetupJson["Samples"];
-	if(!IsNull(NSamples))
-		SensitivitySetup.EditSampleSize.SetData(NSamples);
+	Value n_samples = setup_json["Samples"];
+	if(!IsNull(n_samples))
+		sensitivity_setup.edit_sample_size.SetData(n_samples);
 	
-	Value Method = SetupJson["Method"];
-	if(!IsNull(Method))
-	{
-		int Key = SensitivitySetup.SelectMethod.FindValue(Method);
-		SensitivitySetup.SelectMethod.SetData(Key);
+	Value method = setup_json["Method"];
+	if(!IsNull(method)) {
+		int key = sensitivity_setup.select_method.FindValue(method);
+		sensitivity_setup.select_method.SetData(key);
 	}
 	
-	Value RunType  = SetupJson["RunType"];
-	if(!IsNull(RunType))
-		TargetSetup.OptimizerTypeTab.Set(RunType);
+	Value run_type  = setup_json["RunType"];
+	if(!IsNull(run_type))
+		target_setup.optimizer_type_tab.Set(run_type);
 	
-	Value Timeout  = SetupJson["TimeoutMs"];
-	if(!IsNull(Timeout))
-		TargetSetup.EditTimeout.SetData(Timeout);
+	Value timeout  = setup_json["TimeoutMs"];
+	if(!IsNull(timeout))
+		target_setup.edit_timeout.SetData(timeout);
 	
-	ValueArray TargetArr = SetupJson["Targets"];
-	if(!IsNull(TargetArr))
-	{
-		int Count = TargetArr.GetCount();
-		for(int Row = 0; Row < Count; ++Row)
-		{
-			Value TargetJson = TargetArr[Row];
+	ValueArray target_arr = setup_json["Targets"];
+	if(!IsNull(target_arr)) {
+		int count = target_arr.GetCount();
+		for(int row = 0; row < count; ++row) {
+			Value target_json = target_arr[row];
 			
-			optimization_target Target = {};
+			Optimization_Target target = {};
 			
-			String ResultName = TargetJson["ResultName"];
-			if(!IsNull(ResultName))
-				Target.ResultName = ResultName.ToStd();
+			String result_name = target_json["ResultName"];
+			if(!IsNull(result_name))
+				target.sim_id  = app->state_vars.deserialize(result_name.ToStd());
 			
-			String InputName  = TargetJson["InputName"];
-			if(!IsNull(InputName))
-				Target.InputName  = InputName.ToStd();
+			String input_name  = target_json["InputName"];
+			if(!IsNull(input_name)) {
+				target.obs_id  = app->series.deserialize(input_name.ToStd());
+				if(!is_valid(target.obs_id))
+					target.obs_id = app->additional_series.deserialize(input_name.ToStd());
+			}
 			
-			Target.Stat         = StatType_Mean;
-			Target.ResidualStat = ResidualType_MAE;
-			Target.ErrStruct    = MCMCError_NormalHet1;
+			target.stat_type    = (int)Stat_Type::mean;
 			
-			String StatName = TargetJson["Stat"];
-			if(!IsNull(StatName))
-			{
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == StatName) Target.ResidualStat = ResidualType_##Handle;
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
+			String stat_name = target_json["Stat"];
+			if(!IsNull(stat_name))
+				target.stat_type = stat_type_from_name(stat_name.ToStd());
+			
+			Value weight_val = target_json["Weight"];
+			if(!IsNull(weight_val)) target.weight = (double)weight_val;
+			
+			//TODO: this won't work for Time values, only for the Date part!
+			String begin_val = target_json["Begin"];
+			if(!IsNull(begin_val)) {
+				Time begin;
+				StrToDate(begin, begin_val);
+				target.start = convert_time(begin);
+			}
+			
+			String end_val   = target_json["End"];
+			if(!IsNull(end_val)) {
+				Time end;
+				StrToDate(end, end_val);
+				target.end   = convert_time(end);
+			}
+			
+			ValueArray index_arr = target_json["Indexes"];
+			bool found = !IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count());
+			int row2 = 0;
+			for(Entity_Id index_set : model->index_sets) {
+				String index_name = Null;
+				if(found) index_name = index_arr[row2];
+				Index_T index;
+				if(!IsNull(index_name) && index_name != "")
+					index = app->get_index(index_set, index_name.ToStd());
+				else
+					index = { index_set, -1 };
+				target.indexes.push_back(index);
+				++row2;
+			}
 
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type) else if(Name == StatName) Target.Stat = StatType_##Handle;
-				#define SET_RES_SETTING(Handle, Name, Type)
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
-
-				#define SET_LL_SETTING(Handle, Name, NumErr) else if(Name == StatName) Target.ErrStruct = MCMCError_##Handle;
-				if(false){}
-				#include "LLSettings.h"
-				#undef SET_LL_SETTING
-			}
+			add_optimization_target(target);
 			
-			ValueArray ResultIndexArr = TargetJson["ResultIndexes"];
-			if(!IsNull(ResultIndexArr))
-			{
-				int Count2 = ResultIndexArr.GetCount();
-				for(int Row2 = 0; Row2 < Count2; ++Row2)
-				{
-					String Index = ResultIndexArr[Row2];
-					Target.ResultIndexes.push_back(Index.ToStd());
-				}
-			}
-			
-			ValueArray InputIndexArr = TargetJson["InputIndexes"];
-			if(!IsNull(InputIndexArr))
-			{
-				int Count2 = InputIndexArr.GetCount();
-				for(int Row2 = 0; Row2 < Count2; ++Row2)
-				{
-					String Index = InputIndexArr[Row2];
-					Target.InputIndexes.push_back(Index.ToStd());
-				}
-			}
-			
-			Value WeightVal = TargetJson["Weight"];
-			if(!IsNull(WeightVal)) Target.Weight = (double)WeightVal;
-			
-			Value ErrPar = TargetJson["ErrPar"];
-			if(!IsNull(ErrPar)) Target.ErrParSym = ErrPar.ToString().ToStd();
-			
-			Value BeginVal = TargetJson["Begin"];
-			if(!IsNull(BeginVal)) Target.Begin = BeginVal.ToString().ToStd();
-			
-			Value EndVal   = TargetJson["End"];
-			if(!IsNull(EndVal)) Target.End = EndVal.ToString().ToStd();
-			
-			AddOptimizationTarget(Target);
+			// TODO: set these to the array instead
+			String err_par = target_json["ErrPar"];
+			if(!IsNull(err_par))
+				target_setup.target_view.Set(row, Id("__errparam"), err_par);
 		}
 	}
 	
-	EnableExpressionsClicked();
-	*/
+	enable_expressions_clicked();
 }
 
 void OptimizationWindow::read_from_json() {
@@ -1552,167 +1460,140 @@ void OptimizationWindow::read_from_json() {
 }
 
 String OptimizationWindow::write_to_json_string() {
-	//TODO
-	/*
-	Json MainFile;
 	
-	MainFile("MaxEvals", RunSetup.EditMaxEvals.GetData());
+	auto app   = parent->app;
+	auto model = app->model;
 	
-	MainFile("Epsilon", RunSetup.EditEpsilon.GetData());
+	Json main_file;
 	
-	JsonArray ParameterArr;
+	main_file("MaxEvals", run_setup.edit_max_evals.GetData());
+	main_file("Epsilon", run_setup.edit_epsilon.GetData());
+	JsonArray parameter_arr;
 	
 	//TODO: Factor out a serialization method for an indexed parameter?
-	int Row = 0;
-	for(indexed_parameter &Par : Parameters)
-	{
-		Json ParJson;
-		ParJson("Name", Par.Name.data());
-		ParJson("Virtual", Par.Virtual);
+	int row = 0;
+	for(Indexed_Parameter &par : parameters) {
+		Json par_json;
 		
-		ParJson("Unit", ParSetup.ParameterView.Get(Row, Id("__unit")));
-		ParJson("Min", (double)ParSetup.ParameterView.Get(Row, Id("__min")));
-		ParJson("Max", (double)ParSetup.ParameterView.Get(Row, Id("__max")));
-		ParJson("Sym", Par.Symbol.data());
-		ParJson("Expr", Par.Expr.data());
-		
-		JsonArray IndexArr;
-		for(parameter_index &Index : Par.Indexes)
-		{
-			Json IndexJson;
-			IndexJson("Name", Index.Name.data());
-			IndexJson("IndexSetName", Index.IndexSetName.data());
-			IndexJson("Locked", Index.Locked);
-			IndexArr << IndexJson;
+		if(!par.virt) {
+			auto par_data = model->parameters[par.id];
+			par_json("Name", par_data->name.data());
 		}
-		ParJson("Indexes", IndexArr);
 		
-		ParameterArr << ParJson;
+		par_json("Virtual", par.virt);
 		
-		++Row;
+		par_json("Min", (double)par_setup.parameter_view.Get(row, Id("__min")));
+		par_json("Max", (double)par_setup.parameter_view.Get(row, Id("__max")));
+		par_json("Sym", par.symbol.data());
+		par_json("Expr", par.expr.data());
+		
+		JsonArray index_arr;
+		int idx = 0;
+		for(Index_T index : par.indexes) {
+			Json index_json;
+			if(is_valid(index)) {
+				index_json("Name", app->index_names[index.index_set.id][index.index].data());
+				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
+			}
+			index_json("Locked", (bool)par.locks[idx]);
+			index_arr << index_json;
+			++idx;
+		}
+		par_json("Indexes", index_arr);
+		parameter_arr << par_json;
+		++row;
+	}
+	main_file("Parameters", parameter_arr);
+	
+	bool enable_expr = (bool)par_setup.option_use_expr.Get();
+	main_file("EnableExpr", enable_expr);
+	
+	bool show_progress = (bool)run_setup.option_show_progress.Get();
+	main_file("ShowProgress", show_progress);
+	
+	int n_walkers = mcmc_setup.edit_walkers.GetData();
+	main_file("Walkers", n_walkers);
+	
+	int n_steps   = mcmc_setup.edit_steps.GetData();
+	main_file("Steps", n_steps);
+	
+	int init_type = mcmc_setup.initial_type_switch.GetData();
+	main_file("InitType", init_type);
+	
+	String sampler = mcmc_setup.select_sampler.GetValue();
+	main_file("Sampler", sampler);
+	JsonArray sampler_pars;
+	for(int row = 0; row < mcmc_setup.sampler_param_view.GetCount(); ++row)
+		sampler_pars << mcmc_setup.sampler_param_view.Get(row, 1);
+	main_file("SamplerPars", sampler_pars);
+	
+	int run_type  = target_setup.optimizer_type_tab.Get();
+	main_file("RunType", run_type);
+	
+	int timeout = target_setup.edit_timeout.GetData();
+	main_file("TimeoutMs", timeout);
+	
+	int n_samples = sensitivity_setup.edit_sample_size.GetData();
+	main_file("Samples", n_samples);
+	
+	String method = sensitivity_setup.select_method.GetValue();
+	main_file("Method", method);
+	
+	JsonArray target_arr;
+	
+	row = 0;
+	for(Optimization_Target &target : targets) {
+		Json target_json;
+		target_json("ResultName", app->state_vars.serialize(target.sim_id).data());
+		std::string input_name = target.obs_id.type == Var_Id::Type::series ? app->series.serialize(target.obs_id) : app->additional_series.serialize(target.obs_id);
+		target_json("InputName", input_name.data());
+		
+		JsonArray index_arr;
+		for(Index_T index : target.indexes) {
+			if(is_valid(index))
+				index_arr << app->index_names[index.index_set.id][index.index].data();
+			else
+				index_arr << "";
+		}
+		
+		target_json("Indexes", index_arr);
+
+		String err_name = target_setup.target_view.Get(row, Id("__errparam"));
+		target_json("Stat", stat_name(target.stat_type).data());
+		target_json("Weight", target.weight);
+		target_json("ErrPar", err_name);
+		target_json("Begin", target.start.to_string().data);
+		target_json("End", target.end.to_string().data);
+		
+		target_arr << target_json;
+		++row;
 	}
 	
-	MainFile("Parameters", ParameterArr);
+	main_file("Targets", target_arr);
 	
-	bool EnableExpr = (bool)ParSetup.OptionUseExpr.Get();
-	MainFile("EnableExpr", EnableExpr);
-	
-	bool ShowProgress = (bool)RunSetup.OptionShowProgress.Get();
-	MainFile("ShowProgress", ShowProgress);
-	
-	int NWalkers = MCMCSetup.EditWalkers.GetData();
-	MainFile("Walkers", NWalkers);
-	
-	int NSteps   = MCMCSetup.EditSteps.GetData();
-	MainFile("Steps", NSteps);
-	
-	int InitType = MCMCSetup.InitialTypeSwitch.GetData();
-	MainFile("InitType", InitType);
-	
-	String Sampler = MCMCSetup.SelectSampler.GetValue();
-	MainFile("Sampler", Sampler);
-	JsonArray SamplerPars;
-	for(int Row = 0; Row < MCMCSetup.SamplerParamView.GetCount(); ++Row)
-		SamplerPars << MCMCSetup.SamplerParamView.Get(Row, 1);
-	MainFile("SamplerPars", SamplerPars);
-	
-	int RunType  = TargetSetup.OptimizerTypeTab.Get();
-	MainFile("RunType", RunType);
-	
-	int Timeout = TargetSetup.EditTimeout.GetData();
-	MainFile("TimeoutMs", Timeout);
-	
-	int NSamples = SensitivitySetup.EditSampleSize.GetData();
-	MainFile("Samples", NSamples);
-	
-	String Method = SensitivitySetup.SelectMethod.GetValue();
-	MainFile("Method", Method);
-	
-	JsonArray TargetArr;
-	
-	Row = 0;
-	for(optimization_target &Target : Targets)
-	{
-		Json TargetJson;
-		TargetJson("ResultName", Target.ResultName.data());
-		TargetJson("InputName", Target.InputName.data());
-		
-		JsonArray ResultIndexArr;
-		for(std::string &Index : Target.ResultIndexes)
-			ResultIndexArr << Index.data();
-		TargetJson("ResultIndexes", ResultIndexArr);
-		
-		JsonArray InputIndexArr;
-		for(std::string &Index : Target.InputIndexes)
-			InputIndexArr << Index.data();
-		TargetJson("InputIndexes", InputIndexArr);
-		
-		String StatName = Null;
-		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.ResidualStat == ResidualType_##Handle) StatName = Name;
-		if(false){}
-		#include "SetStatSettings.h"
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-		
-		#define SET_SETTING(Handle, Name, Type) else if(Target.Stat == StatType_##Handle) StatName = Name;
-		#define SET_RES_SETTING(Handle, Name, Type)
-		if(false){}
-		#include "SetStatSettings.h"
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-		
-		#define SET_LL_SETTING(Handle, Name, NumErr) else if(Target.ErrStruct == MCMCError_##Handle) StatName = Name;
-		if(false){}
-		#include "LLSettings.h"
-		#undef SET_LL_SETTING
-		
-		//TODO: Fix this one when we make multiple error params possible
-		String ErrName  = TargetSetup.TargetView.Get(Row, Id("__errparam"));
-		
-		TargetJson("Stat", StatName);
-		TargetJson("Weight", Target.Weight);
-		TargetJson("ErrPar", ErrName);
-		TargetJson("Begin", Target.Begin.data());
-		TargetJson("End", Target.End.data());
-		
-		TargetArr << TargetJson;
-		
-		++Row;
-	}
-	
-	MainFile("Targets", TargetArr);
-	
-	return MainFile.ToString();
-	*/
-	return "";
+	return main_file.ToString();
 }
 
 void OptimizationWindow::write_to_json() {
-	//TODO
-	/*
-	FileSel Sel;
 
-	Sel.Type("Calibration setups", "*.json");
+	FileSel sel;
+
+	sel.Type("Calibration setups", "*.json");
 	
-	if(!ParentWindow->ParameterFile.empty())
-		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	if(!parent->data_file.empty())
+		sel.ActiveDir(GetFileFolder(parent->data_file.data()));
 	else
-		Sel.ActiveDir(GetCurrentDirectory());
+		sel.ActiveDir(GetCurrentDirectory());
 	
-	Sel.ExecuteSaveAs();
-	String Filename = Sel.Get();
+	sel.ExecuteSaveAs();
+	String file_name = sel.Get();
+	if(file_name.GetLength() == 0) return;
 	
-	if(Filename.GetLength() == 0) return;
-	
-	if(GetFileName(Filename) == "settings.json")
-	{
+	if(GetFileName(file_name) == "settings.json") {
 		PromptOK("settings.json is used by MobiView to store various settings and should not be used to store calibration setups.");
 		return;
 	}
 	
-	String JsonData = SaveToJsonString();
-	
-	SaveFile(Filename, JsonData);
-	*/
+	String json_data = write_to_json_string();
+	SaveFile(file_name, json_data);
 }

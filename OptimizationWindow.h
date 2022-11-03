@@ -83,7 +83,7 @@ private:
 	MobiView2 *parent;
 	
 	
-	bool add_single_parameter(Indexed_Parameter parameter);
+	bool add_single_parameter(Indexed_Parameter parameter, bool lookup_default = true);
 	void add_optimization_target(Optimization_Target &target);
 	
 	void sub_bar(Upp::Bar &bar);
@@ -169,12 +169,11 @@ private:
 	Upp::ToolBar tool;
 	
 	double burnin[2];
-	//double BurninPlotY[2];
 	std::vector<double>          burnin_plot_y;
 	Upp::Array<Upp::ScatterCtrl> chain_plots;
 	
 	MC_Data *data = nullptr;
-	//TODO: Pack these into Data?
+	//TODO: Pack these into Data? Would make more sense for serialization.
 	Upp::Vector<Upp::String> free_syms;
 	std::vector<double>      min_bound;
 	std::vector<double>      max_bound;
@@ -194,7 +193,7 @@ private:
 	
 	const int distr_resolution = 20;
 	
-	//TODO: Make data sources for these:
+	//TODO: Make data sources for these instead?
 		
 	/*
 	std::vector<triangle_plot_data> TrianglePlotData;
