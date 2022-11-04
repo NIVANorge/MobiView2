@@ -214,11 +214,15 @@ class Data_Source_Owns_XY : public Upp::DataSource {
 public:
 	Data_Source_Owns_XY(std::vector<double> *xx, std::vector<double> *yy) :
 		xx(std::move(*xx)), yy(std::move(*yy)) {}
+	Data_Source_Owns_XY(s64 dim_x, s64 dim_y) :
+		xx(dim_x), yy(dim_y) {}
+		
 	virtual double x(s64 id) { return xx[id]; }
 	virtual double y(s64 id) { return yy[id]; }
 	virtual s64 GetCount() const { return (s64)xx.size(); }
 	
-	void set_y(int id, double yval) { yy[id] = yval; }
+	double &set_x(int id) { return xx[id]; }
+	double &set_y(int id) { return yy[id]; }
 private:
 	std::vector<double> xx, yy;
 };
@@ -278,6 +282,36 @@ public:
 	
 private:
 	std::vector<Upp::DataSource *> sources;
+};
+
+class Table_Data_Owns_XYZ : public Upp::TableData {
+
+public :
+	Table_Data_Owns_XYZ(s64 dim_x, s64 dim_y) {
+		inter = TableInterpolate::NO;
+		areas = true;
+		xx.resize(dim_x);
+		yy.resize(dim_y);
+		lenxAxis = dim_x;
+		lenyAxis = dim_y;
+		lendata = (dim_x - 1)*(dim_y - 1);
+		zz.resize(lendata);
+	}
+	
+	virtual double x(int id) { return xx[id]; }
+	virtual double y(int id) { return yy[id]; }
+	virtual double data(int id) { return zz[id]; }
+	
+	double &set_x(s64 idx) { return xx[idx]; }
+	double &set_y(s64 idx) { return yy[idx]; }
+	double &set_z(s64 x_idx, s64 y_idx) {
+		return zz[x_idx + (lenxAxis-1)*y_idx];
+	}
+	void clear_z() { for(int idx = 0; idx < zz.size(); ++idx) zz[idx] = 0.0; }
+private :
+	std::vector<double> xx;
+	std::vector<double> yy;
+	std::vector<double> zz;
 };
 
 //NOTE: a better version of the DataStackedY class where we don't have to add back the plots in reverse

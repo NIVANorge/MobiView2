@@ -146,7 +146,7 @@ public:
 	void begin_new_plots(MC_Data &Data, std::vector<double> &min_bound, std::vector<double> &max_bound, const std::vector<std::string> &free_syms, int run_type);
 	void clean();
 	void resize_chain_plots();
-	void refresh_plots(int step = -1);
+	void refresh_plots(s64 step = -1);
 	
 	void burnin_slider_event();
 	void burnin_edit_event();
@@ -167,10 +167,6 @@ private:
 	void refresh_result_summary(int step = -1);
 	
 	Upp::ToolBar tool;
-	
-	double burnin[2];
-	std::vector<double>          burnin_plot_y;
-	Upp::Array<Upp::ScatterCtrl> chain_plots;
 	
 	MC_Data *data = nullptr;
 	//TODO: Pack these into Data? Would make more sense for serialization.
@@ -193,16 +189,16 @@ private:
 	
 	const int distr_resolution = 20;
 	
-	//TODO: Make data sources for these instead?
-		
-	/*
-	std::vector<triangle_plot_data> TrianglePlotData;
-	Array<TableDataCArray>          TrianglePlotDS;
-	Array<ScatterCtrl>              TrianglePlots;
+	double burnin[2];
+	std::vector<double>          burnin_plot_y;
+	Upp::Array<Upp::ScatterCtrl> chain_plots;
 	
-	std::vector<histogram_data>     HistogramData;
-	Array<ScatterCtrl>              Histograms;
-	*/
+	Upp::Array<Data_Source_Owns_XY> histogram_ds;
+	Upp::Array<Upp::ScatterCtrl> histogram_plots;
+	
+	Upp::Array<Table_Data_Owns_XYZ> triangle_plot_ds;
+	Upp::Array<Upp::ScatterCtrl> triangle_plots;
+	
 	MCMCProjectionCtrl  view_projections;
 	
 	Upp::AutoScroller   projection_plot_scroll;

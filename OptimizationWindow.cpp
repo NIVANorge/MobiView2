@@ -1162,7 +1162,7 @@ void OptimizationWindow::run_clicked(int run_type)
 
 	delete data; // Delete the copy that we ran the optimization on.
 	
-	Close(); //NOTE: otherwise the window gets hidden behind the main window some times. TODO: find a better way to fix it.
+	TopMost(true, false); //NOTE: otherwise the window gets hidden behind the main window some times.
 /*
 	}
 	else if(RunType == 3)

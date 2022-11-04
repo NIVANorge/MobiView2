@@ -285,7 +285,7 @@ SensitivityViewWindow::run() {
 					compute_residual_stats(&residual_stats, data, offset, result_gof_offset, data_ser, offset_ser, input_gof_offset, gof_ts, type==(int)Residual_Type::srcc);
 				
 				double val = get_stat(&stats, &residual_stats, type);
-				stat_series->set_y(run, val);
+				stat_series->set_y(run) = val;
 			}
 			
 			if(run % GUI_update_freq == 0 || run == n_runs-1){

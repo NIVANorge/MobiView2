@@ -74,209 +74,161 @@ void MCMCResultWindow::clean() {
 	
 	chain_plots.Clear();
 	
-	// TODO!
-	/*
 	for(ScatterCtrl &plot : triangle_plots) {
 		plot.RemoveSurf();
 		plot.Remove();
 	}
 	
-	TrianglePlots.Clear();
-	TrianglePlotDS.Clear();
-	TrianglePlotData.clear();
+	triangle_plots.Clear();
+	triangle_plot_ds.Clear();
+	//triangle_plot_data.clear();
 	
-	for(ScatterCtrl &Plot : Histograms)
-	{
-		Plot.RemoveAllSeries();
-		Plot.Remove();
+	for(ScatterCtrl &plot : histogram_plots) {
+		plot.RemoveAllSeries();
+		plot.Remove();
 	}
 	
-	Histograms.Clear();
-	HistogramData.clear();
+	histogram_plots.Clear();
+	//histograms.Clear();
+	histogram_ds.clear();
 	
-	ResultSummary.Clear();
+	result_summary.Clear();
 
-	AcorTimes.clear();
-	*/
+	acor_times.clear();
 	//Debatable whether or not this should clear target plots.
 }
 
-/*
-int FlattenData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vector<double>> &FlattenedOut, bool Sort=true)
-{
-	if(CurStep < 0) CurStep = Data->NSteps - 1;
-	int NumSteps = CurStep - Burnin;
-	if(NumSteps <= 0) return 0;
-	
-	FlattenedOut.resize(Data->NPars);
-			
-	int NumValues = NumSteps * Data->NWalkers;
-	
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		FlattenedOut[Par].resize(NumValues);
-		
-		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-		{
-			for(int Step = Burnin; Step < CurStep; ++Step)
-				FlattenedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);
-		}
-		
-		if(Sort)
-			std::sort(FlattenedOut[Par].begin(), FlattenedOut[Par].end());
-	}
-			
-	return NumValues;
-}
-*/
-
 void
-MCMCResultWindow::refresh_plots(int step) {
+MCMCResultWindow::refresh_plots(s64 cur_step) {
 	if(!data) return;
 	
 	int show_plot = choose_plots_tab.Get();
 	
-	bool last_step = (step == -1 || (data && step == data->n_steps-1));
+	bool last_step = (cur_step == -1 || (data && cur_step == data->n_steps-1));
 	
 	if(show_plot == 0) {
 		// Chain plots
 		for(auto &plot : chain_plots) plot.Refresh();
+		
 	} else if(show_plot == 1) {
 		// Triangle plots
 		
-		//TODO
-		/*
-		int BurninVal = (int)Burnin[0];
+		int burnin_val = (int)burnin[0];
 		
-		std::vector<std::vector<double>> ParValues;
-		int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, true);
+		std::vector<std::vector<double>> par_values;
+		s64 n_values = data->flatten(burnin_val, cur_step, par_values, true);
 		
-		if(NumValues > 0)
-		{
-			double LowerQuant = 0.025;
-			double UpperQuant = 0.975;
+		if(n_values > 0) {
+			double lower_quant = 0.025;
+			double upper_quant = 0.975;
 			
-			int PlotIdx = 0;
-			if(Data->NPars > 1)
-			{
-				for(int Par1 = 0; Par1 < Data->NPars; ++Par1)
-				{
-					std::vector<double> &Par1Data = ParValues[Par1];
+			int plot_idx = 0;
+			if(data->n_pars > 1) {
+				for(int par1 = 0; par1 < data->n_pars; ++par1) {
+					std::vector<double> &par1_data = par_values[par1];
 					
-					double Minx = QuantileOfSorted(Par1Data.data(), Par1Data.size(), LowerQuant);
-					double Maxx = QuantileOfSorted(Par1Data.data(), Par1Data.size(), UpperQuant);
-						
-					double MedianX = MedianOfSorted(Par1Data.data(), Par1Data.size());
+					double min_x = quantile_of_sorted(par1_data.data(), par1_data.size(), lower_quant);
+					double max_x = quantile_of_sorted(par1_data.data(), par1_data.size(), upper_quant);
+					double median_x = median_of_sorted(par1_data.data(), par1_data.size());
+					double stride_x = (max_x - min_x)/(double)(distr_resolution);
 					
-					double StrideX = (Maxx - Minx)/(double)(DistrResolution);
+					// It would be nice to use Upp::Histogram for this, but it is a bit
+					// inconvenient with how you need to store a separate data source..
 					
-					histogram_data &Dat  = HistogramData[Par1];
-					ScatterCtrl    &Plot = Histograms[Par1];
+					auto        &dat  = histogram_ds[par1];
+					ScatterCtrl &plot = histogram_plots[par1];
 					
-					double Scale = 1.0;
+					double scale = 1.0;
 					
-					for(int Idx = 0; Idx < DistrResolution+1; ++Idx)
-					{
-						Dat.DistrX[Idx] = Minx + StrideX*(double)Idx;
-						Dat.DistrY[Idx] = 0.0;
+					for(int idx = 0; idx < distr_resolution+1; ++idx) {
+						dat.set_x(idx) = min_x + stride_x*(double)idx;
+						dat.set_y(idx) = 0.0;
 					}
 					
-					for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-					{
-						for(int Step = BurninVal; Step <= CurStep; ++Step)
-						{
-							double ValX = (*Data)(Walker, Par1, Step);
+					for(int walker = 0; walker < data->n_walkers; ++walker) {
+						for(int step = burnin_val; step <= cur_step; ++step) {
+							double val_x = (*data)(walker, par1, step);
 							
-							if(ValX < Minx || ValX > Maxx)
+							if(val_x < min_x || val_x > max_x)
 								continue;
 							
-							int XX = std::min((int)std::floor((ValX - Minx)/StrideX), DistrResolution-1);
-							XX = std::max(0, XX);
-							
-							Dat.DistrY[XX] += Scale;
+							int xx = std::min((int)std::floor((val_x - min_x)/stride_x), distr_resolution-1);
+							xx = std::max(0, xx);
+							dat.set_y(xx) += scale;
 						}
 					}
 					
-					Plot.ZoomToFit(true, true);
-					Plot.SetMinUnits(0.0, 0.0);
-					Plot.SetMajorUnits(Maxx-Minx, 1.0);
-					Plot.SetMajorUnitsNum(Par1==Data->NPars-1 ? 1: 0, 0);
-					Plot.BarWidth(0.5*StrideX);
-					Plot.SetTitle(Format("%s = %.2f", FreeSyms[Par1], MedianX));
-					Plot.Refresh();
+					plot.ZoomToFit(true, true);
+					plot.SetMinUnits(0.0, 0.0);
+					plot.SetMajorUnits(max_x - min_x, 1.0);
+					plot.SetMajorUnitsNum(par1 == data->n_pars-1 ? 1 : 0, 0);
+					plot.BarWidth(0.5*stride_x);
+					plot.SetTitle(Format("%s = %.2f", free_syms[par1], median_x));
+					plot.Refresh();
 					
-					
-					for(int Par2 = Par1+1; Par2 < Data->NPars; ++Par2)
-					{
-						triangle_plot_data &Dat  = TrianglePlotData[PlotIdx];
-						TableDataCArray    &Ds   = TrianglePlotDS[PlotIdx];
-						ScatterCtrl        &Plot = TrianglePlots[PlotIdx];
+					for(int par2 = par1+1; par2 < data->n_pars; ++par2) {
+						auto        &dat  = triangle_plot_ds[plot_idx];
+						ScatterCtrl &plot = triangle_plots[plot_idx];
 						
+						std::vector<double> &par2_data = par_values[par2];
 						
-						std::vector<double> &Par2Data = ParValues[Par2];
+						double min_y = quantile_of_sorted(par2_data.data(), par2_data.size(), lower_quant);
+						double max_y = quantile_of_sorted(par2_data.data(), par2_data.size(), upper_quant);
 						
-						double Miny = QuantileOfSorted(Par2Data.data(), Par2Data.size(), LowerQuant);
-						double Maxy = QuantileOfSorted(Par2Data.data(), Par2Data.size(), UpperQuant);
+						double stride_y = (max_y - min_y)/(double)(distr_resolution);
 						
-						double StrideY = (Maxy - Miny)/(double)(DistrResolution);
-						
-						//TODO : could be optimized by just doing the steps since last update.
-						for(int Idx = 0; Idx < Dat.DistrZ.size(); ++Idx) Dat.DistrZ[Idx] = 0.0;
+						//TODO: could be optimized by just doing the steps since last update.
+						dat.clear_z();
 					
 						//double Scale = 1.0 / (double)(Data->NWalkers * CurStep);
-						double Scale = 1.0; // Since we ZoomToFitZ, it shouldn't matter what the scale of Z is.
+						double scale = 1.0; // Since we ZoomToFitZ, it shouldn't matter what the scale of Z is.
 						
-						for(int Idx = 0; Idx < DistrResolution+1; ++Idx)
-						{
-							Dat.DistrX[Idx] = Minx + StrideX*(double)Idx;
-							Dat.DistrY[Idx] = Miny + StrideY*(double)Idx;
+						for(int idx = 0; idx < distr_resolution+1; ++idx) {
+							dat.set_x(idx) = min_x + stride_x*(double)idx;
+							dat.set_y(idx) = min_y + stride_y*(double)idx;
 						}
 						
-						for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-						{
-							for(int Step = BurninVal; Step <= CurStep; ++Step)
-							{
-								double ValX = (*Data)(Walker, Par1, Step);
-								double ValY = (*Data)(Walker, Par2, Step);
+						for(int walker = 0; walker < data->n_walkers; ++walker) {
+							for(int step = burnin_val; step <= cur_step; ++step) {
+								double val_x = (*data)(walker, par1, step);
+								double val_y = (*data)(walker, par2, step);
 								
-								if(ValX < Minx || ValX > Maxx || ValY < Miny || ValY > Maxy)
+								if(val_x < min_x || val_x > max_x || val_y < min_y || val_y > max_y)
 									continue;
 								
-								int XX = std::min((int)std::floor((ValX - Minx)/StrideX), DistrResolution-1);
-								int YY = std::min((int)std::floor((ValY - Miny)/StrideY), DistrResolution-1);
-								XX = std::max(0, XX);
-								YY = std::max(0, YY);
+								int xx = std::min((int)std::floor((val_x - min_x)/stride_x), distr_resolution-1);
+								int yy = std::min((int)std::floor((val_y - min_y)/stride_y), distr_resolution-1);
+								xx = std::max(0, xx);
+								yy = std::max(0, yy);
 								
-								Dat.DistrZ[XX + YY*DistrResolution] += Scale;
+								dat.set_z(xx, yy) += scale;
 							}
 						}
 						
-						Plot.SetXYMin(Minx, Miny);
-						Plot.SetRange(Maxx-Minx, Maxy-Miny);
-						Plot.SetMinUnits(0.0, 0.0);
-						Plot.SetMajorUnits(Maxx-Minx, Maxy-Miny);
-						Plot.SetMajorUnitsNum(Par2==Data->NPars-1 ? 1: 0, Par1==0 ? 1 : 0); //Annoyingly we have to reset this.
+						plot.SetXYMin(min_x, min_y);
+						plot.SetRange(max_x-min_x, max_y-min_y);
+						plot.SetMinUnits(0.0, 0.0);
+						plot.SetMajorUnits(max_x-min_x, max_y-min_y);
+						plot.SetMajorUnitsNum(par2 == data->n_pars-1 ? 1: 0, par1 == 0 ? 1 : 0); //Annoyingly we have to reset this.
 						
-						Plot.ZoomToFitZ();
-						Plot.Refresh();
+						plot.ZoomToFitZ();
+						plot.Refresh();
 						
-						++PlotIdx;
+						++plot_idx;
 					}
 				}
 			}
 		}
-		*/
+		
 	}
 	else if(show_plot == 2)
-		refresh_result_summary(step);
-	
-	
+		refresh_result_summary(cur_step);
 }
 
 void MCMCResultWindow::resize_chain_plots() {
 	int plot_count = chain_plots.size();
 	
-	int win_width  = GetRect().GetWidth()-50; //Allow for the scrollbar.
+	int win_width  = GetRect().GetWidth()-50; // Allow for the scrollbar.
 	
 	int n_cols = 4;
 	int n_rows = plot_count / 4 + (int)(plot_count % 4 != 0);
@@ -361,181 +313,145 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 	
 	this->data = &data;
 	
-	//TODO!
-	/*
-	if(Data->NPars > 1)
-	{
+	if(data.n_pars > 1) {
+		int plot_idx = 0;
+		int n_plots = (data.n_pars*(data.n_pars - 1)) / 2;
 		
-		int PlotIdx = 0;
-		int NumPlots = (Data->NPars*(Data->NPars - 1)) / 2;
-		TrianglePlotData.resize(NumPlots);
-		TrianglePlotDS.InsertN(0, NumPlots);
-		TrianglePlots.InsertN(0, NumPlots);
+		triangle_plots.InsertN(0, n_plots);
+		histogram_plots.InsertN(0, data.n_pars);
+	
+		int dim              = 55; //Size of the plot area excluding margins
+		int small_margin_y   = 5;
+		int small_margin_x   = 15;
+		int large_margin     = 40;
+		int dim_x            = 0;
+		int dim_y            = 0;
+		int sum_dim_x        = 0;
+		int sum_dim_y        = 0;
 		
-		HistogramData.resize(Data->NPars);
-		Histograms.InsertN(0, Data->NPars);
+		int tot_x = data.n_pars*dim + large_margin + (2*data.n_pars - 1)*small_margin_x + 50;
+		int tot_y = data.n_pars*dim + large_margin + (2*data.n_pars - 1)*small_margin_y + 50;
+		triangle_plot_scroller.ClearPane();
+		Size tri_size(tot_x, tot_y);
+		triangle_plot_scroller.AddPane(view_triangle_plots.LeftPos(0, tri_size.cx).TopPos(0, tri_size.cy), tri_size);
 		
-		int Dim            = 55; //Size of the plot area excluding margins
-		int SmallmarginY   = 5;
-		int SmallmarginX   = 15;
-		int Largemargin    = 40;
-		int DimX = 0;
-		int DimY = 0;
-		int SumDimX = 0;
-		int SumDimY = 0;
-		
-		int TotX = Data->NPars*Dim + Largemargin + (2*Data->NPars - 1)*SmallmarginX + 50;
-		int TotY = Data->NPars*Dim + Largemargin + (2*Data->NPars - 1)*SmallmarginY + 50;
-		TrianglePlotScroller.ClearPane();
-		Size TriSize(TotX, TotY);
-		TrianglePlotScroller.AddPane(ViewTrianglePlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
-		
-		
-		for(int Par1 = 0; Par1 < Data->NPars; ++Par1)
-		{
+		for(int par1 = 0; par1 < data.n_pars; ++par1) {
 			//Add the histogram on the top of the column
+			sum_dim_y = (dim + 2*small_margin_y)*par1;
 			
-			SumDimY = (Dim + 2*SmallmarginY)*Par1;
+			auto        &dat  = histogram_ds.Create(distr_resolution+1, distr_resolution+1);
+			ScatterCtrl &plot = histogram_plots[par1];
 			
-			histogram_data &Dat  = HistogramData[Par1];
-			ScatterCtrl    &Plot = Histograms[Par1];
+			double min_x = min_bound[par1];
+			double max_x = max_bound[par1];
 			
-			double Minx = MinBound[Par1];
-			double Maxx = MaxBound[Par1];
-			
-			double StrideX = (Maxx - Minx)/(double)(DistrResolution);
-			
-			Dat.DistrX.resize(DistrResolution+1);
-			Dat.DistrY.resize(DistrResolution+1);
-			
-			for(int Idx = 0; Idx < DistrResolution+1; ++Idx)
-			{
-				Dat.DistrX[Idx] = Minx + StrideX*(double)Idx;
-				Dat.DistrY[Idx] = 0.0;
+			double stride_x = (max_x - min_x)/(double)(distr_resolution);
+
+			for(int idx = 0; idx < distr_resolution+1; ++idx) {
+				dat.set_x(idx) = min_x + stride_x*(double)idx;
+				dat.set_y(idx) = 0.0;
 			}
 			
-			Plot.AddSeries(Dat.DistrX.data(), Dat.DistrY.data(), DistrResolution+1).PlotStyle<BarSeriesPlot>()
-				.BarWidth(0.5*StrideX).NoMark().Stroke(1.0, GraphColor).ShowLegend(false);
+			plot.AddSeries(dat).PlotStyle<BarSeriesPlot>()
+				.BarWidth(0.5*stride_x).NoMark().Stroke(1.0, chain_color).ShowLegend(false);
 				
-			Plot.SetXYMin(Minx, 0.0);
-			Plot.SetRange(Maxx-Minx, 1.0);
+			plot.SetXYMin(min_x, 0.0);
+			plot.SetRange(max_x-min_x, 1.0);
 			
-			Plot.SetMinUnits(0.0, 0.0).SetMajorUnits(Maxx-Minx, 1.0);
+			plot.SetMinUnits(0.0, 0.0).SetMajorUnits(max_x - min_x, 1.0);
 			
-			int hLeft          = SmallmarginX;
-			int hRight         = SmallmarginX;
-			int vTop           = SmallmarginY;   //NOTE title height is not included in this number, and is added on top of it.
-			int vBottom        = SmallmarginY;
-			if(Par1 == 0)
-				hLeft = Largemargin;
+			int h_left          = small_margin_x;
+			int h_right         = small_margin_x;
+			int v_top           = small_margin_y;   //NOTE title height is not included in this number, and is added on top of it.
+			int v_bottom        = small_margin_y;
+			if(par1 == 0)
+				h_left = large_margin;
 			
-			if(Par1 == Data->NPars-1)
-			{
-				vBottom = Largemargin;
-				Plot.SetMajorUnitsNum(1, 0);
-			}
-			else
-				Plot.SetMajorUnitsNum(0, 0);
+			if(par1 == data.n_pars-1) {
+				v_bottom = large_margin;
+				plot.SetMajorUnitsNum(1, 0);
+			} else
+				plot.SetMajorUnitsNum(0, 0);
 			
-			Plot.SetTitle(FreeSyms[Par1]);
-			Plot.SetTitleFont(Plot.GetTitleFont().Bold(false).Height(8));
-			Plot.SetReticleFont(Plot.GetReticleFont().Bold(false).Height(8));
+			plot.SetTitle(free_syms[par1]);
+			plot.SetTitleFont(plot.GetTitleFont().Bold(false).Height(8));
+			plot.SetReticleFont(plot.GetReticleFont().Bold(false).Height(8));
+			plot.SetPlotAreaMargin(h_left, h_right, v_top, v_bottom);
 			
-			Plot.SetPlotAreaMargin(hLeft, hRight, vTop, vBottom);
+			dim_x = dim+h_left+h_right;
+			dim_y = dim+v_top+v_bottom + 10;  //NOTE: Extra +10 is because of added title, but this is hacky... Check how to compute exact height of title?
 			
-			DimX = Dim+hLeft+hRight;
-			DimY = Dim+vTop+vBottom + 10;  //NOTE: Extra +10 is because of added title, but this is hacky... Check how to compute exact height of title?
+			view_triangle_plots.Add(plot.LeftPos(sum_dim_x, dim_x).TopPos(sum_dim_y, dim_y));
+			plot.SetMouseHandling(false, false);
 			
-			ViewTrianglePlots.Add(Plot.LeftPos(SumDimX, DimX).TopPos(SumDimY, DimY));
-			Plot.SetMouseHandling(false, false);
-			
-			SumDimY += DimY;
+			sum_dim_y += dim_y;
 			
 			// Add the 2d joint distributions
+			for(int par2 = par1+1; par2 < data.n_pars; ++par2) {
+				auto        &dat  = triangle_plot_ds.Create(distr_resolution+1, distr_resolution+1);
+				ScatterCtrl &plot = triangle_plots[plot_idx];
+				
+				double min_y = min_bound[par2];
+				double max_y = max_bound[par2];
+				double stride_y = (max_y - min_y)/(double)(distr_resolution);
 			
-			for(int Par2 = Par1+1; Par2 < Data->NPars; ++Par2)
-			{
-				triangle_plot_data &Dat  = TrianglePlotData[PlotIdx];
-				TableDataCArray    &Ds   = TrianglePlotDS[PlotIdx];
-				ScatterCtrl        &Plot = TrianglePlots[PlotIdx];
-				
-				double Miny = MinBound[Par2];
-				double Maxy = MaxBound[Par2];
-				
-				double StrideY = (Maxy - Miny)/(double)(DistrResolution);
-				
-				//TODO: Reuse the X axis from the histogram data instead!.
-				Dat.DistrX.resize(DistrResolution+1);
-				Dat.DistrY.resize(DistrResolution+1);
-				for(int Idx = 0; Idx < DistrResolution+1; ++Idx)
-				{
-					Dat.DistrX[Idx] = Minx + StrideX*(double)Idx;
-					Dat.DistrY[Idx] = Miny + StrideY*(double)Idx;
+				for(int idx = 0; idx < distr_resolution+1; ++idx) {
+					dat.set_x(idx) = min_x + stride_x*(double)idx;
+					dat.set_y(idx) = min_y + stride_y*(double)idx;
 				}
 				
-				int Zsize = DistrResolution*DistrResolution;
+				plot.AddSurf(dat);
+				plot.SetXYMin(min_x, min_y).SetRange(max_x-min_x, max_y-min_y);
+				plot.ShowRainbowPalette(false);
 				
-				Dat.DistrZ.resize(Zsize);
-				for(int Idx = 0; Idx < Zsize; ++Idx) Dat.DistrZ[Idx] = 0;
-			
-				Ds.Init(Dat.DistrZ.data(), Dat.DistrZ.size(), Dat.DistrX.data(), Dat.DistrX.size(), Dat.DistrY.data(), Dat.DistrY.size(), TableInterpolate::NO, true);
+				String par1_str = Null;
+				String par2_str = Null;
 				
-				Plot.AddSurf(Ds);
-				Plot.SetXYMin(Minx, Miny).SetRange(Maxx-Minx, Maxy-Miny);
-				Plot.ShowRainbowPalette(false);
+				int major_units_num_x = 0;
+				int major_units_num_y = 0;
 				
-				String Par1Str = Null;
-				String Par2Str = Null;
+				int h_left            = small_margin_x;
+				int h_right           = small_margin_x;
+				int v_top             = small_margin_y;
+				int v_bottom          = small_margin_y;
 				
-				int MajorUnitsNumX = 0;
-				int MajorUnitsNumY = 0;
-				
-				int hLeft          = SmallmarginX;
-				int hRight         = SmallmarginX;
-				int vTop           = SmallmarginY;
-				int vBottom        = SmallmarginY;
-				
-				if(Par1 == 0)
-				{
-					Par2Str = FreeSyms[Par2];
-					MajorUnitsNumY = 1;
-					hLeft          = Largemargin;
+				if(par1 == 0) {
+					par2_str = free_syms[par2];
+					major_units_num_y = 1;
+					h_left            = large_margin;
 				}
 				
-				if(Par2 == Data->NPars-1)
-				{
-					Par1Str = FreeSyms[Par1];
-					MajorUnitsNumX = 1;
-					vBottom        = Largemargin;
+				if(par2 == data.n_pars-1) {
+					par1_str = free_syms[par1];
+					major_units_num_x = 1;
+					v_bottom          = large_margin;
 				}
 				
-				Plot.SetMinUnits(0.0, 0.0).SetMajorUnits(Maxx-Minx, Maxy-Miny);
-				Plot.SetLabels(Par1Str, Par2Str);
-				Plot.SetLabelsFont(Plot.GetLabelsFont().Bold(false).Height(8));
-				Plot.SetMajorUnitsNum(MajorUnitsNumX, MajorUnitsNumY);
+				plot.SetMinUnits(0.0, 0.0).SetMajorUnits(max_x-min_x, max_y-min_y);
+				plot.SetLabels(par1_str, par2_str);
+				plot.SetLabelsFont(plot.GetLabelsFont().Bold(false).Height(8));
+				plot.SetMajorUnitsNum(major_units_num_x, major_units_num_y);
 				
-				Plot.SetPlotAreaMargin(hLeft, hRight, vTop, vBottom);
+				plot.SetPlotAreaMargin(h_left, h_right, v_top, v_bottom);
 			
-				Color GridColor(255, 255, 255);
-				Plot.SetGridColor(GridColor);
+				Color grid_color(255, 255, 255);
+				plot.SetGridColor(grid_color);
 				
-				DimX = Dim+hLeft+hRight;
-				DimY = Dim+vTop+vBottom;
+				dim_x = dim+h_left+h_right;
+				dim_y = dim+v_top+v_bottom;
 				
-				ViewTrianglePlots.Add(Plot.LeftPos(SumDimX, DimX).TopPos(SumDimY, DimY));
-				Plot.SetMouseHandling(false, false);
-				Plot.SurfRainbow(WHITE_BLACK);
-				Plot.SetReticleFont(Plot.GetReticleFont().Bold(false).Height(8));
+				view_triangle_plots.Add(plot.LeftPos(sum_dim_x, dim_x).TopPos(sum_dim_y, dim_y));
+				plot.SetMouseHandling(false, false);
+				plot.SurfRainbow(WHITE_BLACK);
+				plot.SetReticleFont(plot.GetReticleFont().Bold(false).Height(8));
 			
-				SumDimY += DimY;
+				sum_dim_y += dim_y;
 				
-				++PlotIdx;
+				++plot_idx;
 			}
-			SumDimX += DimX;
+			sum_dim_x += dim_x;
 		}
 	}
-	*/
-
 }
 
 void
