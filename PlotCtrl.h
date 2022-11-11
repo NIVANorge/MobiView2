@@ -447,8 +447,6 @@ public:
 	void clean();
 	void build_index_set_selecters(Model_Application *app);
 	
-	void register_if_index_set_is_active(Plot_Setup &ps);
-	
 	std::vector<Entity_Id> index_sets;
 	Upp::ArrayCtrl *index_list[MAX_INDEX_SETS];
 	
@@ -456,6 +454,8 @@ public:
 	
 	MobiView2 *parent;
 };
+
+void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app);
 
 void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var);
 

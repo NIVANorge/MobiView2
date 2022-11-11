@@ -426,7 +426,7 @@ void OptimizationWindow::add_target_clicked() {
 }
 
 Plot_Setup
-target_to_plot_setup(Optimization_Target &target, PlotCtrl *plotter) {
+target_to_plot_setup(Optimization_Target &target, Model_Application *app) {
 	Plot_Setup setup = {};
 	setup.selected_indexes.resize(MAX_INDEX_SETS);
 	setup.index_set_is_active.resize(MAX_INDEX_SETS);
@@ -445,7 +445,7 @@ target_to_plot_setup(Optimization_Target &target, PlotCtrl *plotter) {
 	}
 	
 	// TODO: not that clean to have this as a function on the Plot_Ctrl...
-	plotter->register_if_index_set_is_active(setup);
+	register_if_index_set_is_active(setup, app);
 	return setup;
 }
 
@@ -454,14 +454,14 @@ void OptimizationWindow::display_clicked() {
 		set_error("There are no targets to display the plots of");
 		return;
 	}
+	if(!parent->model_is_loaded()) return;
 	
 	set_error("");
 	
 	std::vector<Plot_Setup> plot_setups;
-	for(auto &target : targets) {
-		plot_setups.push_back(target_to_plot_setup(target, &parent->plotter));
-	}
-
+	for(auto &target : targets)
+		plot_setups.push_back(target_to_plot_setup(target, parent->app));
+	
 	//TODO: Same issue as for sensitivity view. Would like to zoom it to the area of the result
 	//series only, not the entire input data span.
 	parent->additional_plots.set_all(plot_setups);

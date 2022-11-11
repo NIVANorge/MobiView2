@@ -1,5 +1,6 @@
 #include "OptimizationWindow.h"
-
+#include "MobiView2.h"
+#include "Acor.h"
 
 using namespace Upp;
 
@@ -180,7 +181,6 @@ MCMCResultWindow::refresh_plots(s64 cur_step) {
 						//TODO: could be optimized by just doing the steps since last update.
 						dat.clear_z();
 					
-						//double Scale = 1.0 / (double)(Data->NWalkers * CurStep);
 						double scale = 1.0; // Since we ZoomToFitZ, it shouldn't matter what the scale of Z is.
 						
 						for(int idx = 0; idx < distr_resolution+1; ++idx) {
@@ -455,189 +455,178 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 }
 
 void
-MCMCResultWindow::refresh_result_summary(int step) {
+MCMCResultWindow::refresh_result_summary(s64 cur_step) {
 	result_summary.Clear();
 	
-	//TODO!
-	/*
-	if(!Data) return;
-	
-	int BurninVal = (int)Burnin[0];
-	
-	if(CurStep < 0) CurStep = Data->NSteps - 1;
+	if(!data) return;
+	s64 burnin_val = (int)burnin[0];
+	if(cur_step < 0) cur_step = data->n_steps - 1;
 		
-	std::vector<std::vector<double>> ParValues;
-	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
+	std::vector<std::vector<double>> par_values;
+	int n_values = data->flatten(burnin_val, cur_step, par_values, false);
 	
-	if(NumValues <= 0) return;
+	if(n_values <= 0) return;
 	
-	int BestW = -1;
-	int BestS = -1;
-	Data->GetMAPIndex(BurninVal, CurStep, BestW, BestS);
+	int best_w = -1;
+	int best_s = -1;
+	data->get_map_index(burnin_val, cur_step, best_w, best_s);
 	
+	int precision = 3; //parent->stat_settings.settings.precision;
 	
-	int Precision = 3;//ParentWindow->StatSettings.Precision;
+	std::vector<double> means(data->n_pars);
+	std::vector<double> std_devs(data->n_pars);
+	Array<String> syms;
 	
-	std::vector<double> Means(Data->NPars);
-	std::vector<double> StdDevs(Data->NPars);
-	Array<String> Syms;
+	double acceptance = 100.0*(double)data->n_accepted / (double)(data->n_walkers*data->n_steps);
+	result_summary.append(Format("Acceptance rate: %.2f%%&&", acceptance));
 	
-	double Acceptance = 100.0*(double)Data->NAccepted / (double)(Data->NWalkers*Data->NSteps);
-	ResultSummary.Append(Format("Acceptance rate: %.2f%%&&", Acceptance));
+	String table = "{{1:1:1:1:1:1";
+	for(double perc : parent->stat_settings.settings.percentiles) table << ":1";
+	table << " [* Name]:: [* Int.acor.T.]:: [* Mean]:: [* Median]:: [* MAP]:: [* StdDev]";
+	for(double perc : parent->stat_settings.settings.percentiles) table << ":: " << FormatF(perc, 1) << "%";
 	
-	String Table = "{{1:1:1:1:1:1";
-	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":1";
-	Table << " [* Name]:: [* Int.acor.T.]:: [* Mean]:: [* Median]:: [* MAP]:: [* StdDev]";
-	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":: " << FormatDouble(Perc, 1) << "%";
-	
-	bool ComputeAcor = false;
-	if(CurStep == Data->NSteps-1 && AcorTimes.empty())
-	{
-		ComputeAcor = true;
-		AcorTimes.resize(Data->NPars);
-		AcorBelowTolerance.resize(Data->NPars);
+	bool compute_acor = false;
+	if(cur_step == data->n_steps-1 && acor_times.empty()) {
+		compute_acor = true;
+		acor_times.resize(data->n_pars);
+		acor_below_tolerance.resize(data->n_pars);
 	}
 	
 	//NOTE: These are parameters to the autocorrelation time computation
-	int C=5, Tol=10; //TODO: these should probably be configurable..
+	int c=5, tol=10; //TODO: these should probably be configurable..
 	
-	bool AnyBelowTolerance = false;
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		timeseries_stats Stats;
-		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
+	bool any_below_tolerance = false;
+	for(int par = 0; par < data->n_pars; ++par) {
+	
+		auto vals = par_values[par]; // NOTE: copy so that we don't sort the original (or it will break covariance computation below)
+		std::sort(vals.begin(), vals.end());
 		
-		String Sym = FreeSyms[Par];
-		Sym.Replace("_", "`_");
-		Syms << Sym;
+		double sz   = (double)vals.size();
+		double mean = std::accumulate(vals.begin(), vals.end(), 0.0) / sz;
+	    auto var_func = [mean, sz](double acc, const double& val) {
+	        return acc + (val - mean)*(val - mean);
+	    };
+	    double var  = std::accumulate(vals.begin(), vals.end(), 0.0, var_func) / sz;
+		double sd = std::sqrt(var);
 		
-		Means[Par] = Stats.Mean;
-		StdDevs[Par] = Stats.StandardDev;
+		double median = median_of_sorted(vals.data(), vals.size());
+		std::vector<double> percentiles(parent->stat_settings.settings.percentiles.size());
+		for(int idx = 0; idx < percentiles.size(); ++idx)
+			percentiles[idx] = quantile_of_sorted(vals.data(), vals.size(), parent->stat_settings.settings.percentiles[idx]*0.01);
 		
+		means[par] = mean;
+		std_devs[par] = sd;
 		
+		String sym = free_syms[par];
+		sym.Replace("_", "`_");
+		syms << sym;
 		
-		bool BelowTolerance;
-		double Acor;
-		if(ComputeAcor)
-		{
-			Acor = IntegratedTime(Data, Par, 5, 10, &BelowTolerance);
-			AcorTimes[Par] = Acor;
-			AcorBelowTolerance[Par] = BelowTolerance;
+		bool below_tolerance = false;
+		double acor;
+		if(compute_acor) {
+			acor = integrated_time(*data, par, 5, 10, &below_tolerance);
+			acor_times[par] = acor;
+			acor_below_tolerance[par] = below_tolerance;
+		} else {
+			acor = acor_times[par];
+			below_tolerance = acor_below_tolerance[par];
 		}
-		else
-		{
-			Acor = AcorTimes[Par];
-			BelowTolerance = AcorBelowTolerance[Par];
-		}
-		if(BelowTolerance) AnyBelowTolerance = true;
+		if(below_tolerance) any_below_tolerance = true;
 		
+		String acor_str = FormatDouble(acor, precision);
+		if(below_tolerance) acor_str = Format("[@R `*%s]", acor_str);
 		
-		String AcorStr = FormatDouble(Acor, Precision);
-		if(BelowTolerance) AcorStr = Format("[@R `*%s]", AcorStr);
+		table
+			<< ":: " << sym
+			<< ":: " << acor_str
+			<< ":: " << FormatDouble(mean, precision)
+			<< ":: " << FormatDouble(median, precision)
+			<< ":: " << (best_w >= 0 && best_s >= 0 ? FormatDouble((*data)(best_w, par, best_s), precision) : "N/A")
+			<< ":: " << FormatDouble(sd, precision);
 		
-		Table
-			<< ":: " << Sym
-			<< ":: " << AcorStr
-			<< ":: " << FormatDouble(Stats.Mean, Precision)
-			<< ":: " << FormatDouble(Stats.Median, Precision)
-			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision) : "N/A")
-			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
-		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
+		for(double perc : percentiles) table << ":: " << FormatDouble(perc, precision);
 	}
-	Table << "}}&";
-	if(AnyBelowTolerance) Table << Format("[@R `*The chain is shorter than %d times the integrated autocorrelation time for this parameter. Consider running for more steps.]&", Tol);
-	Table << "[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution. Int.acor.T.=(estimated) integrated autocorrelation time.&&";
+	table << "}}&";
+	if(any_below_tolerance) table << Format("[@R `*The chain is shorter than %d times the integrated autocorrelation time for this parameter. Consider running for more steps.]&", tol);
+	table << "[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution. Int.acor.T.=(estimated) integrated autocorrelation time.&&";
 
-	ResultSummary.Append(Table);
+	result_summary.append(table);
 
-	Table = "{{1:";
-	for(int Par = 0; Par < Data->NPars-2; ++Par) Table << "1:";
-	Table << "1 ";
 	
-	for(int Par = 0; Par < Data->NPars-1; ++Par)
-		Table << ":: " << Syms[Par];
+	table = "{{1:";
+	for(int par = 0; par < data->n_pars-2; ++par) table << "1:";
+	table << "1 ";
+	
+	for(int par = 0; par < data->n_pars-1; ++par)
+		table << ":: " << syms[par];
 		
-	for(int Par1 = 1; Par1 < Data->NPars; ++Par1)
-	{
-		Table << ":: " << Syms[Par1];
-		for(int Par2 = 0; Par2 < Data->NPars-1; ++Par2)
-		{
-			Table << "::";
-			if(Par2 >= Par1){ Table << "@W "; continue; }
+	for(int par1 = 1; par1 < data->n_pars; ++par1) {
+		table << ":: " << syms[par1];
+		for(int par2 = 0; par2 < data->n_pars-1; ++par2)	{
+			table << "::";
+			if(par2 >= par1){ table << "@W "; continue; }
 			
-			double Corr = 0.0;
-			for(int Step = 0; Step < ParValues[0].size(); ++Step)
-			{
-				double Val1 = ParValues[Par1][Step];
-				double Val2 = ParValues[Par2][Step];
-				Corr += (Val1 - Means[Par1])*(Val2 - Means[Par2]);
+			double corr = 0.0;
+			for(int step = 0; step < par_values[0].size(); ++step) {
+				double val1 = par_values[par1][step];
+				double val2 = par_values[par2][step];
+				corr += (val1 - means[par1])*(val2 - means[par2]);
 			}
-			Corr /= (StdDevs[Par1]*StdDevs[Par2]*(double)NumValues);
+			corr /= (std_devs[par1]*std_devs[par2]*(double)n_values);
 			
-			int R = 0, B = 0;
-			if(Corr > 0) R = (int)(255.0*Corr/2.0);
-			if(Corr < 0) B = (int)(-255.0*Corr/2.0);
-			Table << Format("@(%d.%d.%d) %.2f", 255-B, 255-R-B, 255-R, Corr);
+			int r = 0, b = 0;
+			if(corr > 0) r = (int)(255.0*corr/2.0);
+			if(corr < 0) b = (int)(-255.0*corr/2.0);
+			table << Format("@(%d.%d.%d) %.2f", 255-b, 255-r-b, 255-r, corr);
 		}
 	}
-	Table << "}}&[* Table 2:] Pearson correlation coefficients between the parameters in the posterior distribution.";
+	table << "}}&[* Table 2:] Pearson correlation coefficients between the parameters in the posterior distribution.";
 
-	ResultSummary.Append(Table);
-	*/
+	result_summary.append(table);
 }
 
 void
 MCMCResultWindow::map_to_main_pushed() {
 	//TODO: Should check that parameter setup in optim. window still correspond to this
 	//parameter data!
-	//TODO
-	/*	
-	if(!Data) return;
 	
-	int BestW = -1;
-	int BestS = -1;
-	Data->GetMAPIndex((int)Burnin[0], Data->NSteps-1, BestW, BestS);
+	if(!data) return;
 	
-	if(BestW < 0 || BestS < 0) return;
+	int best_w = -1;
+	int best_s = -1;
+	data->get_map_index((int)burnin[0], data->n_steps-1, best_w, best_s);
 	
-	std::vector<double> Pars(Data->NPars);
-	for(int Par = 0; Par < Data->NPars; ++Par)
-		Pars[Par] = (*Data)(BestW, Par, BestS);
+	if(best_w < 0 || best_s < 0) return;
 	
-	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size(), Parameters);
-	ParentWindow->Log("Wrote MCMC MAP parameters to main dataset.");
-	ParentWindow->RunModel();
-	*/
+	std::vector<double> pars(data->n_pars);
+	for(int par = 0; par < data->n_pars; ++par)
+		pars[par] = (*data)(best_w, par, best_s);
+	
+	set_parameters(&parent->app->data, parameters, pars.data(), true);
+	parent->log("Wrote MCMC MAP parameters to main dataset.");
+	parent->run_model();
 }
 
 void
 MCMCResultWindow::median_to_main_pushed() {
 	//TODO: Should check that parameter setup in optim. window still correspond to this
 	//parameter data!
-	//TODO: This is redoing a lot of unnecessary work, but it may not be a problem..
-	
-	/*
-	if(!Data) return;
-	
-	std::vector<std::vector<double>> ParValues;
-	int CurStep = Data->NSteps-1;
-	FlattenData(Data, CurStep, (int)Burnin[0], ParValues, false);
-	
-	std::vector<double> Pars(Data->NPars);
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		timeseries_stats Stats;
-		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
-		
-		Pars[Par] = Stats.Median;
-	}
-	
-	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size(), Parameters);
-	ParentWindow->Log("Wrote MCMC median parameters to main dataset");
-	ParentWindow->RunModel();
-	*/
-}
+	//TODO: This is unnecessarily redoing a lot of work, but it may not be a problem..
 
+	if(!data) return;
+	
+	std::vector<std::vector<double>> par_values;
+	s64 cur_step = data->n_steps-1;
+	data->flatten((int)burnin[0], cur_step, par_values, true);
+	
+	std::vector<double> pars(data->n_pars);
+	for(int par = 0; par < data->n_pars; ++par)
+		pars[par] = median_of_sorted(par_values[par].data(), par_values[par].size());
+	
+	set_parameters(&parent->app->data, parameters, pars.data(), true);
+	parent->log("Wrote MCMC median parameters to main dataset.");
+	parent->run_model();
+}
 
 void
 MCMCResultWindow::burnin_edit_event() {
@@ -673,331 +662,230 @@ MCMCResultWindow::burnin_slider_event() {
 
 void
 MCMCResultWindow::generate_projections_pushed() {
-	/*
-	if(!Data) return;
 	
-	int NSamples   = ViewProjections.EditSamples.GetData();
-	double Conf = ViewProjections.Confidence.GetData();
-	double MinConf = 0.5*(100.0-Conf);
-	double MaxConf = 100.0-MinConf;
-	bool ParametricOnly = ViewProjections.OptionUncertainty.GetData();
+	if(!data) return;
 	
-	for(MyPlot &Plot : ProjectionPlots)
-	{
-		Plot.ClearAll(false);
-		Plot.Remove();
+	int n_samples = view_projections.edit_samples.GetData();
+	double conf = view_projections.confidence_edit.GetData();
+	double min_conf = 0.5*(100.0-conf);
+	double max_conf = 100.0-min_conf;
+	bool parametric_only = view_projections.option_uncertainty.GetData();
+	
+	for(MyPlot &plot : projection_plots) {
+		plot.clean(false);
+		plot.Remove();
 	}
-	ProjectionPlots.Clear();
-	ProjectionPlots.InsertN(0, Targets.size());
+	projection_plots.Clear();
+	projection_plots.InsertN(0, targets.size());
 	
-	for(MyPlot &Plot : ResidPlots)
-	{
-		Plot.ClearAll(false);
-		Plot.Remove();
+	for(MyPlot &plot : resid_plots) {
+		plot.clean(false);
+		plot.Remove();
 	}
-	ResidPlots.Clear();
-	ResidPlots.InsertN(0, Targets.size());
+	resid_plots.Clear();
+	resid_plots.InsertN(0, targets.size());
 	
-	for(MyPlot &Plot : ResidHistograms)
-	{
-		Plot.ClearAll(false);
-		Plot.Remove();
+	for(MyPlot &plot : resid_histograms) {
+		plot.clean(false);
+		plot.Remove();
 	}
-	ResidHistograms.Clear();
-	ResidHistograms.InsertN(0, Targets.size());
+	resid_histograms.Clear();
+	resid_histograms.InsertN(0, targets.size());
 	
-	for(MyPlot &Plot : AutoCorrPlots)
-	{
-		Plot.ClearAll(false);
-		Plot.Remove();
+	for(MyPlot &plot : autocorr_plots) {
+		plot.clean(false);
+		plot.Remove();
 	}
-	AutoCorrPlots.Clear();
-	AutoCorrPlots.InsertN(0, Targets.size());
+	autocorr_plots.Clear();
+	autocorr_plots.InsertN(0, targets.size());
 	
+	projection_plot_scroll.ClearPane();
+	resid_plot_scroll.ClearPane();
+	autocorr_plot_scroll.ClearPane();
 	
-	ProjectionPlotScroll.ClearPane();
-	ResidPlotScroll.ClearPane();
-	AutoCorrPlotScroll.ClearPane();
+	int h_size = projection_plot_scroll.GetRect().Width() - 30;  // -30 is to make space for scrollbar
 	
-	int HSize = ProjectionPlotScroll.GetRect().Width() - 30;  // -30 is to make space for scrollbar
+	int plot_height = 400;
+	int accum_y = 0;
 	
-	int PlotHeight = 400;
-	int AccumY = 0;
-	
-	int TargetIdx = 0;
-	for(optimization_target &Target : Targets)
-	{
-		int HSizeSmall = (int)(0.60*(double)HSize);
+	int target_idx = 0;
+	for(Optimization_Target &target : targets) {
+		int h_size_small = (int)(0.60*(double)h_size);
 		
-		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
-		ResidPlotPane.Add     (ResidPlots[TargetIdx].LeftPos(0, HSizeSmall).TopPos(AccumY, PlotHeight));
-		ResidPlotPane.Add     (ResidHistograms[TargetIdx].LeftPos(HSizeSmall, HSize-HSizeSmall).TopPos(AccumY, PlotHeight));
-		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
-		AccumY += PlotHeight;
-		++TargetIdx;
+		projection_plot_pane.Add(projection_plots[target_idx].LeftPos(0, h_size).TopPos(accum_y, plot_height));
+		resid_plot_pane.Add     (resid_plots[target_idx].LeftPos(0, h_size_small).TopPos(accum_y, plot_height));
+		resid_plot_pane.Add     (resid_histograms[target_idx].LeftPos(h_size_small, h_size-h_size_small).TopPos(accum_y, plot_height));
+		autocorr_plot_pane.Add  (autocorr_plots[target_idx].LeftPos(0, h_size).TopPos(accum_y, plot_height));
+		accum_y += plot_height;
+		++target_idx;
 	}
-	Size PaneSz(HSize, AccumY);
-	ProjectionPlotScroll.AddPane(ProjectionPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
-	ResidPlotScroll.AddPane(ResidPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
-	AutoCorrPlotScroll.AddPane(AutoCorrPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
+	Size pane_sz(h_size, accum_y);
+	projection_plot_scroll.AddPane(projection_plot_pane.LeftPos(0, h_size).TopPos(0, accum_y), pane_sz);
+	resid_plot_scroll.AddPane(resid_plot_pane.LeftPos(0, h_size).TopPos(0, accum_y), pane_sz);
+	autocorr_plot_scroll.AddPane(autocorr_plot_pane.LeftPos(0, h_size).TopPos(0, accum_y), pane_sz);
 	
-	ViewProjections.GenerateProgress.Show();
-	ViewProjections.GenerateProgress.Set(0, NSamples);
+	view_projections.generate_progress.Show();
+	view_projections.generate_progress.Set(0, n_samples);
 	
-	int BurninVal = (int)Burnin[0];
+	int burnin_val = (int)burnin[0];
 	
-	std::vector<std::vector<double>> ParValues;
-	int CurStep = -1;
-	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
+	std::vector<std::vector<double>> par_values;
+	s64 cur_step = -1;
+	int n_values = data->flatten(burnin_val, cur_step, par_values, false);
 	
+	Date_Time result_start = parent->app->data.get_start_date_parameter();
+	Date_Time result_end   = parent->app->data.get_end_date_parameter();
+	s64 result_ts = steps_between(result_start, result_end, parent->app->time_step_size) + 1;
 	
-	
-	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-	
-	ParentWindow->ModelDll.RunModel(DataSet, -1); //NOTE: One initial run so that everything is set up.
-	
-	char TimeStr[256];
-	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
-	ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
-	Time ResultStartTime;
-	StrToTime(ResultStartTime, TimeStr);
-	
-	std::vector<std::vector<std::vector<double>>> DataBlock;
-	DataBlock.resize(Targets.size());
-	for(int Target = 0; Target < Targets.size(); ++Target)
-	{
-		DataBlock[Target].resize(NSamples+1);   //NOTE: the final +1 is to make space for a run with the median parameter set
-		for(int Sample = 0; Sample < NSamples+1; ++Sample)
-			DataBlock[Target][Sample].resize(ResultTimesteps);
+	std::vector<std::vector<std::vector<double>>> data_block;
+	data_block.resize(targets.size());
+	for(int target = 0; target < targets.size(); ++target) {
+		data_block[target].resize(n_samples+1);   //NOTE: the final +1 is to make space for a run with the median parameter set
+		for(int sample = 0; sample < n_samples+1; ++sample)
+			data_block[target][sample].resize(result_ts);
 	}
 
+	std::vector<Plot_Setup> plot_setups;
+	for(auto &target : targets)
+		plot_setups.push_back(target_to_plot_setup(target, parent->app));
 	
+	int max_threads = std::thread::hardware_concurrency();
+	int n_workers = std::max(max_threads, 32);
+	std::vector<std::thread> workers;
 	
-	std::vector<plot_setup> PlotSetups;
-	ParentWindow->OptimizationWin.TargetsToPlotSetups(Targets, PlotSetups);
+	Random_State rand_state;
+	std::vector<Model_Data*> model_datas(n_workers);
+	for(int worker = 0; worker < n_workers; ++worker)
+		model_datas[worker] = parent->app->data.copy();
 	
-#define MCMC_SAMPLE_PARALELLIZE
-
-
-#ifdef MCMC_SAMPLE_PARALELLIZE
-	
-	Array<AsyncWork<void>> Workers;
-	auto NThreads = std::thread::hardware_concurrency();
-	int NWorkers = std::max(32, (int)NThreads);
-	Workers.InsertN(0, NWorkers);
-	auto *DataBlockPtr = &DataBlock;
-	
-	std::vector<std::mt19937_64> Generators(NWorkers);
-	std::vector<void *> DataSets(NWorkers);
-	DataSets[0] = DataSet;
-	for(int Worker = 1; Worker < NWorkers; ++Worker)
-		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(DataSet, false, true);
-	
-	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
-	{
-		for(int Worker = 0; Worker < NWorkers; ++Worker)
-		{
-			int Sample = SuperSample*NWorkers + Worker;
-			if(Sample >= NSamples) break;
+	// TODO: should instead use a thread pool / job system
+	for(int sample_group = 0; sample_group < n_samples/n_workers+1; ++sample_group) {
+		for(int worker = 0; worker < n_workers; ++worker) {
+			int sample = sample_group*n_workers + worker;
+			if(sample >= n_samples) break;
 			
-			int NPars = Data->NPars;
-			Workers[Worker].Do([=, &Generators, &PlotSetups, &ParValues, &DataSets]()
-			{
-				std::vector<double> Pars(NPars);
-				
-				std::uniform_int_distribution<int> Dist(0, NumValues);
-				int Draw = Dist(Generators[Worker]);
-				for(int Par = 0; Par < NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
-				
-				ParentWindow->OptimizationWin.SetParameterValues(DataSets[Worker], Pars.data(), Pars.size(), Parameters);
-			
-				ParentWindow->ModelDll.RunModel(DataSets[Worker], -1);
-
-				for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+			int n_pars = data->n_pars;
+			workers.push_back(std::thread([this, &model_datas, &rand_state, &data_block, &par_values, worker, sample, n_pars, n_values, result_ts, parametric_only]() {
+				std::vector<double> pars(n_pars);
 				{
-					double *ResultYValues = (*DataBlockPtr)[TargetIdx][Sample].data();
-					//String Legend;
-					//String Unit;
-					//ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSets[Worker], PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
-					
-					optimization_target &Target = Targets[TargetIdx];
-					
-					std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
-					for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
-						ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
-			
-					ParentWindow->ModelDll.GetResultSeries(DataSets[Worker], Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
-					
-					if(!ParametricOnly)
-					{
-						std::vector<double> ErrParam(Target.ErrParNum.size());
-						for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
-						AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generators[Worker]);
+					std::lock_guard<std::mutex> lock(rand_state.gen_mutex);
+					std::uniform_int_distribution<int> dist(0, n_values);
+					int draw = dist(rand_state.gen);
+					for(int par = 0; par < n_pars; ++par) pars[par] = par_values[par][draw];
+				}
+				auto model_data = model_datas[worker];
+				set_parameters(model_data, parameters, pars.data(), true);
+				run_model(model_data);
+				for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
+					auto &target = targets[target_idx];
+					std::vector<double> &copy_to = data_block[target_idx][sample];
+					for(s64 ts = 0; ts < result_ts; ++ts)
+						copy_to[ts] = *model_data->results.get_value(target.sim_offset, ts);
+					if(!parametric_only) {
+						std::lock_guard<std::mutex> lock(rand_state.gen_mutex);
+						std::vector<double> err_par(target.err_par_idx.size());
+						for(int idx = 0; idx < err_par.size(); ++idx)
+							err_par[idx] = pars[target.err_par_idx[idx]];
+						add_random_error(copy_to.data(), result_ts, err_par.data(), (LL_Type)target.stat_type, rand_state.gen);
 					}
 				}
-			});
+			}));
 		}
-		for(auto &Worker : Workers) Worker.Get();
+		for(auto &worker : workers)
+			if(worker.joinable()) worker.join();
+		workers.clear();
 	
-		ViewProjections.GenerateProgress.Set(std::min((SuperSample+1)*NWorkers-1, NSamples));
-		if(SuperSample % 8 == 0)
-			ParentWindow->ProcessEvents();
+		view_projections.generate_progress.Set(std::min((sample_group+1)*n_workers-1, n_samples));
+		if(sample_group % 8 == 0)
+			parent->ProcessEvents();
 	}
 	
-	for(int Worker = 1; Worker < NWorkers; ++Worker)
-		ParentWindow->ModelDll.DeleteDataSet(DataSets[Worker]);
-	
-#else
-	std::mt19937_64 Generator;
-	
-	for(int Sample = 0; Sample < NSamples; ++Sample)
-	{
-		std::vector<double> Pars(Data->NPars);
-		
-		std::uniform_int_distribution<int> Dist(0, NumValues);
-		int Draw = Dist(Generator);
-		for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
-		
-		ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
-	
-		ParentWindow->ModelDll.RunModel(DataSet, -1);
-		
-		for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
-		{
-			double *ResultYValues = DataBlock[TargetIdx][Sample].data();
-			optimization_target &Target = Targets[TargetIdx];
-					
-			std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
-			for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
-				ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
-	
-			ParentWindow->ModelDll.GetResultSeries(DataSet, Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
-			
-			if(!ParametricOnly)
-			{
-				//optimization_target &Target = Targets[TargetIdx];
-				std::vector<double> ErrParam(Target.ErrParNum.size());
-				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
-				AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generator);
-			}
-		}
-			
-		ViewProjections.GenerateProgress.Set(Sample, NSamples);
-		if(Sample % 50 == 0)
-			ParentWindow->ProcessEvents();
+	// NOTE: Run once with the median parameter set also
+	// TODO: it is unnecessary to recompute the medians all over the place. Just do it once and
+	// store them?
+	std::vector<double> pars(data->n_pars);
+	for(int par = 0; par < data->n_pars; ++par) {
+		std::vector<double> par_vals = par_values[par];
+		std::sort(par_vals.begin(), par_vals.end());
+		pars[par] = median_of_sorted(par_vals.data(), par_vals.size());
 	}
-#endif
-#undef MCMC_SAMPLE_PARALELLIZE
+	set_parameters(model_datas[0], parameters, pars.data(), true);
+	run_model(model_datas[0]);
+	
+	for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
+		auto &target = targets[target_idx];
+		std::vector<double> &copy_to = data_block[target_idx][n_samples];
+		for(s64 ts = 0; ts < result_ts; ++ts)
+			copy_to[ts] = *model_datas[0]->results.get_value(target.sim_offset, ts);
+	}
+	
+	std::vector<double> buffer(n_samples);
+	for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
+		auto &target = targets[target_idx];
+		
+		MyPlot &plot = projection_plots[target_idx];
+		if(target_idx != 0) plot.LinkedWith(projection_plots[0]);
+		plot.setup = plot_setups[target_idx];
+		plot.setup.scatter_inputs = true;
+		
+		plot.compute_x_data(result_start, result_ts, parent->app->time_step_size);
+		
+		auto obsdata = target.obs_id.type == Var_Id::Type::series ? &model_datas[0]->series : &model_datas[0]->additional_series;
+		s64 input_ts_offset = steps_between(obsdata->start_date, result_start, parent->app->time_step_size);
+		
+		int n_obs = 0;
+		int coverage = 0;
+		for(s64 ts = 0; ts < result_ts; ++ts) {
+			for(int sample = 0; sample < n_samples; ++sample)
+				buffer[sample] = data_block[target_idx][sample][ts];
+			
+			std::sort(buffer.begin(), buffer.end());
 
-	std::vector<double> Pars(Data->NPars);
-	//Run once with the median parameter set too.
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		timeseries_stats Stats;
-		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
-		
-		Pars[Par] = Stats.Median;
-	}
-	ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
-	ParentWindow->ModelDll.RunModel(DataSet, -1);
-	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
-	{
-		double *ResultYValues = DataBlock[TargetIdx][NSamples].data();
-		//String Legend;
-		//String Unit;
-		//ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
-	
-		optimization_target &Target = Targets[TargetIdx];
-					
-		std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
-		for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
-			ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
-
-		ParentWindow->ModelDll.GetResultSeries(DataSet, Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
-		
-	}
-	
-	
-	
-	std::vector<double> Buffer(NSamples);
-	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
-	{
-		optimization_target &Target = Targets[TargetIdx];
-		
-		MyPlot &Plot = ProjectionPlots[TargetIdx];
-		if(TargetIdx != 0) Plot.LinkedWith(ProjectionPlots[0]);
-		Plot.PlotSetup = PlotSetups[TargetIdx];
-		Plot.PlotSetup.ScatterInputs = true;
-		
-		double *ResultXValues = Plot.PlotData.Allocate(ResultTimesteps).data();
-		ComputeXValues(ResultStartTime, ResultStartTime, ResultTimesteps, ParentWindow->TimestepSize, ResultXValues);
-		
-		double *InputYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
-		
-		//String Legend;
-		String Unit;
-		Color GraphColor = Plot.PlotColors.Next();
-		//ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSet, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, true);
-					
-		std::vector<const char *> InputIndexes(Target.InputIndexes.size());
-		for(int Idx = 0; Idx < InputIndexes.size(); ++Idx)
-			InputIndexes[Idx] = Target.InputIndexes[Idx].data();
-
-		ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputYValues, true);
-		
-		
-		String Legend = "Observed";
-		Plot.AddPlot(Legend, Unit, ResultXValues, InputYValues, ResultTimesteps, true, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
-		
-		double *UpperYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
-		double *MedianYValues = Plot.PlotData.Allocate(ResultTimesteps).data();
-		double *LowerYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
-		
-		int NumObs = 0;
-		int Coverage = 0;
-		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
-		{
-			for(int Sample = 0; Sample < NSamples; ++Sample)
-				Buffer[Sample] = DataBlock[TargetIdx][Sample][Ts];
+			// This is a bit hacky... We do it like this since it is more convenient to add the
+			// plot from a Model_Data the way that code is written currently.
+			double upper = *model_datas[1]->results.get_value(target.sim_offset, ts) = quantile_of_sorted(buffer.data(), buffer.size(), max_conf*0.01);
+			*model_datas[2]->results.get_value(target.sim_offset, ts) = median_of_sorted(buffer.data(), buffer.size());
+			double lower = *model_datas[3]->results.get_value(target.sim_offset, ts) = quantile_of_sorted(buffer.data(), buffer.size(), min_conf*0.01);
 			
-			std::sort(Buffer.begin(), Buffer.end());
-	
-			UpperYValues[Ts]  = QuantileOfSorted(Buffer.data(), Buffer.size(), MaxConf*0.01);
-			MedianYValues[Ts] = MedianOfSorted(Buffer.data(), Buffer.size());
-			LowerYValues[Ts]  = QuantileOfSorted(Buffer.data(), Buffer.size(), MinConf*0.01);
+			double obs = *obsdata->get_value(target.obs_offset, ts+input_ts_offset);
 			
-			if(std::isfinite(InputYValues[Ts]))
-			{
-				++NumObs;
-				if(InputYValues[Ts] >= LowerYValues[Ts] && InputYValues[Ts] <= UpperYValues[Ts]) ++Coverage;
+			if(std::isfinite(obs)) {
+				++n_obs;
+				if(obs >= lower && obs <= upper) ++coverage;
 			}
 		}
 		
-		String Unit2 = Null;
+		// Do it like this so that colors don't depend on the order we add the plots:
+		Color median_color = plot.colors.next();
+		Color obs_color    = plot.colors.next();
+		Color upper_color  = plot.colors.next();
+		Color lower_color  = plot.colors.next();
 		
-		Legend = Format("%.2f percentile", MaxConf);
-		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit2, ResultXValues, UpperYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		// TODO: "Median" etc. should not be a prefix, it should be the entire series name...
+		//          also the Y axis label is screwed up.
+		add_single_plot(&plot, model_datas[1], parent->app, target.sim_id, target.indexes,
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, upper_color, false, Format("%.2f percentile", max_conf), true);
 		
-		Legend = "Median";
-		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit2, ResultXValues, MedianYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		add_single_plot(&plot, model_datas[2], parent->app, target.sim_id, target.indexes,
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, median_color, false, "Median ", true);
+				
+		add_single_plot(&plot, model_datas[3], parent->app, target.sim_id, target.indexes,
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, lower_color, false, Format("%.2f percentile", min_conf), true);
 		
-		Legend = Format("%.2f percentile", MinConf);
-		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit2, ResultXValues, LowerYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		add_single_plot(&plot, model_datas[0], parent->app, target.obs_id, target.indexes,
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, obs_color, false, Null, true);
 		
-		double CoveragePercent = 100.0*(double)Coverage/(double)NumObs;
-		Plot.SetTitle(Format("\"%s\"  Coverage: %.2f%%", Target.ResultName.data(), CoveragePercent));
+		double coverage_percent = 100.0*(double)coverage/(double)n_obs;
+		plot.SetTitle(Format("Coverage: %.2f%%", coverage_percent));
 		
-		Plot.FormatAxes(MajorMode_Regular, 0, ResultStartTime, ParentWindow->TimestepSize);
-		Plot.SetLabelY(" ");
-		Plot.Refresh();
+		format_axes(&plot, Plot_Mode::regular, 0, result_start, parent->app->time_step_size);
+		set_round_grid_line_positions(&plot, 1);
+	}
+	
+	for(int worker = 0; worker < n_workers; ++worker)
+		delete model_datas[worker];
+/*
 		
-		SetBetterGridLinePositions(Plot, 1);
-		
-
-
 		MyPlot &ResidPlot = ResidPlots[TargetIdx];
 		
 		//NOTE: This is the Y values of the median parameter set, not to be confused with the

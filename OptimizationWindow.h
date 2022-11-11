@@ -164,7 +164,7 @@ public:
 	//bool halt_was_pushed;
 private:
 	
-	void refresh_result_summary(int step = -1);
+	void refresh_result_summary(s64 step = -1);
 	
 	Upp::ToolBar tool;
 	
@@ -218,5 +218,8 @@ public:
 	std::vector<Indexed_Parameter>   parameters;
 	std::vector<Optimization_Target> targets;
 };
+
+Plot_Setup
+target_to_plot_setup(Optimization_Target &target, Model_Application *app);
 
 #endif

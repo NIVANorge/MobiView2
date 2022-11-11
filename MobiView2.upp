@@ -32,6 +32,8 @@ file
 	OptimizationWindow.h,
 	OptimizationWindow.cpp,
 	MCMCResultWindow.cpp,
+	Acor.h,
+	Acor.cpp,
 	Info.rc,
 	mobius.ico,
 	logos.iml,
