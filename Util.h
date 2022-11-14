@@ -66,7 +66,7 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	int idx = 0;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
-		ASSERT(par->indexes[index_set.id].index_set == index_set);
+		//ASSERT(par->indexes[index_set.id].index_set == index_set);
 		if(par->locks[idx])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else

@@ -901,8 +901,7 @@ MCMCResultWindow::generate_projections_pushed() {
 			//median of the Y values over all the parameter sets that we plotted above.
 		std::vector<double> &y_of_median = data_block[target_idx][n_samples];
 			
-		//Ooops, it is important that 'pars' still hold the median parameter set here.. This is
-		//not clean code since somebody could inadvertently mess that up above.
+		//Ooops, it is important that 'pars' still hold the median parameter set here.
 		std::vector<double> err_par(target.err_par_idx.size());
 		for(int idx = 0; idx < err_par.size(); ++idx) err_par[idx] = pars[target.err_par_idx[idx]];
 		
@@ -959,7 +958,7 @@ MCMCResultWindow::generate_projections_pushed() {
 		double z = 0.5*std::erfc(0.5*(1.0-conf_p)/std::sqrt(2.0)); //NOTE: This is just the cumulative distribution function of the normal distribution evaluated at conf_p
 		z /= std::sqrt((double)acor_size);
 		
-		add_line(&acor_plot, 1.0, z, (double)acor_size, z, acor_color);
+		add_line(&acor_plot, 1.0,  z, (double)acor_size,  z, acor_color);
 		add_line(&acor_plot, 1.0, -z, (double)acor_size, -z, acor_color);
 		
 		acor_plot.ZoomToFit(true, false).SetMouseHandling(false, true).SetXYMin(Null, -1.0).SetRange(Null, 2.0);

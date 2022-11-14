@@ -1286,9 +1286,14 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				
 				// TODO: May need better error handling here:
 				Value idx_set_name_val = idx_val["IndexSetName"];
-				if(!IsNull(idx_set_name_val)) index_set = model->index_sets.find_by_name(idx_set_name_val.ToStd());;
+				if(!IsNull(idx_set_name_val)) index_set = model->index_sets.find_by_name(idx_set_name_val.ToStd());
 				Value name_val = idx_val["Name"];
-				if(!IsNull(name_val) && name_val != "") index = parent->app->get_index(index_set, name_val.ToStd());
+				if(!IsNull(name_val) && name_val != "") {
+					index = parent->app->get_index(index_set, name_val.ToStd());
+					set_error("The stored optimization setup was incompatible with the currently loaded model and data set.");
+					parent->log("The stored optimization setup was incompatible with the currently loaded model and data set.", true);
+					return;
+				}
 				Value locked_val = idx_val["Locked"];
 				bool locked = false;
 				if(!IsNull(locked_val)) locked = (bool)locked_val;
