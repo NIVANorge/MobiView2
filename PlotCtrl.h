@@ -213,7 +213,7 @@ class Data_Source_Owns_XY : public Upp::DataSource {
 	
 public:
 	Data_Source_Owns_XY(std::vector<double> *xx, std::vector<double> *yy) :
-		xx(std::move(*xx)), yy(std::move(*yy)) {}
+		xx(*xx), yy(*yy) {}                                   // NOTE: previously had std::move on these, but found out we need to reuse some vectors for multiple series
 	Data_Source_Owns_XY(s64 dim_x, s64 dim_y) :
 		xx(dim_x), yy(dim_y) {}
 		
@@ -462,6 +462,8 @@ void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var
 void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Upp::Color &color, bool stacked = false,
 	const Upp::String &legend_prefix = Upp::Null, bool always_copy_y = false);
+	
+int add_histogram(MyPlot *plot, Upp::DataSource *data, double min, double max, s64 count, const Upp::String &legend, const Upp::String &unit, const Upp::Color &color);
 	
 void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup);
 

@@ -623,7 +623,7 @@ void add_trend_line(MyPlot *plot, double xy_covar, double x_var, double y_mean, 
 	add_line(plot, start_x, alpha + start_x*beta, end_x, alpha + end_x*beta, Null, legend);
 }
 
-int add_histogram(MyPlot *plot, DataSource *data, double min, double max, s64 count, String &legend, String &unit, Color &color) {
+int add_histogram(MyPlot *plot, DataSource *data, double min, double max, s64 count, const String &legend, const String &unit, const Color &color) {
 	//n_bins_histogram = 1 + (int)std::ceil(std::log2((double)count));      //NOTE: Sturges' rule.
 	int n_bins_histogram = 2*(int)(std::ceil(std::cbrt((double)count)));    //NOTE: Rice's rule.
 	

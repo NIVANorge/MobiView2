@@ -833,6 +833,12 @@ MCMCResultWindow::generate_projections_pushed() {
 		auto obsdata = target.obs_id.type == Var_Id::Type::series ? &model_datas[0]->series : &model_datas[0]->additional_series;
 		s64 input_ts_offset = steps_between(obsdata->start_date, result_start, parent->app->time_step_size);
 		
+		// Hmm, it is a bit annoying to have to copy both these out.
+		std::vector<double> obs_copy;
+		obs_copy.reserve(result_ts);
+		std::vector<double> filtered_obs;
+		filtered_obs.reserve(result_ts);
+		
 		int n_obs = 0;
 		int coverage = 0;
 		for(s64 ts = 0; ts < result_ts; ++ts) {
@@ -852,7 +858,11 @@ MCMCResultWindow::generate_projections_pushed() {
 			if(std::isfinite(obs)) {
 				++n_obs;
 				if(obs >= lower && obs <= upper) ++coverage;
+				
+				filtered_obs.push_back(obs);
 			}
+			
+			obs_copy.push_back(obs);
 		}
 		
 		// Do it like this so that colors don't depend on the order we add the plots:
@@ -880,97 +890,90 @@ MCMCResultWindow::generate_projections_pushed() {
 		
 		format_axes(&plot, Plot_Mode::regular, 0, result_start, parent->app->time_step_size);
 		set_round_grid_line_positions(&plot, 1);
+		
+		
+		/*************** Compute and plot standardized residuals **********************/
+		
+		
+		MyPlot &resid_plot = resid_plots[target_idx];
+	
+		//NOTE: This is the Y values of the median parameter set, not to be confused with the
+			//median of the Y values over all the parameter sets that we plotted above.
+		std::vector<double> &y_of_median = data_block[target_idx][n_samples];
+			
+		//Ooops, it is important that 'pars' still hold the median parameter set here.. This is
+		//not clean code since somebody could inadvertently mess that up above.
+		std::vector<double> err_par(target.err_par_idx.size());
+		for(int idx = 0; idx < err_par.size(); ++idx) err_par[idx] = pars[target.err_par_idx[idx]];
+		
+		std::vector<double> standard_residuals;
+		standard_residuals.reserve(result_ts);
+		compute_standard_residuals(obs_copy.data(), y_of_median.data(), result_ts, err_par.data(), (LL_Type)target.stat_type, standard_residuals);
+		
+		if(filtered_obs.size() != standard_residuals.size())
+			fatal_error(Mobius_Error::internal, "Something went wrong with computing standard residuals.");
+		
+		auto &resid_series = resid_plot.series_data.Create<Data_Source_Owns_XY>(&filtered_obs, &standard_residuals);
+		
+		Color resid_color = resid_plot.colors.next();
+		resid_plot.SetSequentialXAll(false);
+		//ResidPlot.SetTitle(Target.ResultName.data());
+		resid_plot.SetTitle("Standard residuals"); // TODO: name the target!
+		resid_plot.AddSeries(resid_series).Stroke(0.0, resid_color).MarkColor(resid_color).MarkStyle<CircleMarkPlot>();
+		resid_plot.SetLabelX("Simulated").SetLabelY("Standard residual").ShowLegend(false);
+		resid_plot.ZoomToFit(true, true);
+		set_round_grid_line_positions(&resid_plot, 0);
+		set_round_grid_line_positions(&resid_plot, 1);
+		
+		
+		double min_resid = *std::min_element(standard_residuals.begin(), standard_residuals.end());
+		double max_resid = *std::max_element(standard_residuals.begin(), standard_residuals.end());
+		
+		MyPlot &resid_hist = resid_histograms[target_idx];
+		auto &hist_series = resid_hist.series_data.Create<Data_Source_Owns_XY>(&filtered_obs, &standard_residuals);
+		
+		int n_bins_histogram = add_histogram(&resid_hist, &hist_series, min_resid, max_resid, standard_residuals.size(), Null, Null, resid_color);
+		format_axes(&resid_hist, Plot_Mode::histogram, n_bins_histogram, result_start, parent->app->time_step_size);
+		resid_hist.ShowLegend(false);
+		resid_hist.SetTitle("Standard resid. distr.");
+		
+		
+		/*************** Autocorrelation plot *****************/
+		
+		std::vector<double> acor;
+		normalized_autocorr_1d(standard_residuals, acor);
+		
+		std::vector<double> acor_idx(acor.size()-1);
+		std::iota(acor_idx.begin(), acor_idx.end(), 1.0);
+		
+		s64 acor_size = acor.size();
+		acor.erase(acor.begin());    // NOTE: the first element is not to be plotted.
+		
+		MyPlot &acor_plot = autocorr_plots[target_idx];
+		
+		Color acor_color(0, 0, 0);
+		auto &acor_series = acor_plot.series_data.Create<Data_Source_Owns_XY>(&acor_idx, &acor);
+		acor_plot.AddSeries(acor_series).NoMark().Stroke(1.5, acor_color).Dash("").Legend("Autocorrelation of standardized residual");
+		
+		double conf_p = conf/100.0;
+		double z = 0.5*std::erfc(0.5*(1.0-conf_p)/std::sqrt(2.0)); //NOTE: This is just the cumulative distribution function of the normal distribution evaluated at conf_p
+		z /= std::sqrt((double)acor_size);
+		
+		add_line(&acor_plot, 1.0, z, (double)acor_size, z, acor_color);
+		add_line(&acor_plot, 1.0, -z, (double)acor_size, -z, acor_color);
+		
+		acor_plot.ZoomToFit(true, false).SetMouseHandling(false, true).SetXYMin(Null, -1.0).SetRange(Null, 2.0);
+		set_round_grid_line_positions(&acor_plot, 0);
+		set_round_grid_line_positions(&acor_plot, 1);
+		//acor_plot.SetTitle(Format("\"%s\"", Target.ResultName.data()));  //TODO
+		acor_plot.SetLabelY("Autocorrelation");
+		acor_plot.SetLabelX("Lag");
 	}
 	
 	for(int worker = 0; worker < n_workers; ++worker)
 		delete model_datas[worker];
-/*
-		
-		MyPlot &ResidPlot = ResidPlots[TargetIdx];
-		
-		//NOTE: This is the Y values of the median parameter set, not to be confused with the
-		//median of the Y values over all the parameter sets.
-		double *YValuesOfMedian = DataBlock[TargetIdx][NSamples].data();
-		
-		// Compute standardized residuals
-		
-		//Ooops, it is important that Pars still hold the median parameter set here.. This is
-		//not clean code since somebody could inadvertently mess that up above.
-		std::vector<double> ErrPar(Target.ErrParNum.size());
-		for(int Idx = 0; Idx < ErrPar.size(); ++Idx) ErrPar[Idx] = Pars[Target.ErrParNum[Idx]];
-	
-		std::vector<double> &YValuesStored   = ResidPlot.PlotData.Allocate(0);
-		YValuesStored.reserve(ResultTimesteps);
-		
-		//NOTE: if there is no input value, the residual value for this timestep will not be recorded below
-		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
-			if(std::isfinite(InputYValues[Ts])) YValuesStored.push_back(YValuesOfMedian[Ts]);
-		
-		std::vector<double> &ResidualYValues = ResidPlot.PlotData.Allocate(0);
-		ResidualYValues.reserve(ResultTimesteps);
-		ComputeStandardizedResiduals(InputYValues, YValuesOfMedian, ResultTimesteps, ErrPar, Target.ErrStruct, ResidualYValues);
-		
-		assert(YValuesStored.size() == ResidualYValues.size());
-		
-		GraphColor = ResidPlot.PlotColors.Next();
-		ResidPlot.SetSequentialXAll(false);
-		ResidPlot.SetTitle(Target.ResultName.data());
-		ResidPlot.AddSeries(YValuesStored.data(), ResidualYValues.data(), YValuesStored.size()).Stroke(0.0, GraphColor).MarkColor(GraphColor).MarkStyle<CircleMarkPlot>();
-		ResidPlot.SetLabelX("Simulated").SetLabelY("Standard residual").ShowLegend(false);
-		ResidPlot.ZoomToFit(true, true);
-		SetBetterGridLinePositions(ResidPlot, 0);
-		SetBetterGridLinePositions(ResidPlot, 1);
-		
-		MyPlot &ResidHistogram = ResidHistograms[TargetIdx];
-		ResidHistogram.SetTitle("St. resid. distr.");
-		ResidHistogram.AddHistogram(Null, Null, ResidualYValues.data(), ResidualYValues.size());
-		ResidHistogram.ZoomToFit(true, true);
-		ResidHistogram.SetMouseHandling(false, false);
-		ResidHistogram.ShowLegend(false);
-		//TODO: Format axes better
-		
-		
-		
-		MyPlot &AcorPlot = AutoCorrPlots[TargetIdx];
-		
-		//TODO: It is debatable how much the auto-correlation makes sense when there is hole in
-		//the data. Can be fixed with more sophisticated error structures
 
-		std::vector<double> &Acor = AcorPlot.PlotData.Allocate(ResidualYValues.size());
-		NormalizedAutocorrelation1D(ResidualYValues, Acor);
-		
-		GraphColor = Color(0, 0, 0);
-		AcorPlot.AddSeries(Acor.data()+1, Acor.size()-1, 0.0, 1.0).NoMark().Stroke(1.5, GraphColor).Dash("").Legend("Autocorrelation of standardized residual");
-		
-		double ConfP = Conf/100.0;
-		double Z = 0.5*std::erfc(0.5*(1.0 - ConfP)/(std::sqrt(2.0))); //NOTE: This is just the cumulative distribution function of the normal distribution
-		Z /= std::sqrt((double)Acor.size());
-
-		double *Lines = AcorPlot.PlotData.Allocate(4).data();
-		Lines[0] = Lines[1] = Z;
-		Lines[2] = Lines[3] = -Z;
-		AcorPlot.AddSeries(Lines, 2, 0.0, (double)Acor.size()).NoMark().Stroke(1.5, GraphColor).Dash(LINE_DASHED).Legend(Format("%.2f percentile", MaxConf));
-		AcorPlot.AddSeries(Lines+2, 2, 0.0, (double)Acor.size()).NoMark().Stroke(1.5, GraphColor).Dash(LINE_DASHED).Legend(Format("%.2f percentile", MinConf));
-		
-		AcorPlot.ZoomToFit(true, false).SetMouseHandling(false, true);
-		AcorPlot.SetXYMin(Null, -1.0).SetRange(Null, 2.0);
-		SetBetterGridLinePositions(AcorPlot, 0);
-		SetBetterGridLinePositions(AcorPlot, 1);
-		
-		//AcorPlot.WhenZoomScroll << [&](){ AcorPlot.SetBetterGridLinePositions(1); }; // This
-		//somehow screws up the center of the plot.
-		
-		AcorPlot.SetTitle(Format("\"%s\"", Target.ResultName.data()));
-		AcorPlot.SetLabelY("Autocorrelation");
-		AcorPlot.SetLabelX("Lag");
-		
-		AcorPlot.Refresh();
-	}
-	
-	ParentWindow->ModelDll.DeleteDataSet(DataSet);
-	
-	ViewProjections.GenerateProgress.Hide();
-	*/
+	view_projections.generate_progress.Hide();
 }
 
 
