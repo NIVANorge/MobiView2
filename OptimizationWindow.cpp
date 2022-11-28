@@ -609,8 +609,7 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 			}
 			//TODO
 			/*
-			if(ResultWin->Parameters != Parameters || ResultWin->Targets != Targets)
-			{
+			if(ResultWin->Parameters != Parameters || ResultWin->Targets != Targets) {
 				//TODO: Could alternatively let you continue with the old parameter set.
 				SetError("You can't extend the run since the parameters or targets have changed.");
 				return false;

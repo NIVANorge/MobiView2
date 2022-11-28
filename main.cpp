@@ -162,6 +162,7 @@ void MobiView2::log(String msg, bool error) {
 	std::stringstream oss;
 	oss << std::put_time(&tm, "%H:%M:%S : ");
 	
+	msg.Replace("&", "`&");
 	String format_msg = "";
 	format_msg << oss.str().data();
 	format_msg << msg;
@@ -270,7 +271,15 @@ bool MobiView2::do_the_load() {
 
 void MobiView2::reload(bool recompile_only) {
 	if(!model_is_loaded()) {
-		log("Not able to reload when there is nothing loaded to begin with.", true);
+		if(data_file.empty() || model_file.empty())
+			log("Not able to reload when there is nothing loaded to begin with.", true);
+		else
+			// This branch could happen if there was a previous attempt at loading which gave
+			// an error. There is still a valid file name for the model and data file,
+			// but the model is not loaded.
+			// In this case the interface was already cleared, so there is no point in
+			// restoring it like below unless we decide to cache all that information somewhere.
+			do_the_load();
 		return;
 	}
 	//TODO: decide what to do about changed parameters.
@@ -283,12 +292,12 @@ void MobiView2::reload(bool recompile_only) {
 	std::vector<std::string> sel_additional;
 	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
 	for(Var_Id var_id : setup.selected_results)
-		sel_results.push_back(std::string(app->state_vars[var_id]->name));
+		sel_results.push_back(app->state_vars.serialize(var_id));
 	for(Var_Id var_id : setup.selected_series) {
 		if(var_id.type == Var_Id::Type::series)
-			sel_inputs.push_back(std::string(app->series[var_id]->name));
+			sel_inputs.push_back(app->series.serialize(var_id));
 		else
-			sel_additional.push_back(std::string(app->additional_series[var_id]->name));
+			sel_additional.push_back(app->additional_series.serialize(var_id));
 	}
 	//TODO: the index sets themselves could change (or change order). So we have to store their
 	//names and remap the order! Also rebuild "index set is active"
@@ -296,7 +305,7 @@ void MobiView2::reload(bool recompile_only) {
 		for(Index_T index : setup.selected_indexes[idx]) {
 			if(!is_valid(index)) continue;
 			// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
-			sel_indexes[idx].push_back(std::string(app->index_names[idx][index.index]));
+			sel_indexes[idx].push_back(app->index_names[idx][index.index]);
 		}
 	}
 	
@@ -340,16 +349,19 @@ void MobiView2::reload(bool recompile_only) {
 	setup.selected_results.clear();
 	setup.selected_series.clear();
 	for(auto &name : sel_results) {
-		auto &ids = app->state_vars[name];
-		setup.selected_results.insert(setup.selected_results.end(), ids.begin(), ids.end());
+		Var_Id var_id = app->state_vars.deserialize(name);
+		if(is_valid(var_id))
+			setup.selected_results.push_back(var_id);
 	}
 	for(auto &name : sel_inputs) {
-		auto &ids = app->series[name];
-		setup.selected_series.insert(setup.selected_series.end(), ids.begin(), ids.end());
+		Var_Id var_id = app->series.deserialize(name);
+		if(is_valid(var_id))
+			setup.selected_series.push_back(var_id);
 	}
 	for(auto &name : sel_additional) {
-		auto &ids = app->additional_series[name];
-		setup.selected_series.insert(setup.selected_series.end(), ids.begin(), ids.end());
+		Var_Id var_id = app->additional_series.deserialize(name);
+		if(is_valid(var_id))
+			setup.selected_series.push_back(var_id);
 	}
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		setup.selected_indexes[idx].clear();
@@ -621,6 +633,7 @@ void MobiView2::clean_interface() {
 	result_selecter.Clear();
 	input_selecter.Clear();
 	series_nodes.Clear();
+	plot_info.Clear();
 	
 	params.clean();
 	plotter.clean();
