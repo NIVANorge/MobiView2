@@ -658,7 +658,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	//TODO: allow for some of these!
 	if(
 		   var->flags & State_Variable::Flags::f_in_flux
-		|| var->flags & State_Variable::Flags::f_in_flux_neighbor
+		|| var->flags & State_Variable::Flags::f_in_flux_connection
 		|| var->flags & State_Variable::Flags::f_is_aggregate
 		|| var->flags & State_Variable::Flags::f_invalid)
 		return;
