@@ -232,6 +232,8 @@ void MobiView2::delete_model() {
 	baseline = nullptr;
 }
 
+#define CATCH_ERRORS 0
+
 bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
 	if(model_is_loaded())	{
@@ -246,7 +248,9 @@ bool MobiView2::do_the_load() {
 	}
 	
 	bool success = true;
+#if CATCH_ERRORS
 	try {
+#endif
 		model = load_model(model_file.data());
 		app = new Model_Application(model);
 			
@@ -255,10 +259,12 @@ bool MobiView2::do_the_load() {
 		
 		app->build_from_data_set(data_set);
 		app->compile();
+#if CATCH_ERRORS
 	} catch(int) {
 		success = false;
 		delete_model();
 	}
+#endif
 	log_warnings_and_errors();
 	store_settings(false);
 
@@ -268,6 +274,8 @@ bool MobiView2::do_the_load() {
 	build_interface();
 	return true;
 }
+
+#undef CATCH_ERRORS
 
 void MobiView2::reload(bool recompile_only) {
 	if(!model_is_loaded()) {
