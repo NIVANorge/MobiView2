@@ -120,6 +120,8 @@ void ParameterCtrl::expand_index_set_clicked(int idx) {
 	refresh();
 }
 
+//TODO: If we column expand, the "Expand" checkbox should be inactivated.
+
 void ParameterCtrl::refresh(bool values_only) {
 	if(!values_only) {
 		parameter_view.Clear();
@@ -434,7 +436,8 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	} catch(int) {}
 	parent->log_warnings_and_errors();
 	
-	// TODO: Do we really want to do this here?
+	// TODO: Do we really want to do this here? Ideally it should be a part of Mobius2 itself
+	// so that it also happens if done through other APIs.
 	if(std::find(app->baked_parameters.begin(), app->baked_parameters.end(), par_data.id) != app->baked_parameters.end()) {
 		parent->reload(true);
 		parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
@@ -455,7 +458,13 @@ ParameterCtrl::get_selected_parameter() {
 	int row = parameter_view.GetCursor();
 	if(row < 0 || row >= listed_pars.size()) return std::move(result);
 	
-	int col = 0; // TODO!!!
+	// TODO: This is hacky... Do we want to switch to GridCtrl for parameter editing instead?
+	// Also doesn't work for OptimizationWindow right now, because the event then happens after
+	// the ctrl loses focus.
+	int col_count = listed_pars[0].size();
+	int col = 0;
+	for(int idx = 0; idx < col_count; ++idx)
+		if(parameter_controls[row*col_count + idx].HasFocus()) col = idx;
 	
 	result = listed_pars[row][col];
 	set_locks(result);

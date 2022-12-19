@@ -64,13 +64,22 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	
 	Upp::String result = "[";
 	int idx = 0;
+	bool once = false;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
 		//ASSERT(par->indexes[index_set.id].index_set == index_set);
+		
+		auto index = par->indexes[index_set.id];
+		if(is_valid(par->mat_col)) {
+			if(once)
+				index = par->mat_col;
+			once = true;
+		}
+		
 		if(par->locks[idx])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << "\"" << structure->parent->index_names[index_set.id][par->indexes[index_set.id].index] << "\"";
+			result << "\"" << structure->parent->index_names[index_set.id][index.index] << "\"";
 	}
 	result << "]";
 	return result;

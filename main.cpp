@@ -81,15 +81,14 @@ MobiView2::MobiView2() :
 	
 	//TODO: This is not sufficient. It is not updated when selection changes within an individual row!
 	// What we want is something like WhenLeftClick, but that
-	// doesn't work either! Maybe we have to set one on each individual control?
+	// doesn't work either! May have to change to GridCtrl instead of ArrayCtrl for this to
+	// work.
 	params.parameter_view.WhenSel << sensitivity_window_update;
 	
 	par_group_selecter.WhenSel << [this](){ params.refresh(false); };
 	par_group_selecter.WhenSel << sensitivity_window_update;
 	
 	
-	
-	//result_selecter.Disable();
 	result_selecter.WhenSel << [this]() { plotter.plot_change(); };
 	result_selecter.MultiSelect();
 	result_selecter.SetRoot(Null, String("Results"));
