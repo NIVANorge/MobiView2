@@ -44,6 +44,7 @@ MobiView2::MobiView2() :
 	
 	result_selecter_rect.Add(result_selecter.HSizePos().VSizePos(0, 30));
 	result_selecter_rect.Add(show_favorites.SetLabel("Show favorites only").HSizePos(5).BottomPos(5));
+	show_favorites.Disable(); // TODO: needs to be implemented.
 	
 	lower_horizontal.Horz();
 	lower_horizontal.Add(plotter);
@@ -176,6 +177,7 @@ void MobiView2::log(String msg, bool error) {
 	format_msg.Replace("/", "\1/\1");
 	format_msg.Replace("\\", "\1\\\1");
 	format_msg.Replace("\n", "&");
+	format_msg.Replace("\t", "-|");
 	
 	if(error)
 		format_msg = String("[@R ") + format_msg + "]";
@@ -232,7 +234,11 @@ void MobiView2::delete_model() {
 	baseline = nullptr;
 }
 
-#define CATCH_ERRORS 0
+#ifdef DEBUG
+	#define CATCH_ERRORS 0
+#else
+	#define CATCH_ERRORS 1
+#endif
 
 bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
@@ -427,8 +433,15 @@ void MobiView2::load() {
 
 	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them1
 
-	if(!previous_model.IsEmpty() && FileExists(previous_model))
-		model_sel.PreSelect(previous_model);
+	if(!previous_model.IsEmpty()) {
+		if(FileExists(previous_model))
+			model_sel.PreSelect(previous_model);
+		else {
+			auto folder = GetFileFolder(previous_model);
+			if(DirectoryExists(folder))
+				model_sel.ActiveDir(folder);
+		}
+	}
 	
 	model_sel.ExecuteOpen();
 	std::string new_model_file = model_sel.Get().ToStd();
@@ -625,11 +638,13 @@ void MobiView2::store_settings(bool store_favorites) {
 	JsonArray IdxEditWindowDim;
 	IdxEditWindowDim << ChangeIndexes.GetSize().cx << ChangeIndexes.GetSize().cy;
 	SettingsJson("Index set editor window dimensions", IdxEditWindowDim);
-	
-	JsonArray AdditionalPlotViewDim;
-	AdditionalPlotViewDim << OtherPlots.GetSize().cx << OtherPlots.GetSize().cy;
-	SettingsJson("Additional plot view dimensions", AdditionalPlotViewDim);
 	*/
+	
+	JsonArray plot_view_dim;
+	plot_view_dim << additional_plots.GetSize().cx << additional_plots.GetSize().cy;
+	settings_json("Plot view dimensions", plot_view_dim);
+	
+	// TODO: Store resizes of other windows here too.
 	
 	SaveFile("settings.json", settings_json.ToString());
 }
@@ -654,19 +669,16 @@ void MobiView2::clean_interface() {
 void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *app, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
 	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, bool is_input = false) {
 		
-	//TODO: We should make our own ctrl. for the nodes to store the var_id and have the
-	//"favorite" checkbox.
-	
 	// NOTE: This relies on dissolved variables being later in the list than what they are
 	// dissolved in. This is the current functionality, but is implementation dependent on
-	// Mobius 2...
+	// the Mobius 2 core...
 	// We could easily make it independent by just updating nodes with names properly
 	// later...
 	
 	//TODO: allow for some of these!
 	if(
 		   var->flags & State_Variable::Flags::f_in_flux
-		|| var->flags & State_Variable::Flags::f_in_flux_connection
+		//|| var->flags & State_Variable::Flags::f_in_flux_connection
 		|| var->flags & State_Variable::Flags::f_is_aggregate
 		|| var->flags & State_Variable::Flags::f_invalid)
 		return;
@@ -674,6 +686,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	bool dissolved = false;
 	bool diss_conc = false;
 	bool flux_to   = false;
+	bool connection_agg = false;
 	
 	Var_Location loc = var->loc1;
 	
@@ -683,12 +696,22 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		diss_conc = true;
 	}
 	
+	// TODO: This won't work for connection aggregates for dissolved fluxes...
+	
+	if(var->flags & State_Variable::Flags::f_in_flux_connection) {
+		loc = app->state_vars[var->connection_agg]->loc1;
+		//window->log(Format("Found \"%s\".", var->name.data()));
+		connection_agg = true;
+	}
+	
 	if(var->type == Decl_Type::flux && !is_located(loc)) {
 		if(is_located(var->loc2)) {
 			loc = var->loc2;
 			flux_to = true;
-		} else
-			return;     //TODO: maybe we should make a top node for it instead.
+		} else {
+			window->log(Format("The flux \"%s\" does not have a location in either end.", var->name.data()), true);
+			return;
+		}
 	}
 	
 	if(!is_located(loc) && !is_input) {
@@ -698,7 +721,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	int parent_id = top_node;
 	if(is_located(loc)) {
-		if(!loc.is_dissolved() && var->type != Decl_Type::flux) {
+		if(!loc.is_dissolved() && var->type != Decl_Type::flux && !connection_agg) {
 			auto find = nodes_compartment.find(loc.first());
 			if(find == nodes_compartment.end()) {
 				auto comp = app->model->components[loc.first()];
@@ -712,7 +735,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		} else {
 			dissolved = true;
 			Var_Location parent_loc = loc;
-			if(!diss_conc && var->type != Decl_Type::flux)
+			if(!diss_conc && var->type != Decl_Type::flux && !connection_agg)
 				parent_loc = remove_dissolved(loc);
 			
 			auto find = nodes_quantity.find(parent_loc);
@@ -726,7 +749,10 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	String name;
 	
-	if(is_input) {
+	if(connection_agg) {
+		auto conn = app->model->connections[var->connection];
+		name = "from connection (" + conn->name + ")";
+	} else if(is_input) {
 		name = var->name;
 	} else if(diss_conc) {
 		name = "concentration";
@@ -737,14 +763,16 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 			var2 = app->state_vars[var2->dissolved_flux];
 		
 		name = var2->name;
-		//TODO: aggregate fluxes!
+		//TODO: (other) aggregate fluxes!
 	} else {
 		auto quant = app->model->components[loc.last()];
 		name = quant->name;
 	}
 
-	Image *img;
-	if(var->type == Decl_Type::quantity) {
+	Image *img = nullptr;
+	if(connection_agg) {
+		img = &IconImg::ConnectionFluxTo();
+	} else if(var->type == Decl_Type::quantity) {
 		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
 	} else if(var->type == Decl_Type::property || is_input) {
 		img = diss_conc ? &IconImg::DissolvedConc() : &IconImg::Property();

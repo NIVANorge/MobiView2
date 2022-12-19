@@ -12,3 +12,4 @@ LAYOUT(MiniPlotLayout, 568, 100)
 	ITEM(Upp::Button, copy_main, SetLabel(t_("<<")).RightPosZ(276, 32).BottomPosZ(1, 15))
 	ITEM(Upp::Button, push_main, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
 END_LAYOUT
+

@@ -34,7 +34,7 @@ public:
 	Upp::Array<Upp::Ctrl> parameter_controls;
 	
 	std::vector<Entity_Id> index_sets;
-	std::vector<Indexed_Parameter> listed_pars; // TODO: eventually must be a matrix
+	std::vector<std::vector<Indexed_Parameter>> listed_pars;
 	
 	MobiView2 *parent;
 	

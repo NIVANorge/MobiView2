@@ -80,7 +80,7 @@ SearchWindow::select_item() {
 	if(success) {
 		int row = 0;
 		for(auto &par_data : parent->params.listed_pars) {
-			if(sel_par == par_data.id) break;
+			if(sel_par == par_data[0].id) break;             // NOTE: the 0 is the column. All values of the same column is the same parameter
 			++row;
 		}
 		ArrayCtrl &par_view = parent->params.parameter_view;

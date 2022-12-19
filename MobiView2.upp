@@ -67,6 +67,8 @@ file
 	C:\Data\Mobius2\src\lexer.h,
 	C:\Data\Mobius2\src\linear_memory.h,
 	C:\Data\Mobius2\src\llvm_jit.cpp,
+	C:\Data\Mobius2\src\model_codegen.cpp,
+	C:\Data\Mobius2\src\model_codegen.h,
 	C:\Data\Mobius2\src\llvm_jit.h,
 	C:\Data\Mobius2\src\mobius_common.h,
 	C:\Data\Mobius2\src\model_application.cpp,
