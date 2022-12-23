@@ -281,7 +281,7 @@ SensitivityViewWindow::run() {
 				
 				if(typetype == Stat_Class::stat)
 					compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, result_gof_offset, gof_ts);
-				else if(typetype == Stat_Class::residual);
+				else if(typetype == Stat_Class::residual)
 					compute_residual_stats(&residual_stats, data, offset, result_gof_offset, data_ser, offset_ser, input_gof_offset, gof_ts, type==(int)Residual_Type::srcc);
 				
 				double val = get_stat(&stats, &residual_stats, type);

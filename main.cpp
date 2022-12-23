@@ -695,11 +695,14 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		diss_conc = true;
 	}
 	
-	// TODO: This won't work for connection aggregates for dissolved fluxes...
-	
-	if(var->flags & State_Variable::Flags::f_in_flux_connection) {
-		loc = app->state_vars[var->connection_agg]->loc1;
-		//window->log(Format("Found \"%s\".", var->name.data()));
+	if(var->flags & State_Variable::Flags::f_connection_agg) {
+		if(is_valid(var->connection_target_agg)) {
+			loc = app->state_vars[var->connection_target_agg]->loc1;
+			flux_to = true;
+		} else if(is_valid(var->connection_source_agg))
+			loc = app->state_vars[var->connection_source_agg]->loc1;
+		else
+			return;
 		connection_agg = true;
 	}
 	
@@ -750,7 +753,10 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	if(connection_agg) {
 		auto conn = app->model->connections[var->connection];
-		name = "from connection (" + conn->name + ")";
+		if(flux_to)
+			name = "from connection (" + conn->name + ")";   // It is a "flux_to" this variable, hence it is from the connection.
+		else
+			name = "to connection (" + conn->name + ")";
 	} else if(is_input) {
 		name = var->name;
 	} else if(diss_conc) {
@@ -770,7 +776,10 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 
 	Image *img = nullptr;
 	if(connection_agg) {
-		img = &IconImg::ConnectionFluxTo();
+		if(flux_to)
+			img = &IconImg::ConnectionFluxTo();
+		else
+			img = &IconImg::ConnectionFlux();
 	} else if(var->type == Decl_Type::quantity) {
 		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
 	} else if(var->type == Decl_Type::property || is_input) {
