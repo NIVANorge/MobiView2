@@ -516,13 +516,15 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 		} else if(mode == Plot_Mode::profile) {
 			plot->was_auto_resized = false;
 			plot->SetXYMin(0.0, 0.0);
-			s64 count = plot->profile.GetCount();
+			int count = plot->profile.GetCount();
 			plot->SetRange((double)count, plot->profile.get_max());
-			plot->SetMajorUnits(1.0);
+			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
+			int units = std::max(1, count / preferred_max_grid);
+			plot->SetMajorUnits((double)units);
 			plot->SetMinUnits(0.5);
 			plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
 				int idx = (int)d;
-				if(d >= 0 && d < count) s = plot->labels[idx];
+				if(d >= 0 && d < count && (idx < plot->labels.size())) s = plot->labels[idx];
 			};
 		} else {
 			plot->ZoomToFit(false, true);
@@ -530,7 +532,10 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
 			if(mode == Plot_Mode::profile2D) {
 				plot->ZoomToFitZ();
-				plot->SetMajorUnits(Null, 1.0);
+				int count = plot->profile2D.count();
+				int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
+				int units = std::max(1, count / preferred_max_grid);
+				plot->SetMajorUnits(Null, units);
 				plot->cbModifFormatY <<
 				[plot](String &s, int i, double d) {
 					int idx = (int)d;

@@ -133,7 +133,11 @@ void PlotCtrl::play_pushed() {
 void PlotCtrl::plot_change() {
 	if(!parent->model_is_loaded()) return;
 	
-	KillTimeCallback();
+	if(is_playing) {
+		is_playing = false;
+		KillTimeCallback();
+		push_play.SetImage(IconImg9::Play());
+	}
 	
 	get_plot_setup(main_plot.setup);
 	
