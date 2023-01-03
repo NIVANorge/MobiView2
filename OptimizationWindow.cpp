@@ -297,7 +297,7 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	auto app = parent->app;
 	
 	Data_Storage<double, Var_Id> *sim_data, *obs_data;
-	State_Variable *var_sim, *var_obs;
+	State_Var *var_sim, *var_obs;
 	get_storage_and_var(&app->data, target.sim_id, &sim_data, &var_sim);
 	String sim_index_str = make_index_string(sim_data->structure, target.indexes, target.sim_id);
 	
@@ -368,6 +368,7 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 
 void OptimizationWindow::stat_edited(int row) {
 	targets[row].stat_type = (int)target_stat_ctrls[row].GetData();
+	//PromptOK(Format("Set stat to %d", targets[row].stat_type));
 }
 
 void OptimizationWindow::err_sym_edited(int row) {
@@ -889,6 +890,7 @@ bool
 OptimizationWindow::err_sym_fixup() {
 	std::unordered_map<std::string, std::pair<int,int>> sym_row;
 	
+	// TODO: Should not give error if "Enable expressions" is not checked.
 	int active_idx = 0;
 	int row = 0;
 	for(Indexed_Parameter &parameter : parameters) {
@@ -1039,13 +1041,13 @@ void OptimizationWindow::run_clicked(int run_type)
 	Date_Time end   = app->data.get_end_date_parameter();
 	s64 ms_timeout = target_setup.edit_timeout.GetData();
 	
-	s64 update_step;
-	s64 *step_ptr = &update_step;
+	s64 update_step = 20;
+	//s64 *step_ptr = &update_step;
 	
 	Optim_Callback callback = nullptr;
 	if(run_setup.option_show_progress.Get() && run_type == 0) {
-		callback = [step_ptr, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
-			if(*step_ptr % n_evals == 0) {
+		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
+			if((n_evals % update_step) == 0) {
 				//GUILock lock;
 				run_setup.progress_label.SetText(Format("Current evaluations: %d, timeouts: %d, best score: %g (initial: %g)", n_evals, n_timeouts, best_score, initial_score));
 				if(parent->additional_plots.IsOpen())
@@ -1057,7 +1059,7 @@ void OptimizationWindow::run_clicked(int run_type)
 	}
 	
 	try {
-		Timer timer;     // TODO: callback
+		Timer timer;
 		Dlib_Optimization_Model opt_model(data, parameters, targets, initial_pars.data(), callback, ms_timeout);
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
 		
@@ -1391,6 +1393,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			
 			target.stat_type    = (int)Stat_Type::mean;
 			
+			//TODO: This doesn't seem to always work.
 			String stat_name = target_json["Stat"];
 			if(!IsNull(stat_name))
 				target.stat_type = stat_type_from_name(stat_name.ToStd());
@@ -1563,9 +1566,12 @@ String OptimizationWindow::write_to_json_string() {
 		}
 		
 		target_json("Indexes", index_arr);
+		
+		std::string statname = stat_name(target.stat_type);
+		//PromptOK(Format("Stat is %d %s", target.stat_type, statname.data()));
 
 		String err_name = target_setup.target_view.Get(row, Id("__errparam"));
-		target_json("Stat", stat_name(target.stat_type).data());
+		target_json("Stat", statname.data());
 		target_json("Weight", target.weight);
 		target_json("ErrPar", err_name);
 		target_json("Begin", target.start.to_string().data);

@@ -68,7 +68,7 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 }
 
 // TODO: This could maybe be a utility function in the Model_Application itself!
-void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Variable **var) {
+void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Var **var) {
 	if(var_id.type == Var_Id::Type::state_var) {
 		*data = &md->results;
 		*var = md->app->state_vars[var_id];
@@ -97,7 +97,7 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	const String &legend_prefix, bool always_copy_y) {
 		
 	Data_Storage<double, Var_Id> *data;
-	State_Variable *var;
+	State_Var *var;
 	get_storage_and_var(md, var_id, &data, &var);
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
@@ -804,7 +804,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			}
 			
 			Data_Storage<double, Var_Id> *data;
-			State_Variable *var;
+			State_Var *var;
 			get_storage_and_var(&app->data, var_id, &data, &var);
 			
 			//TODO: with the new data system, it would be easy to allow aggregation also.
@@ -833,7 +833,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Var_Id var_id_sim = setup.selected_results[0];
 			Var_Id var_id_obs = setup.selected_series[0];
 			Data_Storage<double, Var_Id> *data_sim, *data_obs;
-			State_Variable *var_sim, *var_obs;
+			State_Var *var_sim, *var_obs;
 			get_storage_and_var(&app->data, var_id_sim, &data_sim, &var_sim);
 			get_storage_and_var(&app->data, var_id_obs, &data_obs, &var_obs);
 			
@@ -945,7 +945,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				start = input_start;
 			}
 			Data_Storage<double, Var_Id> *data;
-			State_Variable *var;
+			State_Var *var;
 			get_storage_and_var(&app->data, var_id, &data, &var);
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";

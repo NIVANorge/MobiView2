@@ -233,11 +233,11 @@ void MobiView2::delete_model() {
 	baseline = nullptr;
 }
 
-#ifdef DEBUG
-	#define CATCH_ERRORS 0
-#else
+//#ifdef DEBUG
+//	#define CATCH_ERRORS 0
+//#else
 	#define CATCH_ERRORS 1
-#endif
+//#endif
 
 bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
@@ -665,8 +665,8 @@ void MobiView2::clean_interface() {
 	baseline_was_just_saved = false;
 }
 
-void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *app, Var_Id var_id, State_Variable *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
-	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, bool is_input = false) {
+void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *app, Var_Id var_id, State_Var *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
+	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, int pass_type, bool is_input = false) {
 		
 	// NOTE: This relies on dissolved variables being later in the list than what they are
 	// dissolved in. This is the current functionality, but is implementation dependent on
@@ -676,12 +676,29 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	//TODO: allow for some of these!
 	if(
-		   var->flags & State_Variable::Flags::f_in_flux
-		//|| var->flags & State_Variable::Flags::f_in_flux_connection
-		|| var->flags & State_Variable::Flags::f_is_aggregate
-		|| var->flags & State_Variable::Flags::f_invalid)
+		   var->type == State_Var::Type::in_flux_aggregate
+		|| var->type == State_Var::Type::regular_aggregate
+		|| !var->is_valid())
 		return;
 	
+	// Just the phases we add nodes in not to have them jumbled. Also, we add quantities first
+	// to organize other things by them.
+	if(!is_input) {
+		if(pass_type == 0) {
+			// Do all declared quantities
+			if(var->type != State_Var::Type::declared) return;
+			if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) return;
+		} else if (pass_type == 1) {
+			// Do all declared properties, or things that are generated (but not fluxes)
+			if(var->is_flux()) return;
+			if(var->type == State_Var::Type::declared &&
+				as<State_Var::Type::declared>(var)->decl_type != Decl_Type::property) return;
+		} else if (pass_type == 2) {
+			// Do all fluxes (declared and generated)
+			if(!var->is_flux()) return;
+		}
+	}
+		
 	bool dissolved = false;
 	bool diss_conc = false;
 	bool flux_to   = false;
@@ -689,24 +706,19 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	Var_Location loc = var->loc1;
 	
-	if(var->flags & State_Variable::Flags::f_dissolved_conc) {
-		auto diss_in = app->state_vars[var->dissolved_conc];
-		loc = diss_in->loc1;
+	if(var->type == State_Var::Type::dissolved_conc) {
+		auto var2 = as<State_Var::Type::dissolved_conc>(var);
+		loc = app->state_vars[var2->conc_of]->loc1;
 		diss_conc = true;
 	}
 	
-	if(var->flags & State_Variable::Flags::f_connection_agg) {
-		if(is_valid(var->connection_target_agg)) {
-			loc = app->state_vars[var->connection_target_agg]->loc1;
-			flux_to = true;
-		} else if(is_valid(var->connection_source_agg))
-			loc = app->state_vars[var->connection_source_agg]->loc1;
-		else
-			return;
+	if(var->type == State_Var::Type::connection_aggregate) {
+		auto var2 = as<State_Var::Type::connection_aggregate>(var);
+		loc = app->state_vars[var2->agg_for]->loc1;
 		connection_agg = true;
 	}
 	
-	if(var->type == Decl_Type::flux && !is_located(loc)) {
+	if(var->is_flux() && !is_located(loc)) {
 		if(is_located(var->loc2)) {
 			loc = var->loc2;
 			flux_to = true;
@@ -723,7 +735,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	int parent_id = top_node;
 	if(is_located(loc)) {
-		if(!loc.is_dissolved() && var->type != Decl_Type::flux && !connection_agg) {
+		if(!loc.is_dissolved() && !var->is_flux() && !connection_agg) {
 			auto find = nodes_compartment.find(loc.first());
 			if(find == nodes_compartment.end()) {
 				auto comp = app->model->components[loc.first()];
@@ -737,7 +749,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		} else {
 			dissolved = true;
 			Var_Location parent_loc = loc;
-			if(!diss_conc && var->type != Decl_Type::flux && !connection_agg)
+			if(!diss_conc && !var->is_flux() && !connection_agg)
 				parent_loc = remove_dissolved(loc);
 			
 			auto find = nodes_quantity.find(parent_loc);
@@ -752,20 +764,21 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	String name;
 	
 	if(connection_agg) {
-		auto conn = app->model->connections[var->connection];
-		if(flux_to)
-			name = "from connection (" + conn->name + ")";   // It is a "flux_to" this variable, hence it is from the connection.
-		else
+		auto var2 = as<State_Var::Type::connection_aggregate>(var);
+		auto conn = app->model->connections[var2->connection];
+		if(var2->is_source)
 			name = "to connection (" + conn->name + ")";
+		else
+			name = "from connection (" + conn->name + ")";
 	} else if(is_input) {
 		name = var->name;
 	} else if(diss_conc) {
 		name = "concentration";
-	} else if(var->type == Decl_Type::flux) {
+	} else if(var->is_flux()) {
 		// NOTE: we don't want to use the generated name here, only the name of the base flux
 		auto var2 = var;
-		while(var2->flags & State_Variable::Flags::f_dissolved_flux)
-			var2 = app->state_vars[var2->dissolved_flux];
+		while(var2->type == State_Var::Type::dissolved_flux)
+			var2 = app->state_vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
 		
 		name = var2->name;
 		//TODO: (other) aggregate fluxes!
@@ -774,24 +787,24 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		name = quant->name;
 	}
 
+	bool is_quantity = false;
 	Image *img = nullptr;
 	if(connection_agg) {
-		if(flux_to)
-			img = &IconImg::ConnectionFluxTo();
-		else
-			img = &IconImg::ConnectionFlux();
-	} else if(var->type == Decl_Type::quantity) {
-		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
-	} else if(var->type == Decl_Type::property || is_input) {
-		img = diss_conc ? &IconImg::DissolvedConc() : &IconImg::Property();
-	} else if(var->type == Decl_Type::flux) {
+		auto var2 = as<State_Var::Type::connection_aggregate>(var);
+		img = var2->is_source ? &IconImg::ConnectionFlux() : &IconImg::ConnectionFluxTo();
+	} else if(var->is_flux()) {
 		img = flux_to ? &IconImg::FluxTo() : &IconImg::Flux();
+	} else if(var->type == State_Var::Type::declared && as<State_Var::Type::declared>(var)->decl_type == Decl_Type::quantity) {
+		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
+		is_quantity = true;
+	} else  {
+		img = diss_conc ? &IconImg::DissolvedConc() : &IconImg::Property();
 	}
 	
 	window->series_nodes.Create(var_id, name);
 	int id = selecter.Add(parent_id, *img, window->series_nodes.Top());//, false);
 	
-	if(var->type == Decl_Type::quantity && is_located(loc))
+	if(is_quantity && is_located(loc))
 		nodes_quantity[loc] = id;
 }
 
@@ -831,24 +844,12 @@ void MobiView2::build_interface() {
 	std::unordered_map<Var_Location, int, Var_Location_Hash> nodes_quantity;
 
 	try {
-		for(Var_Id var_id : app->state_vars) {
-			auto var = app->state_vars[var_id];
-			if(var->type == Decl_Type::quantity)
-				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
+		for(int pass = 0; pass < 3; ++pass) {
+			for(Var_Id var_id : app->state_vars) {
+				auto var = app->state_vars[var_id];
+				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity, pass);
+			}
 		}
-		
-		for(Var_Id var_id : app->state_vars) {
-			auto var = app->state_vars[var_id];
-			if(var->type == Decl_Type::property)
-				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
-		}
-		
-		for(Var_Id var_id : app->state_vars) {
-			auto var = app->state_vars[var_id];
-			if(var->type == Decl_Type::flux)
-				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity);
-		}
-		
 		nodes_compartment.clear();
 		nodes_quantity.clear();
 		
@@ -860,13 +861,13 @@ void MobiView2::build_interface() {
 		
 		for(Var_Id var_id : app->series) {
 			auto var = app->series[var_id];
-			add_series_node(this, input_selecter, app, var_id, var, input_id, nodes_compartment, nodes_quantity, true);
+			add_series_node(this, input_selecter, app, var_id, var, input_id, nodes_compartment, nodes_quantity, 1, true);
 		}
 		
 		
 		for(Var_Id var_id : app->additional_series) {
 			auto var = app->additional_series[var_id];
-			add_series_node(this, input_selecter, app, var_id, var, additional_id, nodes_compartment, nodes_quantity, true);
+			add_series_node(this, input_selecter, app, var_id, var, additional_id, nodes_compartment, nodes_quantity, 1, true);
 		}
 		
 	} catch (int) {}

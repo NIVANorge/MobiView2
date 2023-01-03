@@ -204,7 +204,7 @@ SensitivityViewWindow::run() {
 	Var_Id var_id = plot.setup.selected_results[0];
 	
 	Data_Storage<double, Var_Id> *data, *data_ser;
-	State_Variable *var, *var_ser;
+	State_Var *var, *var_ser;
 	data_ser = nullptr;
 	var_ser = nullptr;
 	get_storage_and_var(model_data, var_id, &data, &var);
