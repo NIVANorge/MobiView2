@@ -515,9 +515,10 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			plot->SetXYMin(x_min, y_min);
 		} else if(mode == Plot_Mode::profile) {
 			plot->was_auto_resized = false;
-			plot->SetXYMin(0.0, 0.0);
+			double ymin = std::min(0.0, plot->profile.get_min());
+			plot->SetXYMin(0.0, ymin);
 			int count = plot->profile.GetCount();
-			plot->SetRange((double)count, plot->profile.get_max());
+			plot->SetRange((double)count, plot->profile.get_max() - ymin);
 			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 			int units = std::max(1, count / preferred_max_grid);
 			plot->SetMajorUnits((double)units);
