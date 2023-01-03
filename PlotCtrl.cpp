@@ -4,6 +4,10 @@
 #include "model_application.h"
 
 
+#define IMAGECLASS IconImg9
+#define IMAGEFILE <MobiView2/images.iml>
+#include <Draw/iml.h>
+
 PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
 	
@@ -51,6 +55,10 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	y_axis_mode.Disable();
 	y_axis_mode.WhenAction << THISBACK(plot_change);
 	
+	push_play.SetImage(IconImg9::Play());
+	push_play.Hide();
+	push_play.WhenAction << THISBACK(play_pushed);
+	
 	main_plot.plot_ctrl = this;
 }
 
@@ -92,8 +100,40 @@ void PlotCtrl::time_step_edit_event() {
 	main_plot.replot_profile();
 }
 
+void PlotCtrl::play_pushed() {
+	if(is_playing) {
+		is_playing = false;
+		KillTimeCallback();
+		push_play.SetImage(IconImg9::Play());
+	} else {
+		is_playing = true;
+		double total_duration = 4*1000; // 4 second playback time TODO: could be a setting
+		double step_count = (double)time_step_slider.GetMax();
+		int tick_ms = 40;
+		int steps_per_tick = (int)((tick_ms * step_count) / total_duration);
+		steps_per_tick = std::max(1, steps_per_tick);
+		
+		SetTimeCallback(-tick_ms, [this, steps_per_tick]() {
+			int current = time_step_slider.GetData();
+			int slider_max = time_step_slider.GetMax();
+			int next = std::min(slider_max, current+steps_per_tick);
+			time_step_slider.SetData(next);
+			time_step_slider_event();
+			if(next == slider_max) {
+				is_playing = false;
+				KillTimeCallback();
+				push_play.SetImage(IconImg9::Play());
+			}
+		});
+		
+		push_play.SetImage(IconImg9::Pause());
+	}
+}
+
 void PlotCtrl::plot_change() {
 	if(!parent->model_is_loaded()) return;
+	
+	KillTimeCallback();
 	
 	get_plot_setup(main_plot.setup);
 	
@@ -105,6 +145,7 @@ void PlotCtrl::plot_change() {
 	time_step_edit.Hide();
 	time_step_slider.Hide();
 	time_step_slider.Disable();
+	push_play.Hide();
 	
 	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
 		scatter_inputs.Enable();
@@ -116,6 +157,7 @@ void PlotCtrl::plot_change() {
 	} else if (mode == Plot_Mode::profile) {
 		time_step_slider.Show();
 		time_step_edit.Show();
+		push_play.Show();
 		time_intervals.Enable();
 	} else if (mode == Plot_Mode::profile2D)
 		time_intervals.Enable();

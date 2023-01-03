@@ -10,8 +10,9 @@ LAYOUT(PlotCtrlLayout, 792, 308)
 	ITEM(Upp::Switch, time_intervals, SetLabel(t_("No aggr.")).RightPosZ(56, 64).BottomPosZ(12, 76))
 	ITEM(Upp::Switch, aggregation, SetLabel(t_("Mean\nSum\nMin\nMax")).RightPosZ(4, 48).BottomPosZ(12, 76))
 	ITEM(Upp::Switch, plot_major_mode, SetLabel(t_("Regular\nStacked\nStacked share\nHistogram\nProfile\nProfile2D\nCompare baseline\nResiduals\nResidual histogram\nQ-Q")).RightPosZ(124, 112).BottomPosZ(12, 148))
-	ITEM(Upp::SliderCtrl, time_step_slider, HSizePosZ(4, 124).BottomPosZ(160, 24))
+	ITEM(Upp::SliderCtrl, time_step_slider, HSizePosZ(28, 124).BottomPosZ(160, 24))
 	ITEM(Upp::EditTimeNotNull, time_step_edit, RightPosZ(36, 84).BottomPosZ(165, 19))
 	ITEM(Upp::Switch, y_axis_mode, SetLabel(t_("Regular Y axis\nNormalized\nLogaritmic")).RightPosZ(28, 92).BottomPosZ(92, 48))
+	ITEM(Upp::Button, push_play, LeftPosZ(4, 20).BottomPosZ(164, 20))
 END_LAYOUT
 

@@ -437,6 +437,8 @@ public:
 	
 	void time_step_slider_event();
 	void time_step_edit_event();
+	void play_pushed();
+	bool is_playing = false;
 	
 	void build_time_intervals_ctrl();
 	
