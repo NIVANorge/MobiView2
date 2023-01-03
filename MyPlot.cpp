@@ -539,7 +539,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				plot->cbModifFormatY <<
 				[plot](String &s, int i, double d) {
 					int idx = (int)d;
-					if(d >= 0 && d < plot->labels.size()) s = plot->labels[idx];
+					if(d >= 0 && d < plot->labels.size()) s = plot->labels[idx]; // NOTE: We display them from top to bottom
 				};
 			} else {
 				// Set the minimum of the y range to be 0 unless the minimum is already below 0
@@ -956,6 +956,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
 				labels << String(app->index_names[profile_set_idx][index.index]);
+			if(mode == Plot_Mode::profile2D)
+				std::reverse(labels.begin(), labels.end()); // We display the data from top to bottom
 			
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);

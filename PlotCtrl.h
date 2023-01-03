@@ -261,7 +261,7 @@ public:
 	}
 	
 	void add(Upp::DataSource *val) {
-		sources.push_back(val);
+		sources.insert(sources.begin(), val);
 		//TODO: ideally this should be +1, but then we would have to instruct the sources to
 		//provide 1 more x value, which is tricky the way the infrastructure is set up now.
 		// this means that now the last time step value is not displayed.
