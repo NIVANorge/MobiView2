@@ -230,7 +230,7 @@ private:
 class Data_Source_Profile : public Upp::DataSource {
 	
 public :
-	Data_Source_Profile() : ts(0), max(-std::numeric_limits<double>::infinity()) {}
+	Data_Source_Profile() : ts(0) { clear(); }
 	
 	void add(Upp::DataSource *val) {
 		data.push_back(val);
@@ -257,7 +257,6 @@ private:
 class Table_Data_Profile2D : public Upp::TableData {
 
 public:
-	//TODO: should switch this to use areas
 	Table_Data_Profile2D() {
 		inter = TableInterpolate::NO;
 		areas = true;
@@ -287,6 +286,46 @@ private:
 	std::vector<Upp::DataSource *> sources;
 };
 
+class Table_Data_Profile2DTimed : public Upp::TableData {
+
+public:
+	Table_Data_Profile2DTimed() : ts(0) {
+		inter = TableInterpolate::NO;
+		areas = true;
+		clear();
+	}
+	void clear() { sources.clear(); min = std::numeric_limits<double>::infinity(); max = -min; set_size(0, 0); }
+	s64 count() { return sources.size(); }
+	void set_ts(s64 _ts) { ts = _ts; }
+	void set_size(s64 dimx, s64 dimy) {
+		this->lenxAxis = dimx+1;
+		this->lenyAxis = dimy+1;
+		this->lendata = dimx*dimy;
+	}
+	
+	void add(Upp::DataSource *val) {
+		sources.push_back(val);
+		for(s64 ts = 0; ts < val->GetCount(); ++ts) {
+			double v = val->y(ts);
+			max = std::max(max, v);
+			min = std::min(min, v);
+		}
+	}
+	double get_max() { return max; }
+	double get_min() { return min; }
+	
+	virtual double x(int id) { return (double)id; }
+	virtual double y(int id) { return (double)id; }
+	virtual double data(int id) {
+		return sources[id]->y(ts);
+	}
+	
+private:
+	double min, max;
+	s64 ts;
+	std::vector<Upp::DataSource *> sources;
+};
+
 class Table_Data_Owns_XYZ : public Upp::TableData {
 
 public :
@@ -312,9 +351,7 @@ public :
 	}
 	void clear_z() { for(int idx = 0; idx < zz.size(); ++idx) zz[idx] = 0.0; }
 private :
-	std::vector<double> xx;
-	std::vector<double> yy;
-	std::vector<double> zz;
+	std::vector<double> xx, yy, zz;
 };
 
 //NOTE: a better version of the DataStackedY class where we don't have to add back the plots in reverse
@@ -415,11 +452,13 @@ public:
 	Upp::Histogram              histogram;
 	Data_Source_Profile         profile;
 	Table_Data_Profile2D        profile2D;
+	Table_Data_Profile2DTimed   profile2Dt;
+	bool profile2D_is_timed = false;
 	
 	Plot_Colors                 colors;
 	Residual_Stats              cached_stats;
 	
-	Upp::Vector<Upp::String>    labels;
+	Upp::Vector<Upp::String>    labels, labels2;
 	Upp::String                 profile_legend, profile_unit;
 };
 

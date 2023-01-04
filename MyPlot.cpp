@@ -41,6 +41,8 @@ void MyPlot::clean(bool full_clean) {
 	data_stacked.clear();
 	profile.clear();
 	profile2D.clear();
+	profile2Dt.clear();
+	profile2D_is_timed = false;
 	histogram.Clear();
 	series_data.Clear();
 	
@@ -53,6 +55,7 @@ void MyPlot::clean(bool full_clean) {
 	SetLabelY(" ");
 	
 	labels.Clear();
+	labels2.Clear();
 	
 	if(full_clean)
 		was_auto_resized = false;
@@ -467,11 +470,16 @@ inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_s
 void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size) {
 	plot->SetGridLinesX.Clear();
 	
-	if(plot->GetCount() > 0 || (mode == Plot_Mode::profile2D && plot->profile2D.count() > 0)) {
-		plot->cbModifFormatXGridUnits.Clear();
-		plot->cbModifFormatX.Clear();
-		plot->cbModifFormatY.Clear();
-		plot->cbModifFormatYGridUnits.Clear();
+	plot->cbModifFormatXGridUnits.Clear();
+	plot->cbModifFormatX.Clear();
+	plot->cbModifFormatY.Clear();
+	plot->cbModifFormatYGridUnits.Clear();
+	
+	if(plot->GetCount() > 0
+		|| (mode == Plot_Mode::profile2D &&
+			((!plot->profile2D_is_timed && plot->profile2D.count() > 0) ||
+			(plot->profile2D_is_timed && plot->profile2Dt.count() > 0))
+			)) {
 		
 		if(mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram) {
 			//NOTE: Histograms require special zooming.
@@ -527,7 +535,15 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				int idx = (int)d;
 				if(d >= 0 && d < count && (idx < plot->labels.size())) s = plot->labels[idx];
 			};
-		} else {
+		} else if (mode == Plot_Mode::profile2D && plot->profile2D_is_timed) {
+			plot->ZoomToFit(true, true);
+			plot->was_auto_resized = false;
+			plot->SetSurfMinZ(plot->profile2Dt.get_min());
+			plot->SetSurfMaxZ(plot->profile2Dt.get_max());
+			
+			//TODO: Format grid!
+			
+		} else if (!plot->profile2D_is_timed) {
 			plot->ZoomToFit(false, true);
 			
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
@@ -599,8 +615,9 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			set_round_grid_line_positions(plot, 0);
 	}
 	
-	bool allow_scroll_x = !(mode == Plot_Mode::profile || mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram);
-	bool allow_scroll_y = (mode == Plot_Mode::qq);
+	bool allow_scroll_x = !(mode == Plot_Mode::profile || mode == Plot_Mode::histogram
+		|| mode == Plot_Mode::residuals_histogram);
+	bool allow_scroll_y = (mode == Plot_Mode::qq) || (mode == Plot_Mode::profile2D && plot->profile2D_is_timed);
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 
@@ -924,18 +941,29 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		} else if (mode == Plot_Mode::profile || mode == Plot_Mode::profile2D) {
 			
 			int profile_set_idx;
-			int index_count;
+			int profile_set_idx2;
 			int n_multi_index = 0;
 			for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 				int count = setup.selected_indexes[idx].size();
 				if(count > 1 && setup.index_set_is_active[idx]) {
-					n_multi_index++;
-					index_count = count;
-					profile_set_idx = idx;
+					if(n_multi_index == 0)
+						profile_set_idx = idx;
+					else
+						profile_set_idx2 = idx;
+					++n_multi_index;
 				}
 			}
-			if(series_count != 1 || n_multi_index != 1) {
+			if(n_multi_index == 2) {
+				this->profile2D_is_timed = true;
+				std::swap(profile_set_idx, profile_set_idx2);
+			}
+			
+			if(mode == Plot_Mode::profile && (series_count != 1 || n_multi_index != 1)) {
 				SetTitle("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected");
+				return;
+			}
+			if(mode == Plot_Mode::profile2D && (series_count != 1 || (n_multi_index != 1 && n_multi_index != 2))) {
+				SetTitle("In profile2D mode you can only have one timeseries selected, and one or two index sets must have multiple indexes selected");
 				return;
 			}
 			Var_Id var_id;
@@ -957,16 +985,55 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
 				labels << String(app->index_names[profile_set_idx][index.index]);
-			if(mode == Plot_Mode::profile2D)
+			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)
 				std::reverse(labels.begin(), labels.end()); // We display the data from top to bottom
+			
+			if(profile2D_is_timed) {
+				for(Index_T &index : setup.selected_indexes[profile_set_idx2])
+					labels2 << String(app->index_names[profile_set_idx2][index.index]);
+			}
 			
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);
 			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
 				indexes[profile_set_idx] = index;
-				s64 offset = data->structure->get_offset(var_id, indexes);
-				series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+				if(!profile2D_is_timed) {
+					s64 offset = data->structure->get_offset(var_id, indexes);
+					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+				} else {
+					for(Index_T &index2 : setup.selected_indexes[profile_set_idx2]) {
+						indexes[profile_set_idx2] = index2;
+						s64 offset = data->structure->get_offset(var_id, indexes);
+						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+					}
+				}
+			}
+			
+			s64 agg_steps = series_data[0].GetCount();
+			
+			if(plot_ctrl && (mode == Plot_Mode::profile || profile2D_is_timed)) {
+				Date_Time prof_start = normalize_to_aggregation_period(start, setup.aggregation_period);
+				plot_ctrl->profile_base_time = prof_start;
+				plot_ctrl->time_step_edit.SetData(convert_time(prof_start));
+				plot_ctrl->time_step_slider.Range(agg_steps-1);
+				setup.profile_time_step = plot_ctrl->time_step_slider.GetData();
+				plot_ctrl->time_step_slider.Enable();
+				// NOTE: this condition is only because we didn't implement functionality for it when it is aggregated
+				if(setup.aggregation_period == Aggregation_Period::none)
+					plot_ctrl->time_step_edit.Enable();
+				
+				if(mode == Plot_Mode::profile2D) {
+					//NOTE: need to do this since the plot_ctrl couldn't detect on its own if
+					//it should be in the timed mode.
+					plot_ctrl->time_step_slider.Show();
+					plot_ctrl->time_step_edit.Show();
+					plot_ctrl->push_play.Show();
+				}
+			} else if (!profile2D_is_timed) {
+				plot_ctrl->time_step_slider.Hide();
+				plot_ctrl->time_step_edit.Hide();
+				plot_ctrl->push_play.Hide();
 			}
 			
 			if(mode == Plot_Mode::profile) {
@@ -975,29 +1042,28 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				for(Index_T &index : setup.selected_indexes[profile_set_idx])
 					profile.add(&series_data[idx++]);
 
-				s64 agg_steps = series_data[0].GetCount();
-				
-				if(plot_ctrl) {
-					Date_Time prof_start = normalize_to_aggregation_period(start, setup.aggregation_period);
-					plot_ctrl->profile_base_time = prof_start;
-					plot_ctrl->time_step_edit.SetData(convert_time(prof_start));
-					plot_ctrl->time_step_slider.Range(agg_steps-1);
-					setup.profile_time_step = plot_ctrl->time_step_slider.GetData();
-					plot_ctrl->time_step_slider.Enable();
-					// NOTE: this condition is only because we didn't implement functionality for it when it is aggregated
-					if(setup.aggregation_period == Aggregation_Period::none)
-						plot_ctrl->time_step_edit.Enable();
-				}
-				
 				Color &color = colors.next();
 				double darken = 0.4;
 				Color border_color((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
 				AddSeries(profile).Legend(profile_legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(color).Stroke(1.0, border_color).Units(profile_unit);
-			} else if (mode == Plot_Mode::profile2D) {
+			} else if (mode == Plot_Mode::profile2D && !profile2D_is_timed) {
 				int idx = 0;
 				for(Index_T &index : setup.selected_indexes[profile_set_idx])
 					profile2D.add(&series_data[idx++]);
 				AddSurf(profile2D);
+				SurfRainbow(WHITE_BLACK);
+			} else if ((mode == Plot_Mode::profile2D) && profile2D_is_timed) {
+				int dimy = setup.selected_indexes[profile_set_idx].size();
+				int dimx = setup.selected_indexes[profile_set_idx2].size();
+				
+				for(int idx = 0; idx < dimx*dimy; ++idx)
+					profile2Dt.add(&series_data[idx]);
+				profile2Dt.set_size(dimx, dimy);
+				
+				//PromptOK(Format("Series data size is %d = %d*%d", series_data.size(), dimx, dimy));
+				
+				AddSurf(profile2Dt);
+				SurfRainbow(WHITE_BLACK);
 			}
 		} else if (mode == Plot_Mode::compare_baseline) {
 			if(setup.selected_results.size() > 1 || multi_index) {
@@ -1065,7 +1131,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	} catch(int) {}
 	parent->log_warnings_and_errors();
 	
-	if(mode == Plot_Mode::profile) {
+	if(mode == Plot_Mode::profile || (mode == Plot_Mode::profile2D && profile2D_is_timed)) {
 		replot_profile();
 	} else
 		Refresh();
@@ -1073,6 +1139,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 
 void MyPlot::replot_profile() {
 	profile.set_ts(setup.profile_time_step);
+	profile2Dt.set_ts(setup.profile_time_step);
 	Refresh();
 }
 
