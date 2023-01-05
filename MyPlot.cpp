@@ -170,7 +170,8 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+				bool success = add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+				if(!success) return false;
 			}
 		}
 	}
