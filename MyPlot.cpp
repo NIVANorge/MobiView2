@@ -98,7 +98,12 @@ void format_plot(MyPlot *draw, Var_Id::Type type, Color &color, String &legend, 
 void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
 	const String &legend_prefix, bool always_copy_y) {
-		
+	
+	if(draw->GetCount() == 100) {
+		draw->SetTitle("Warning: only displaying the 100 first selected series");
+		return;
+	}
+	
 	Data_Storage<double, Var_Id> *data;
 	State_Var *var;
 	get_storage_and_var(md, var_id, &data, &var);
