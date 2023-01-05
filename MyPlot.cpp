@@ -95,13 +95,13 @@ void format_plot(MyPlot *draw, Var_Id::Type type, Color &color, String &legend, 
 	}
 }
 
-void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
 	const String &legend_prefix, bool always_copy_y) {
 	
 	if(draw->GetCount() == 100) {
 		draw->SetTitle("Warning: only displaying the 100 first selected series");
-		return;
+		return false;
 	}
 	
 	Data_Storage<double, Var_Id> *data;
@@ -127,6 +127,8 @@ void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 		compute_time_series_stats(&stats, &draw->parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
 		display_statistics(draw->plot_info, &draw->parent->stat_settings.display_settings, &stats, color, legend);
 	}
+	
+	return true;
 }
 
 Date_Time
@@ -146,13 +148,14 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 	return result;
 }
 
-void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
+bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode) {
 	if(level == draw->setup.selected_indexes.size()) {
 
 		Color &graph_color = draw->colors.next();
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
-		add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
+		bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
+		return success;
 
 	} else {
 		bool loop = false;
@@ -163,14 +166,15 @@ void add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 		}
 		if(!loop) {
 			indexes[level] = invalid_index;
-			add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+			return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes[level] = index;
-				add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+				return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 			}
 		}
 	}
+	return true;
 }
 
 void set_round_grid_line_positions(ScatterDraw *plot, int axis) {

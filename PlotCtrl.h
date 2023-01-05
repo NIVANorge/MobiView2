@@ -504,7 +504,7 @@ void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app);
 
 void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Var **var);
 
-void add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Upp::Color &color, bool stacked = false,
 	const Upp::String &legend_prefix = Upp::Null, bool always_copy_y = false);
 	
