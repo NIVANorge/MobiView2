@@ -557,13 +557,13 @@ void MobiView2::run_model() {
 		return;
 	}
 	
+	log("Starting model run.");
 	try {
-		auto begin = std::chrono::high_resolution_clock::now();
+		Timer run_timer;
 		::run_model(app, -1);
-		auto end = std::chrono::high_resolution_clock::now();
-		double ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+		double ms = run_timer.get_milliseconds();
 		
-		log(Format("Model was run.\nDuration: %g ms.", ms ));
+		log(Format("Model run finished.\nDuration: %g ms.", ms ));
 	} catch(int) {
 		
 	}
