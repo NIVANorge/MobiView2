@@ -1029,11 +1029,13 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					plot_ctrl->time_step_slider.Show();
 					plot_ctrl->time_step_edit.Show();
 					plot_ctrl->push_play.Show();
+					plot_ctrl->push_rewind.Show();
 				}
 			} else if (!profile2D_is_timed) {
 				plot_ctrl->time_step_slider.Hide();
 				plot_ctrl->time_step_edit.Hide();
 				plot_ctrl->push_play.Hide();
+				plot_ctrl->push_rewind.Hide();
 			}
 			
 			if(mode == Plot_Mode::profile) {

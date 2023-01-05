@@ -26,10 +26,10 @@ public:
 	
 	bool changed_since_last_save = false;
 	
-	Upp::Label     *index_set_name[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
-	Upp::DropList  *index_list[MAX_INDEX_SETS];
-	Upp::Option    *index_lock[MAX_INDEX_SETS];
-	Upp::Option    *index_expand[MAX_INDEX_SETS];
+	Upp::Label        *index_set_name[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
+	Upp::DropList     *index_list[MAX_INDEX_SETS];
+	Upp::ButtonOption *index_lock[MAX_INDEX_SETS];
+	Upp::ButtonOption *index_expand[MAX_INDEX_SETS];
 	
 	Upp::Array<Upp::Ctrl> parameter_controls;
 	

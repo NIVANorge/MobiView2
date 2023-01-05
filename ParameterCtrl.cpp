@@ -3,6 +3,10 @@
 
 using namespace Upp;
 
+#define IMAGECLASS IconImg8
+#define IMAGEFILE <MobiView2/images.iml>
+#include <Draw/iml.h>
+
 ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
 	
@@ -50,8 +54,10 @@ ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
 		index_list[idx]->WhenAction << [this](){ refresh(false); };
 		
 		index_lock[idx]->Hide();
+		index_lock[idx]->SetImage(IconImg8::LockOpen(), IconImg8::Lock());
 		//index_lock[idx]->WhenAction << SensitivityWindowUpdate;
 		index_expand[idx]->Hide();
+		index_expand[idx]->SetImage(IconImg8::Add(), IconImg8::Remove());
 		index_expand[idx]->WhenAction << [this, idx](){ expand_index_set_clicked(idx); };
 	}
 }

@@ -493,6 +493,7 @@ public:
 	
 	std::vector<Entity_Id> index_sets;
 	Upp::ArrayCtrl *index_list[MAX_INDEX_SETS];
+	Upp::Button    *push_sel_all[MAX_INDEX_SETS];
 	
 	Date_Time profile_base_time;
 	

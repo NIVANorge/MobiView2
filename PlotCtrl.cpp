@@ -21,12 +21,32 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	index_list[4] = &index_list5;
 	index_list[5] = &index_list6;
 	
+	push_sel_all[0] = &push_sel_all1;
+	push_sel_all[1] = &push_sel_all2;
+	push_sel_all[2] = &push_sel_all3;
+	push_sel_all[3] = &push_sel_all4;
+	push_sel_all[4] = &push_sel_all5;
+	push_sel_all[5] = &push_sel_all6;
+	
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		index_list[idx]->Hide();
 		index_list[idx]->Disable();
 		index_list[idx]->WhenSel << [this]() { re_plot(); };
 		index_list[idx]->MultiSelect();
 		index_list[idx]->AddColumn("(no name)");
+		
+		push_sel_all[idx]->Hide();
+		push_sel_all[idx]->Disable();
+		push_sel_all[idx]->SetImage(IconImg9::Add());
+		push_sel_all[idx]->WhenAction << [this, idx]() {
+			int rows = index_list[idx]->GetCount();
+			int count = index_list[idx]->GetSelectCount();
+			if(rows == count) {
+				index_list[idx]->Select(0, rows, false);
+				index_list[idx]->Select(0);
+			} else
+				index_list[idx]->Select(0, rows);
+		};
 	}
 	
 	time_step_slider.Range(10); //To be overwritten later.
@@ -36,6 +56,16 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	time_step_slider.WhenAction << THISBACK(time_step_slider_event);
 	time_step_edit.WhenAction << THISBACK(time_step_edit_event);
 	
+	plot_major_mode.Add((int)Plot_Mode::regular, "Regular");
+	plot_major_mode.Add((int)Plot_Mode::stacked, "Stacked");
+	plot_major_mode.Add((int)Plot_Mode::stacked_share, "Stacked share");
+	plot_major_mode.Add((int)Plot_Mode::histogram, "Histogram");
+	plot_major_mode.Add((int)Plot_Mode::profile, "Profile");
+	plot_major_mode.Add((int)Plot_Mode::profile2D, "Profile 2D");
+	plot_major_mode.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
+	plot_major_mode.Add((int)Plot_Mode::residuals, "Residuals");
+	plot_major_mode.Add((int)Plot_Mode::residuals_histogram, "Residuals histogram");
+	plot_major_mode.Add((int)Plot_Mode::qq, "Quantile-Quantile");
 	plot_major_mode.SetData(0);
 	plot_major_mode.Disable();
 	plot_major_mode.WhenAction << THISBACK(plot_change);
@@ -58,6 +88,16 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	push_play.SetImage(IconImg9::Play());
 	push_play.Hide();
 	push_play.WhenAction << THISBACK(play_pushed);
+	
+	push_rewind.SetImage(IconImg9::Rewind());
+	push_rewind.Hide();
+	push_rewind.WhenAction << [this]() {
+		is_playing = false;
+		KillTimeCallback();
+		push_play.SetImage(IconImg9::Play());
+		time_step_slider.SetData(0);
+		time_step_slider_event();
+	};
 	
 	main_plot.plot_ctrl = this;
 }
@@ -150,6 +190,7 @@ void PlotCtrl::plot_change() {
 	time_step_slider.Hide();
 	time_step_slider.Disable();
 	push_play.Hide();
+	push_rewind.Hide();
 	
 	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
 		scatter_inputs.Enable();
@@ -162,6 +203,7 @@ void PlotCtrl::plot_change() {
 		time_step_slider.Show();
 		time_step_edit.Show();
 		push_play.Show();
+		push_rewind.Show();
 		time_intervals.Enable();
 	} else if (mode == Plot_Mode::profile2D)
 		time_intervals.Enable();
@@ -177,8 +219,11 @@ void PlotCtrl::plot_change() {
 	} else
 		aggregation.Disable();
 	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
-		index_list[idx]->Enable(main_plot.setup.index_set_is_active[idx]);
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		bool active = main_plot.setup.index_set_is_active[idx];
+		index_list[idx]->Enable(active);
+		push_sel_all[idx]->Enable(active);
+	}
 	
 	main_plot.build_plot();
 }
@@ -238,6 +283,7 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 		
 		index_list[idx]->GoBegin();
 		index_list[idx]->Show();
+		push_sel_all[idx]->Show();
 		
 		index_sets[idx] = index_set_id;
 		
