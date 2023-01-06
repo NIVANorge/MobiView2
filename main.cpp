@@ -557,6 +557,7 @@ void MobiView2::run_model() {
 	}
 	
 	log("Starting model run.");
+	ProcessEvents();
 	try {
 		Timer run_timer;
 		::run_model(app, -1);
