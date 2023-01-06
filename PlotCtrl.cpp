@@ -278,7 +278,7 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 		
 		index_list[idx]->HeaderTab(0).SetText(index_set->name.data());
 		
-		for(Index_T index = {index_set_id, 0}; index < app->index_counts[index_set_id.id]; ++index)
+		for(Index_T index = {index_set_id, 0}; index < app->get_index_count(index_set_id); ++index)
 			index_list[idx]->Add(app->get_index_name(index));
 		
 		index_list[idx]->GoBegin();
