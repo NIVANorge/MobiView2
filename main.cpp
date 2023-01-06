@@ -318,7 +318,7 @@ void MobiView2::reload(bool recompile_only) {
 		for(Index_T index : setup.selected_indexes[idx]) {
 			if(!is_valid(index)) continue;
 			// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
-			sel_indexes[idx].push_back(app->index_names[idx][index.index]);
+			sel_indexes[idx].push_back(app->get_index_name(index));
 		}
 	}
 	
@@ -379,10 +379,9 @@ void MobiView2::reload(bool recompile_only) {
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		setup.selected_indexes[idx].clear();
 		for(auto &name : sel_indexes[idx]) {
-			auto &map = app->index_names_map[idx];
-			auto find = map.find(name);
-			if(find != map.end())
-				setup.selected_indexes[idx].push_back(find->second);
+			Index_T index = app->get_index({Reg_Type::index_set, idx}, name);
+			if(is_valid(index))
+				setup.selected_indexes[idx].push_back(index);
 		}
 	}
 	

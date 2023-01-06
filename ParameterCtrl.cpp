@@ -90,8 +90,8 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		index_set_name[idx]->SetText(index_set->name.data());
 		index_set_name[idx]->Show();
 		
-		for(auto &index_name : app->index_names[index_set_id.id])
-			index_list[idx]->Add(index_name);
+		for(Index_T index = {index_set_id, 0}; index < app->index_counts[index_set_id.id]; ++index)
+			index_list[idx]->Add(app->get_index_name(index));
 		
 		index_list[idx]->GoBegin();
 		index_list[idx]->Show();
@@ -205,7 +205,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			parameter_view.AddColumn(Id("__value"), "Value");
 		else {
 			for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
-				auto &name = parent->app->index_names[expanded_set.id][exp_idx.index];
+				auto &name = parent->app->get_index_name(exp_idx);
 				//TODO: This breaks if somebody calls one of the indexes e.g. "__name".
 				parameter_view.AddColumn(Id(name.data()), name.data());
 			}
@@ -278,7 +278,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			ValueMap row_data;
 			
 			if(is_valid(expanded_set))
-				row_data.Set("__index", parent->app->index_names[expanded_set.id][exp_idx.index].data()); //TODO: should be an api for this in model_application
+				row_data.Set("__index", parent->app->get_index_name(exp_idx).data()); //TODO: should be an api for this in model_application
 			
 			bool show_additional = exp_idx.index == 0;
 			
@@ -303,7 +303,7 @@ void ParameterCtrl::refresh(bool values_only) {
 				Id value_column = "__value";
 				
 				if(column_expand) {
-					value_column = Id(parent->app->index_names[expanded_set.id][exp_idx_2.index].data());
+					value_column = Id(parent->app->get_index_name(exp_idx_2).data());
 					if(!values_only)
 						par_data.mat_col = exp_idx_2;
 				}

@@ -994,13 +994,13 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			for(Index_T &index : setup.selected_indexes[profile_set_idx])
-				labels << String(app->index_names[profile_set_idx][index.index]);
+				labels << String(app->get_index_name(index));
 			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)
 				std::reverse(labels.begin(), labels.end()); // We display the data from top to bottom
 			
 			if(profile2D_is_timed) {
 				for(Index_T &index : setup.selected_indexes[profile_set_idx2])
-					labels2 << String(app->index_names[profile_set_idx2][index.index]);
+					labels2 << String(app->get_index_name(index));
 			}
 			
 			std::vector<Index_T> indexes;

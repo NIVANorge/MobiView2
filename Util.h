@@ -50,7 +50,7 @@ make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> i
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx++ != 0) result << " ";
 		ASSERT(indexes[index_set.id].index_set == index_set);
-		result << "\"" << structure->parent->index_names[index_set.id][indexes[index_set.id].index].data() << "\"";
+		result << "\"" << structure->parent->get_index_name(indexes[index_set.id]).data() << "\"";
 	}
 	result << "]";
 	return result;
@@ -79,7 +79,7 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 		if(par->locks[idx])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << "\"" << structure->parent->index_names[index_set.id][index.index] << "\"";
+			result << "\"" << structure->parent->get_index_name(index) << "\"";
 	}
 	result << "]";
 	return result;

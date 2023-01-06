@@ -1501,7 +1501,7 @@ String OptimizationWindow::write_to_json_string() {
 		for(Index_T index : par.indexes) {
 			Json index_json;
 			if(is_valid(index)) {
-				index_json("Name", app->index_names[index.index_set.id][index.index].data());
+				index_json("Name", app->get_index_name(index).data());
 				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
 			}
 			index_json("Locked", (bool)par.locks[idx]);
@@ -1560,7 +1560,7 @@ String OptimizationWindow::write_to_json_string() {
 		JsonArray index_arr;
 		for(Index_T index : target.indexes) {
 			if(is_valid(index))
-				index_arr << app->index_names[index.index_set.id][index.index].data();
+				index_arr << app->get_index_name(index).data();
 			else
 				index_arr << "";
 		}
