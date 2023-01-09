@@ -238,7 +238,7 @@ void ParameterCtrl::refresh(bool values_only) {
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(!is_valid(index_sets[idx])) break;
 			std::string idx_name = index_list[idx]->Get().ToStd();
-			par_data.indexes[idx] = parent->app->get_index(index_sets[idx], String_View(idx_name));
+			par_data.indexes[idx] = parent->app->get_index(index_sets[idx], idx_name);
 		}
 		//NOTE: We don't store info about it being locked here, since that has to be
 			//overridden later anyway (the lock status can have changed since the table was
