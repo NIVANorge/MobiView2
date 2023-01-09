@@ -90,7 +90,7 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		index_set_name[idx]->SetText(index_set->name.data());
 		index_set_name[idx]->Show();
 		
-		for(Index_T index = {index_set_id, 0}; index < app->get_index_count(index_set_id); ++index)
+		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index) // TODO: no_max_index_count
 			index_list[idx]->Add(app->get_index_name(index));
 		
 		index_list[idx]->GoBegin();
@@ -191,7 +191,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	Index_T exp_count = {expanded_set, 1};
 	if(is_valid(expanded_set))
-		exp_count = parent->app->get_index_count(expanded_set);
+		exp_count = parent->app->get_max_index_count(expanded_set); //TODO: :no_max_index_count
 	
 	if(!values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
