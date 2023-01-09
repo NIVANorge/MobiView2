@@ -278,7 +278,9 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 		
 		index_list[idx]->HeaderTab(0).SetText(index_set->name.data());
 		
-		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index) // TODO: :no_max_index_count
+		// NOTE: For now, display the maximum number of index sets for this index.
+		// TODO: Could make it somehow dynamic based on other selections, but it is tricky.
+		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index)
 			index_list[idx]->Add(app->get_index_name(index));
 		
 		index_list[idx]->GoBegin();

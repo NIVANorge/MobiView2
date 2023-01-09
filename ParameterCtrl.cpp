@@ -90,7 +90,9 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		index_set_name[idx]->SetText(index_set->name.data());
 		index_set_name[idx]->Show();
 		
-		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index) // TODO: no_max_index_count
+		// NOTE: For now we just display the maximal number of indexes here.
+		// TODO: make it dynamic based on the rest of the selection somehow? But tricky.
+		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index)
 			index_list[idx]->Add(app->get_index_name(index));
 		
 		index_list[idx]->GoBegin();
@@ -189,9 +191,11 @@ void ParameterCtrl::refresh(bool values_only) {
 	if(!expanded_active)
 		expanded_set = invalid_entity_id;
 	
+	// NOTE: For now it is ok to get the max count here since a matrix indexed set can't also
+	// be sub-indexed. TODO: should be fixed eventually maybe.
 	Index_T exp_count = {expanded_set, 1};
 	if(is_valid(expanded_set))
-		exp_count = parent->app->get_max_index_count(expanded_set); //TODO: :no_max_index_count
+		exp_count = parent->app->get_max_index_count(expanded_set);
 	
 	if(!values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
@@ -268,12 +272,18 @@ void ParameterCtrl::refresh(bool values_only) {
 		for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
 			
 			if(!values_only) {
-				parameter_view.Add();
-				
 				par_data.id    = par_id;
 				if(is_valid(expanded_set))
 					par_data.indexes[expanded_set.id] = exp_idx;
 			}
+			
+			// NOTE: This can happen if we got an index from a sub-indexed index set that is
+			// out of bounds given the index of the parent index set.
+			if(!parent->app->is_in_bounds(par_data.indexes))
+				continue;
+			
+			if(!values_only)
+				parameter_view.Add();
 			
 			ValueMap row_data;
 			

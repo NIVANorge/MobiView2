@@ -99,6 +99,8 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
 	const String &legend_prefix, bool always_copy_y) {
 	
+	if(!app->is_in_bounds(indexes)) return true;
+	
 	if(draw->GetCount() == 100) {
 		draw->SetTitle("Warning: only displaying the 100 first selected series");
 		return false;
@@ -993,15 +995,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			get_storage_and_var(&app->data, var_id, &data, &var);
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
-			for(Index_T &index : setup.selected_indexes[profile_set_idx])
-				labels << String(app->get_index_name(index));
-			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)
-				std::reverse(labels.begin(), labels.end()); // We display the data from top to bottom
-			
-			if(profile2D_is_timed) {
-				for(Index_T &index : setup.selected_indexes[profile_set_idx2])
-					labels2 << String(app->get_index_name(index));
-			}
 			
 			std::vector<Index_T> indexes;
 			get_single_indexes(indexes, setup);
@@ -1009,16 +1002,22 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
 				indexes[profile_set_idx] = index;
 				if(!profile2D_is_timed) {
+					if(!app->is_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
 					s64 offset = data->structure->get_offset(var_id, indexes);
 					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+					labels << String(app->get_index_name(index));
 				} else {
 					for(Index_T &index2 : setup.selected_indexes[profile_set_idx2]) {
 						indexes[profile_set_idx2] = index2;
 						s64 offset = data->structure->get_offset(var_id, indexes);
 						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+						labels2 << String(app->get_index_name(index2));
 					}
+					labels << String(app->get_index_name(index));
 				}
 			}
+			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)
+				std::reverse(labels.begin(), labels.end()); // We display the data from top to bottom
 			
 			s64 agg_steps = series_data[0].GetCount();
 			
@@ -1051,8 +1050,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			if(mode == Plot_Mode::profile) {
 				
 				int idx = 0;
-				for(Index_T &index : setup.selected_indexes[profile_set_idx])
-					profile.add(&series_data[idx++]);
+				for(auto &series : series_data)
+					profile.add(&series);
 
 				Color &color = colors.next();
 				double darken = 0.4;
@@ -1060,8 +1059,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				AddSeries(profile).Legend(profile_legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(color).Stroke(1.0, border_color).Units(profile_unit);
 			} else if (mode == Plot_Mode::profile2D && !profile2D_is_timed) {
 				int idx = 0;
-				for(Index_T &index : setup.selected_indexes[profile_set_idx])
-					profile2D.add(&series_data[idx++]);
+				for(auto &series : series_data)
+					profile2D.add(&series);
 				AddSurf(profile2D);
 				SurfRainbow(WHITE_BLACK);
 			} else if ((mode == Plot_Mode::profile2D) && profile2D_is_timed) {
