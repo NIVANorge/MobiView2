@@ -313,6 +313,8 @@ public:
 	}
 	double get_max() { return max; }
 	double get_min() { return min; }
+	double get_dim_x() { return lenxAxis-1; }
+	double get_dim_y() { return lenyAxis-1; }
 	
 	virtual double x(int id) { return (double)id; }
 	virtual double y(int id) { return (double)id; }

@@ -553,7 +553,24 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			plot->SetSurfMinZ(plot->profile2Dt.get_min());
 			plot->SetSurfMaxZ(plot->profile2Dt.get_max());
 			
-			//TODO: Format grid!
+			plot->SetXYMin(0.0, 0.0);
+			int count_x = plot->profile2Dt.get_dim_x();
+			int count_y = plot->profile2Dt.get_dim_y();
+			plot->SetRange((double)count_x, (double)count_y);
+			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
+			int units_x = std::max(1, count_x / preferred_max_grid);
+			int units_y = std::max(1, count_y / preferred_max_grid);
+			plot->SetMinUnits(0.5, 0.5);
+			plot->SetMajorUnits((double)units_x, (double)units_y);
+
+			plot->cbModifFormatX << [count_x, plot](String &s, int i, double d) {
+				int idx = (int)d;
+				if(d >= 0 && d < count_x && (idx < plot->labels2.size())) s = plot->labels2[idx];
+			};
+			plot->cbModifFormatY << [count_y, plot](String &s, int i, double d) {
+				int idx = (int)d;
+				if(d >= 0 && d < count_y && (idx < plot->labels.size())) s = plot->labels[idx];
+			};
 			
 		} else if (!plot->profile2D_is_timed) {
 			plot->ZoomToFit(false, true);
@@ -564,6 +581,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				int count = plot->profile2D.count();
 				int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 				int units = std::max(1, count / preferred_max_grid);
+				plot->SetMinUnits(Null, 0.5);
 				plot->SetMajorUnits(Null, units);
 				plot->cbModifFormatY <<
 				[plot](String &s, int i, double d) {
