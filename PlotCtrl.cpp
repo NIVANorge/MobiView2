@@ -113,13 +113,13 @@ void PlotCtrl::time_step_slider_event() {
 	Time_Step_Size ts_size = parent->app->time_step_size;
 	if(agg == Aggregation_Period::weekly) {
 		ts_size.unit = Time_Step_Size::second;
-		ts_size.magnitude = 7*86400;
+		ts_size.multiplier = 7*86400;
 	} else if(agg == Aggregation_Period::monthly) {
 		ts_size.unit = Time_Step_Size::month;
-		ts_size.magnitude = 1;
+		ts_size.multiplier = 1;
 	} else if(agg == Aggregation_Period::yearly) {
 		ts_size.unit = Time_Step_Size::month;
-		ts_size.magnitude = 12;
+		ts_size.multiplier = 12;
 	}
 	Date_Time time = advance(profile_base_time, ts_size, ts);
 	time_step_edit.SetData(convert_time(time));
@@ -244,14 +244,14 @@ void PlotCtrl::build_time_intervals_ctrl() {
 	auto ts = parent->app->time_step_size;
 	
 	if(ts.unit == Time_Step_Size::second) {
-		if(ts.magnitude < 7*86400)
+		if(ts.multiplier < 7*86400)
 			time_intervals.Add((int)Aggregation_Period::weekly, "Weekly");
-		if(ts.magnitude < 30*86400)
+		if(ts.multiplier < 30*86400)
 			time_intervals.Add((int)Aggregation_Period::monthly, "Monthly");
-		if(ts.magnitude < 365*86400)
+		if(ts.multiplier < 365*86400)
 			time_intervals.Add((int)Aggregation_Period::yearly, "Yearly");
 	} else if(ts.unit == Time_Step_Size::month) {
-		if(ts.magnitude < 12)
+		if(ts.multiplier < 12)
 			time_intervals.Add((int)Aggregation_Period::yearly, "Yearly");
 	} else
 		parent->log("Unhandled time step unit type.", true);

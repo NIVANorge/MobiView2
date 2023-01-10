@@ -419,12 +419,12 @@ int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step
 		//NOTE: The plot does not display aggregated data, so the unit of the grid line step should be
 		//determined by the model step size.
 		if(ts_size.unit == Time_Step_Size::second) {
-			if(ts_size.magnitude < 60)         return 0;
-			else if(ts_size.magnitude < 3600)  return 1;
-			else if(ts_size.magnitude < 86400) return 2;
+			if(ts_size.multiplier < 60)         return 0;
+			else if(ts_size.multiplier < 3600)  return 1;
+			else if(ts_size.multiplier < 86400) return 2;
 			else                               return 3;
 		} else {
-			if(ts_size.magnitude < 12)         return 4;
+			if(ts_size.multiplier < 12)         return 4;
 			else                               return 5;
 		}
 	}
