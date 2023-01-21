@@ -233,11 +233,11 @@ void MobiView2::delete_model() {
 	baseline = nullptr;
 }
 
-//#ifdef DEBUG
-//	#define CATCH_ERRORS 0
-//#else
+#ifdef _DEBUG
+	#define CATCH_ERRORS 0
+#else
 	#define CATCH_ERRORS 1
-//#endif
+#endif
 
 bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.

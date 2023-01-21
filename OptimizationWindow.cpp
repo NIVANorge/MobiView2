@@ -200,8 +200,11 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 			++row;
 		}
 	}
+
+	String index_str = "";
+	if(!parameter.virt)
+		index_str = make_parameter_index_string(&app->parameter_structure, &parameter);
 	
-	String index_str = make_parameter_index_string(&app->parameter_structure, &parameter);
 	if(overwrite_row < 0) {
 		double min = Null;
 		double max = Null;
