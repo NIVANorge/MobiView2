@@ -627,17 +627,13 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 			mc_data.allocate(n_walkers, n_pars, n_steps);
 		}
 		
-		std::vector<std::string> free_syms;
-		for(Indexed_Parameter &par : parameters)
-			if(par.expr.empty()) free_syms.push_back(par.symbol);
-		
 		//NOTE: These have to be cached so that we don't have to rely on the optimization window
 		//not being edited (and going out of sync with the data)
-		result_win->parameters = parameters;
+		result_win->expr_pars.copy(expr_pars);
 		result_win->targets    = targets;
 		
 		result_win->choose_plots_tab.Set(0);
-		result_win->begin_new_plots(mc_data, min_bound, max_bound, free_syms, run_type);
+		result_win->begin_new_plots(mc_data, min_bound, max_bound, run_type);
 		
 		//parent->ProcessEvents();
 		
@@ -895,8 +891,8 @@ OptimizationWindow::err_sym_fixup() {
 	
 	// TODO: Should not give error if "Enable expressions" is not checked.
 	int active_idx = 0;
-	int row = 0;
-	for(Indexed_Parameter &parameter : parameters) {
+	for(int row = 0; row < expr_pars.parameters.size(); ++row) {
+		auto &parameter = expr_pars.parameters[row];
 		if(!parameter.symbol.empty()) {
 			if(sym_row.find(parameter.symbol) != sym_row.end()) {
 				set_error(Format("The parameter symbol %s appears twice", parameter.symbol.data()));
@@ -905,12 +901,11 @@ OptimizationWindow::err_sym_fixup() {
 			sym_row[parameter.symbol] = {row, active_idx};
 		}
 		
-		if(parameter.expr.empty())
+		if(!expr_pars.exprs[row].get())
 			++active_idx;
-		++row;
 	}
 	
-	row = 0;
+	int row = 0;
 	for(Optimization_Target &target : targets) {
 		target.err_par_idx.clear();
 		
@@ -938,12 +933,12 @@ OptimizationWindow::err_sym_fixup() {
 					return false;
 				}
 				int par_sym_row = sym_row[sym].first;
-				Indexed_Parameter &par = parameters[sym_row[sym].first];
+				Indexed_Parameter &par = expr_pars.parameters[par_sym_row];
 				if(!par.virt) {
 					set_error(Format("Only virtual parameters can be error parameters. The parameter with symbol '%s' is not virtual", sym.data()));
 					return false;
 				}
-				if(!par.expr.empty()) {
+				if(expr_pars.exprs[par_sym_row].get()) {
 					set_error(Format("Error parameters can not be results of expressions. The parameter with symbol '%s' was set as an error parameter, but also has an expression", sym.data()));
 					return false;
 				}
@@ -986,58 +981,61 @@ void OptimizationWindow::run_clicked(int run_type)
 	if(!cl)
 		return;
 	
-	bool success = err_sym_fixup();
-	if(!success) return;
-	
 	auto app = parent->app;
 	
+	// NOTE: Must set the expr_pars before we call err_sym_fixup() !
+	expr_pars.set(app, parameters); //TODO: Have to try, catch
+	
+	bool success = err_sym_fixup();
+	if(!success) return;
+
 	Model_Data *data = app->data.copy(); //TODO: more granular spec on what parts to copy.
 	
 	std::vector<double> initial_pars, min_vals, max_vals;
 	
 	int active_idx = 0;
-	int row = 0;
-	for(Indexed_Parameter &par : parameters) {
-		if(par.expr == "") {
-			double min = (double)par_setup.parameter_view.Get(row, Id("__min"));
-			double max = (double)par_setup.parameter_view.Get(row, Id("__max"));
-			double init;
-			if(par.virt) {
-				init = (max - min)*0.5;    //TODO: we should have a system for allowing you to set the initial value.
-			} else {
-				if(!is_valid(par.id)) { // This should technically not be possible
-					set_error("Somehow we got an invalid parameter id for one of the parameters in the setup.");
-					return;
-				}
-				s64 offset = data->parameters.structure->get_offset(par.id, par.indexes);
-				Parameter_Value val = *data->parameters.get_value(offset);
-				init = val.val_real;   // We already checked that the parameter was of type real when we added it.
-			}
-			String name = par_setup.parameter_view.Get(row, Id("__name"));
-			if(min >= max) {
-				set_error(Format("The parameter \"%s\" has a min value %f that is larger than or equal to the max value %f", name, min, max));
+	for(int row = 0; row < expr_pars.parameters.size(); ++row) {
+		if(expr_pars.exprs[row].get()) continue; // Don't check for parameters that have expressions.
+		
+		auto &par = expr_pars.parameters[row];
+		
+		double min = (double)par_setup.parameter_view.Get(row, Id("__min"));
+		double max = (double)par_setup.parameter_view.Get(row, Id("__max"));
+		double init;
+		if(par.virt) {
+			init = (max - min)*0.5;    //TODO: we should have a system for allowing you to set the initial value.
+		} else {
+			if(!is_valid(par.id)) { // This should technically not be possible
+				set_error("Somehow we got an invalid parameter id for one of the parameters in the setup.");
 				return;
 			}
-			if(init < min) {
-				set_error(Format("The parameter \"%s\" has an initial value %f that is smaller than the min value %f", name, init, min));
-				return;
-			}
-			if(init > max) {
-				set_error(Format("The parameter \"%s\" has an initial value %f that is larger than the max value %f", name, init, max));
-				return;
-			}
-			if((run_type==1 || run_type==2 || run_type==3) && par.symbol == "") {
-				set_error("You should provide a symbol for all the parameters that don't have an expression.");
-				return;
-			}
-			
-			min_vals.push_back(min);
-			max_vals.push_back(max);
-			initial_pars.push_back(init);
-			
-			++active_idx;
+			s64 offset = data->parameters.structure->get_offset(par.id, par.indexes);
+			Parameter_Value val = *data->parameters.get_value(offset);
+			init = val.val_real;   // We already checked that the parameter was of type real when we added it.
 		}
-		++row;
+		String name = par_setup.parameter_view.Get(row, Id("__name"));
+		if(min >= max) {
+			set_error(Format("The parameter \"%s\" has a min value %f that is larger than or equal to the max value %f", name, min, max));
+			return;
+		}
+		if(init < min) {
+			set_error(Format("The parameter \"%s\" has an initial value %f that is smaller than the min value %f", name, init, min));
+			return;
+		}
+		if(init > max) {
+			set_error(Format("The parameter \"%s\" has an initial value %f that is larger than the max value %f", name, init, max));
+			return;
+		}
+		if((run_type==1 || run_type==2 || run_type==3) && par.symbol == "") {
+			set_error("You should provide a symbol for all the parameters that don't have an expression.");
+			return;
+		}
+		
+		min_vals.push_back(min);
+		max_vals.push_back(max);
+		initial_pars.push_back(init);
+		
+		++active_idx;
 	}
 	
 	Date_Time start = app->data.get_start_date_parameter();
@@ -1063,7 +1061,7 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	try {
 		Timer timer;
-		Dlib_Optimization_Model opt_model(data, parameters, targets, initial_pars.data(), callback, ms_timeout);
+		Dlib_Optimization_Model opt_model(data, expr_pars, targets, initial_pars.data(), callback, ms_timeout);
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
 		
 		update_step = std::ceil(4000.0 / (double)ms);

@@ -251,8 +251,7 @@ void MCMCResultWindow::resize_chain_plots() {
 	chain_plot_scroller.AddPane(view_chain_plots.LeftPos(0, tri_size.cx).TopPos(0, tri_size.cy), tri_size);
 }
 
-void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_bound, std::vector<double> &max_bound,
-	const std::vector<std::string> &free_syms, int run_type) {
+void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_bound, std::vector<double> &max_bound, int run_type) {
 	//HaltWasPushed = false;
 	if(run_type == 1) {  //NOTE: If we extend an earlier run, we keep the burnin that was set already, so we don't have to reset it now
 		burnin_slider.SetData(0);
@@ -261,8 +260,10 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 	}
 	
 	this->free_syms.clear();
-	for(const std::string &str : free_syms)
-		this->free_syms << str.data();
+	for(int idx = 0; idx < expr_pars.exprs.size(); ++idx) {
+		if(!expr_pars.exprs[idx].get())
+			free_syms << expr_pars.parameters[idx].symbol.data();
+	}
 	
 	this->min_bound = min_bound;
 	this->max_bound = max_bound;
@@ -602,7 +603,7 @@ MCMCResultWindow::map_to_main_pushed() {
 	for(int par = 0; par < data->n_pars; ++par)
 		pars[par] = (*data)(best_w, par, best_s);
 	
-	set_parameters(&parent->app->data, parameters, pars.data(), true);
+	set_parameters(&parent->app->data, expr_pars, pars.data());
 	parent->log("Wrote MCMC MAP parameters to main dataset.");
 	parent->run_model();
 }
@@ -623,7 +624,7 @@ MCMCResultWindow::median_to_main_pushed() {
 	for(int par = 0; par < data->n_pars; ++par)
 		pars[par] = median_of_sorted(par_values[par].data(), par_values[par].size());
 	
-	set_parameters(&parent->app->data, parameters, pars.data(), true);
+	set_parameters(&parent->app->data, expr_pars, pars.data());
 	parent->log("Wrote MCMC median parameters to main dataset.");
 	parent->run_model();
 }
@@ -774,7 +775,7 @@ MCMCResultWindow::generate_projections_pushed() {
 					for(int par = 0; par < n_pars; ++par) pars[par] = par_values[par][draw];
 				}
 				auto model_data = model_datas[worker];
-				set_parameters(model_data, parameters, pars.data(), true);
+				set_parameters(model_data, expr_pars, pars.data());
 				run_model(model_data);
 				for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
 					auto &target = targets[target_idx];
@@ -809,7 +810,7 @@ MCMCResultWindow::generate_projections_pushed() {
 		std::sort(par_vals.begin(), par_vals.end());
 		pars[par] = median_of_sorted(par_vals.data(), par_vals.size());
 	}
-	set_parameters(model_datas[0], parameters, pars.data(), true);
+	set_parameters(model_datas[0], expr_pars, pars.data());
 	run_model(model_datas[0]);
 	
 	for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {

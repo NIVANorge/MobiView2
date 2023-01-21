@@ -127,6 +127,7 @@ public:
 	
 	std::vector<Indexed_Parameter>   parameters;
 	std::vector<Optimization_Target> targets;
+	Expr_Parameters                  expr_pars;
 };
 
 class MCMCProjectionCtrl : public WithMCMCProjectionLayout<Upp::ParentCtrl> {
@@ -143,7 +144,7 @@ public:
 	
 	MobiView2 *parent;
 	
-	void begin_new_plots(MC_Data &Data, std::vector<double> &min_bound, std::vector<double> &max_bound, const std::vector<std::string> &free_syms, int run_type);
+	void begin_new_plots(MC_Data &Data, std::vector<double> &min_bound, std::vector<double> &max_bound, int run_type);
 	void clean();
 	void resize_chain_plots();
 	void refresh_plots(s64 step = -1);
@@ -215,7 +216,7 @@ private:
 	Upp::Array<MyPlot>  autocorr_plots;
 	
 public:
-	std::vector<Indexed_Parameter>   parameters;
+	Expr_Parameters                  expr_pars;
 	std::vector<Optimization_Target> targets;
 };
 
