@@ -150,6 +150,11 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	main_vertical.Add(par_setup);
 	main_vertical.Add(target_setup);
 	Add(main_vertical.SizePos());
+	
+	auto font = GetStdFont();
+	font.Bold();
+	target_setup.error_label.SetFont(font);
+	target_setup.error_label.SetInk(Color(255, 0, 0));
 }
 
 void OptimizationWindow::set_error(const String &err_str) {
@@ -983,8 +988,16 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	auto app = parent->app;
 	
-	// NOTE: Must set the expr_pars before we call err_sym_fixup() !
-	expr_pars.set(app, parameters); //TODO: Have to try, catch
+	bool error = false;
+	try {
+		// NOTE: Must set the expr_pars before we call err_sym_fixup() !
+		expr_pars.set(app, parameters);
+	} catch (int) {
+		set_error("There was an error. See the main log window.");
+		error = true;
+	}
+	parent->log_warnings_and_errors();
+	if(error) return;
 	
 	bool success = err_sym_fixup();
 	if(!success) return;
