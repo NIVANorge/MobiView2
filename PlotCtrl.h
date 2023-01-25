@@ -494,8 +494,8 @@ public:
 	void build_index_set_selecters(Model_Application *app);
 	
 	std::vector<Entity_Id> index_sets;
-	Upp::ArrayCtrl *index_list[MAX_INDEX_SETS];
-	Upp::Button    *push_sel_all[MAX_INDEX_SETS];
+	Upp::ArrayCtrl        *index_list[MAX_INDEX_SETS];
+	Upp::ButtonOption     *push_sel_all[MAX_INDEX_SETS];
 	
 	Date_Time profile_base_time;
 	

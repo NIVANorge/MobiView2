@@ -37,7 +37,7 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 		
 		push_sel_all[idx]->Hide();
 		push_sel_all[idx]->Disable();
-		push_sel_all[idx]->SetImage(IconImg9::Add());
+		push_sel_all[idx]->SetImage(IconImg9::Add(), IconImg9::Remove());
 		push_sel_all[idx]->WhenAction << [this, idx]() {
 			int rows = index_list[idx]->GetCount();
 			int count = index_list[idx]->GetSelectCount();
@@ -231,6 +231,11 @@ void PlotCtrl::plot_change() {
 void PlotCtrl::re_plot(bool caused_by_run) {
 	get_plot_setup(main_plot.setup);
 	main_plot.build_plot(caused_by_run);
+	
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		if(index_list[idx]->GetSelectCount() != index_list[idx]->GetCount())
+			push_sel_all[idx]->Set(false);
+	}
 }
 
 void PlotCtrl::build_time_intervals_ctrl() {
@@ -261,6 +266,8 @@ void PlotCtrl::clean() {
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		index_list[idx]->Clear();
 		index_list[idx]->Hide();
+		push_sel_all[idx]->Disable();
+		push_sel_all[idx]->Hide();
 	}
 	index_sets.clear();
 	main_plot.clean();
