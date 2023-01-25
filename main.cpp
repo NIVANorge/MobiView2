@@ -676,8 +676,8 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	//TODO: allow for some of these!
 	if(
-		   var->type == State_Var::Type::in_flux_aggregate
-		|| var->type == State_Var::Type::regular_aggregate
+		/*   var->type == State_Var::Type::in_flux_aggregate
+		||*/ var->type == State_Var::Type::regular_aggregate
 		|| !var->is_valid())
 		return;
 	
@@ -703,6 +703,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	bool diss_conc = false;
 	bool flux_to   = false;
 	bool connection_agg = false;
+	bool in_flux_agg = false;
 	
 	Var_Location loc = var->loc1;
 	
@@ -716,6 +717,12 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
 		loc = app->state_vars[var2->agg_for]->loc1;
 		connection_agg = true;
+	}
+	
+	if(var->type == State_Var::Type::in_flux_aggregate) {
+		auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
+		loc = app->state_vars[var2->in_flux_to]->loc1;
+		in_flux_agg = true;
 	}
 	
 	if(var->is_flux() && !is_located(loc)) {
@@ -735,7 +742,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	
 	int parent_id = top_node;
 	if(is_located(loc)) {
-		if(!loc.is_dissolved() && !var->is_flux() && !connection_agg) {
+		if(!loc.is_dissolved() && !var->is_flux() && !connection_agg && !in_flux_agg) {
 			auto find = nodes_compartment.find(loc.first());
 			if(find == nodes_compartment.end()) {
 				auto comp = app->model->components[loc.first()];
@@ -749,7 +756,7 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 		} else {
 			dissolved = true;
 			Var_Location parent_loc = loc;
-			if(!diss_conc && !var->is_flux() && !connection_agg)
+			if(!diss_conc && !var->is_flux() && !connection_agg && !in_flux_agg)
 				parent_loc = remove_dissolved(loc);
 			
 			auto find = nodes_quantity.find(parent_loc);
@@ -770,6 +777,8 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 			name = "to connection (" + conn->name + ")";
 		else
 			name = "from connection (" + conn->name + ")";
+	} else if(in_flux_agg) {
+		name = "total in (excluding connections)";
 	} else if(is_input) {
 		name = var->name;
 	} else if(diss_conc) {
@@ -792,6 +801,8 @@ void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *a
 	if(connection_agg) {
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
 		img = var2->is_source ? &IconImg::ConnectionFlux() : &IconImg::ConnectionFluxTo();
+	} else if(in_flux_agg) {
+		img = &IconImg::ConnectionFluxTo();
 	} else if(var->is_flux()) {
 		img = flux_to ? &IconImg::FluxTo() : &IconImg::Flux();
 	} else if(var->type == State_Var::Type::declared && as<State_Var::Type::declared>(var)->decl_type == Decl_Type::quantity) {

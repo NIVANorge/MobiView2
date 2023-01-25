@@ -128,11 +128,11 @@ void AdditionalPlotView::set_all(std::vector<Plot_Setup> &setups) {
 }
 
 void AdditionalPlotView::read_from_json() {
-	//TODO!
+	PromptOK("Loading setup not yet implemented!"); //TODO!
 }
 
 void AdditionalPlotView::write_to_json() {
-	//TODO!
+	PromptOK("Storing setup not yet implemented!"); //TODO!
 }
 
 /*
