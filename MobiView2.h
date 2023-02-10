@@ -18,6 +18,7 @@
 
 //class MobiView2;
 
+#include "SeriesSelecter.h"
 #include "ParameterCtrl.h"
 #include "PlotCtrl.h"
 #include "Statistics.h"
@@ -99,21 +100,6 @@ public :
 #include "Util.h"
 
 
-// TODO: should also have a star option for "favorites".
-class Entity_Node : public Upp::Label {
-public:
-	typedef Entity_Node CLASSNAME;
-	
-	Entity_Node(Var_Id var_id, const Upp::String &name) : var_id(var_id) { SetText(name); }
-	Entity_Node(Entity_Id entity_id, const Upp::String &name) : entity_id(entity_id) { SetText(name); }
-	
-	union {
-		Var_Id var_id;
-		Entity_Id entity_id;
-	};
-};
-
-
 class MobiView2 : public Upp::TopWindow
 {
 	
@@ -139,11 +125,13 @@ public:
 	MyRichView plot_info;
 	MyRichView log_box;
 
-	Upp::ParentCtrl result_selecter_rect;
-	Upp::TreeCtrl   result_selecter;
-	Upp::Option     show_favorites;
-	Upp::TreeCtrl   input_selecter;
-	Array<Entity_Node> series_nodes;
+	//Upp::ParentCtrl result_selecter_rect;
+	//Upp::TreeCtrl   result_selecter;
+	//Upp::Option     show_favorites;
+	//Upp::TreeCtrl   input_selecter;
+	
+	SeriesSelecter     result_selecter;
+	SeriesSelecter     input_selecter;
 	
 	Upp::ToolBar    tool_bar;
 	

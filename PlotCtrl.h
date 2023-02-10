@@ -235,14 +235,22 @@ public :
 	void add(Upp::DataSource *val) {
 		data.push_back(val);
 		for(s64 ts = 0; ts < val->GetCount(); ++ts) {
-			max = std::max(max, val->y(ts));
-			min = std::min(min, val->y(ts));
+			double v = val->y(ts);
+			if(std::isfinite(v)) {
+				mmax = std::max(mmax, v);
+				mmin = std::min(mmin, v);
+			}
 		}
 	}
 	void set_ts(s64 _ts) { ts = _ts; }
-	void clear() { data.clear(); ts = 0; min = std::numeric_limits<double>::infinity(); max = -min; }
-	double get_max() { return max; }
-	double get_min() { return min; }
+	void clear() {
+		data.clear();
+		ts = 0;
+		mmin = std::numeric_limits<double>::infinity();
+		mmax = -mmin;
+	}
+	double get_max() { return mmax; }
+	double get_min() { return mmin; }
 	
 	virtual double x(s64 id) { return (double)id + 0.5; }
 	virtual double y(s64 id) { return data[id]->y(ts); }
@@ -250,7 +258,7 @@ public :
 	
 private:
 	s64 ts;
-	double min, max;
+	double mmin, mmax;
 	std::vector<Upp::DataSource *> data;
 };
 
@@ -380,7 +388,7 @@ public:
 		double res = 0;
 		for(int i = each_data.GetCount()-1; i >= index; --i) {
 			if (is_share) res += get_share_y(i, id);
-			else       res += each_data[i].real_y(id);
+			else          res += each_data[i].real_y(id);
 		}
 		return res;
 	}

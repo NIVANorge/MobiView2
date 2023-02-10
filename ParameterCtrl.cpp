@@ -222,9 +222,9 @@ void ParameterCtrl::refresh(bool values_only) {
 		
 		if(!column_expand) {
 			if(is_valid(expanded_set))
-				parameter_view.ColumnWidths("20 12 12 10 10 10 26");
+				parameter_view.ColumnWidths("30 10 8 8 8 12 32");
 			else
-				parameter_view.ColumnWidths("20 12 10 10 10 38");
+				parameter_view.ColumnWidths("30 10 8 8 12 40");
 		} else {
 			//NOTE Hide the min, max, unit fields. We still have to add them since we use the
 			//info stored in them some other places.

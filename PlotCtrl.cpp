@@ -354,6 +354,9 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	
 	if(!parent->model_is_loaded()) return;
 	
+	parent->input_selecter.get_selected(ps.selected_series);
+	parent->result_selecter.get_selected(ps.selected_results);
+	/*
 	Vector<int> sel_inputs = parent->input_selecter.GetSel();
 	for(int idx : sel_inputs) {
 		Upp::Ctrl *ctrl = ~parent->input_selecter.GetNode(idx).ctrl;
@@ -366,7 +369,7 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 		if(!ctrl) continue;
 		ps.selected_results.push_back(reinterpret_cast<Entity_Node *>(ctrl)->var_id);
 	}
-	
+	*/
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 		if(!index_list[idx]->IsVisible()) continue;
 		int row_count = index_list[idx]->GetCount();
@@ -412,12 +415,16 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 		}
 	}
 	
+	parent->result_selecter.set_selection(ps.selected_results);
+	parent->input_selecter.set_selection(ps.selected_series);
+
+/*
 	parent->result_selecter.ClearSelection();
 	recursive_select(parent->result_selecter, 0, ps.selected_results);
 	
 	parent->input_selecter.ClearSelection();
 	recursive_select(parent->input_selecter, 0, ps.selected_series);
-	
+*/
 	//main_plot.setup = ps; //Hmm, should not be necessary
 	
 	plot_change();

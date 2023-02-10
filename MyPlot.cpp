@@ -28,6 +28,9 @@ MyPlot::MyPlot() {
 	AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SHOW_INFO);
 	AddMouseBehavior(false, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
 	AddMouseBehavior(false, false, false, false, true, 0, false, ScatterCtrl::SCROLL);
+	
+	SurfRainbow(BLUE_WHITE_RED);   // TODO: Make this selectable
+	SetRainbowPalettePos({50, 10});
 }
 
 void MyPlot::clean(bool full_clean) {
@@ -45,10 +48,6 @@ void MyPlot::clean(bool full_clean) {
 	profile2D_is_timed = false;
 	histogram.Clear();
 	series_data.Clear();
-	
-	//surf_x.Clear();
-	//surf_y.Clear();
-	//surf_z.Clear();
 	
 	SetTitle("");
 	SetLabelX(" ");
@@ -84,9 +83,28 @@ void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var
 	}
 }
 
-void format_plot(MyPlot *draw, Var_Id::Type type, Color &color, String &legend, String &unit) {
+void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color, String &legend, String &unit) {
 	draw->Legend(legend).Units(unit);
-	if(type == Var_Id::Type::state_var || !draw->setup.scatter_inputs)
+	
+	bool scatter = false;
+	if(type != Var_Id::Type::state_var && draw->setup.scatter_inputs) {
+		
+		bool prev_prev_valid = false;
+		bool prev_valid = false;
+		for(int64 id = 0; id < data->GetCount(); ++id) {
+			double y = data->y(id);
+			bool valid = std::isfinite(y);
+			bool edge = id==0 || id==data->GetCount()-1;
+			if(!valid && prev_valid && (edge || !prev_prev_valid)) {
+				scatter = true;
+				break;
+			}
+			prev_prev_valid = prev_valid;
+			prev_valid = valid;
+		}
+	}
+	
+	if(!scatter)
 		draw->NoMark().Stroke(1.5, color).Dash("");
 	else {
 		draw->MarkBorderColor(color).Stroke(0.0, color).Opacity(0.5).MarkStyle<CircleMarkPlot>();
@@ -122,7 +140,8 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 		draw->AddSeries(draw->data_stacked.top()).Fill(color);
 	} else
 		draw->AddSeries(draw->series_data.Top());
-	format_plot(draw, var_id.type, color, legend, unit);
+	
+	format_plot(draw, var_id.type, &draw->series_data.Top(), color, legend, unit);
 	
 	if(draw->plot_info) {
 		Time_Series_Stats stats;
@@ -536,9 +555,10 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 		} else if(mode == Plot_Mode::profile) {
 			plot->was_auto_resized = false;
 			double ymin = std::min(0.0, plot->profile.get_min());
+			double ymax = plot->profile.get_max();
 			plot->SetXYMin(0.0, ymin);
 			int count = plot->profile.GetCount();
-			plot->SetRange((double)count, plot->profile.get_max() - ymin);
+			plot->SetRange((double)count, ymax - ymin);
 			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 			int units = std::max(1, count / preferred_max_grid);
 			plot->SetMajorUnits((double)units);
@@ -913,7 +933,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					input_start, result_start, app->time_step_size, &setup);
 					
 				AddSeries(series_data.Top());
-				format_plot(this, Var_Id::Type::series, colors.next(), legend, unit);
+				format_plot(this, Var_Id::Type::series, &series_data.Top(), colors.next(), legend, unit);
 				
 				double first_x = (double)(gof_start.seconds_since_epoch - input_start.seconds_since_epoch);
 				double last_x  = (double)(gof_end  .seconds_since_epoch - input_start.seconds_since_epoch);
@@ -1080,7 +1100,6 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				for(auto &series : series_data)
 					profile2D.add(&series);
 				AddSurf(profile2D);
-				SurfRainbow(WHITE_BLACK);
 			} else if ((mode == Plot_Mode::profile2D) && profile2D_is_timed) {
 				int dimy = setup.selected_indexes[profile_set_idx].size();
 				int dimx = setup.selected_indexes[profile_set_idx2].size();

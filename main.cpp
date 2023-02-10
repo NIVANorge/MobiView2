@@ -18,7 +18,8 @@ using namespace Upp;
 MobiView2::MobiView2() :
 	params(this), plotter(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
-	optimization_window(this), mcmc_window(this) {
+	optimization_window(this), mcmc_window(this),
+	result_selecter(this, "Result time series", Var_Id::Type::state_var), input_selecter(this, "Input time series", Var_Id::Type::series) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
@@ -41,14 +42,10 @@ MobiView2::MobiView2() :
 	upper_horizontal.Add(log_box);
 	
 	upper_horizontal.SetPos(1500, 0).SetPos(7000, 1).SetPos(8500, 2);
-	
-	result_selecter_rect.Add(result_selecter.HSizePos().VSizePos(0, 30));
-	result_selecter_rect.Add(show_favorites.SetLabel("Show favorites only").HSizePos(5).BottomPos(5));
-	show_favorites.Disable(); // TODO: needs to be implemented.
-	
+
 	lower_horizontal.Horz();
 	lower_horizontal.Add(plotter);
-	lower_horizontal.Add(result_selecter_rect);
+	lower_horizontal.Add(result_selecter);
 	lower_horizontal.Add(input_selecter);
 	
 	lower_horizontal.SetPos(7000, 0).SetPos(8500, 1);
@@ -88,20 +85,6 @@ MobiView2::MobiView2() :
 	par_group_selecter.WhenSel << [this](){ params.refresh(false); };
 	par_group_selecter.WhenSel << sensitivity_window_update;
 	
-	
-	result_selecter.WhenSel << [this]() { plotter.plot_change(); };
-	result_selecter.MultiSelect();
-	result_selecter.SetRoot(Null, String("Results"));
-	result_selecter.HighlightCtrl(true);
-	result_selecter.SetNode(0, result_selecter.GetNode(0).CanSelect(false));
-	
-	input_selecter.WhenSel << [this]() { plotter.plot_change(); };
-	input_selecter.MultiSelect();
-	input_selecter.SetRoot(Null, String("Input time series"));
-	input_selecter.HighlightCtrl(true);
-	input_selecter.SetNode(0, input_selecter.GetNode(0).CanSelect(false));
-	
-	//ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
 	calib_start.WhenAction = THISBACK(plot_rebuild);
 	calib_end.WhenAction   = THISBACK(plot_rebuild);
@@ -652,9 +635,8 @@ void MobiView2::clean_interface() {
 	par_group_selecter.Clear();
 	par_group_nodes.Clear();
 	
-	result_selecter.Clear();
-	input_selecter.Clear();
-	series_nodes.Clear();
+	result_selecter.clean();
+	input_selecter.clean();
 	plot_info.Clear();
 	
 	params.clean();
@@ -663,160 +645,6 @@ void MobiView2::clean_interface() {
 	optimization_window.clean();
 	
 	baseline_was_just_saved = false;
-}
-
-void add_series_node(MobiView2 *window, TreeCtrl &selecter, Model_Application *app, Var_Id var_id, State_Var *var, int top_node, std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> &nodes_compartment,
-	std::unordered_map<Var_Location, int, Var_Location_Hash> &nodes_quantity, int pass_type, bool is_input = false) {
-		
-	// NOTE: This relies on dissolved variables being later in the list than what they are
-	// dissolved in. This is the current functionality, but is implementation dependent on
-	// the Mobius 2 core...
-	// We could easily make it independent by just updating nodes with names properly
-	// later...
-	
-	//TODO: allow for some of these!
-	if(
-		/*   var->type == State_Var::Type::in_flux_aggregate
-		||*/ var->type == State_Var::Type::regular_aggregate
-		|| !var->is_valid())
-		return;
-	
-	// Just the phases we add nodes in not to have them jumbled. Also, we add quantities first
-	// to organize other things by them.
-	if(!is_input) {
-		if(pass_type == 0) {
-			// Do all declared quantities
-			if(var->type != State_Var::Type::declared) return;
-			if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) return;
-		} else if (pass_type == 1) {
-			// Do all declared properties, or things that are generated (but not fluxes)
-			if(var->is_flux()) return;
-			if(var->type == State_Var::Type::declared &&
-				as<State_Var::Type::declared>(var)->decl_type != Decl_Type::property) return;
-		} else if (pass_type == 2) {
-			// Do all fluxes (declared and generated)
-			if(!var->is_flux()) return;
-		}
-	}
-		
-	bool dissolved = false;
-	bool diss_conc = false;
-	bool flux_to   = false;
-	bool connection_agg = false;
-	bool in_flux_agg = false;
-	
-	Var_Location loc = var->loc1;
-	
-	if(var->type == State_Var::Type::dissolved_conc) {
-		auto var2 = as<State_Var::Type::dissolved_conc>(var);
-		loc = app->state_vars[var2->conc_of]->loc1;
-		diss_conc = true;
-	}
-	
-	if(var->type == State_Var::Type::connection_aggregate) {
-		auto var2 = as<State_Var::Type::connection_aggregate>(var);
-		loc = app->state_vars[var2->agg_for]->loc1;
-		connection_agg = true;
-	}
-	
-	if(var->type == State_Var::Type::in_flux_aggregate) {
-		auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
-		loc = app->state_vars[var2->in_flux_to]->loc1;
-		in_flux_agg = true;
-	}
-	
-	if(var->is_flux() && !is_located(loc)) {
-		if(is_located(var->loc2)) {
-			loc = var->loc2;
-			flux_to = true;
-		} else {
-			window->log(Format("The flux \"%s\" does not have a location in either end.", var->name.data()), true);
-			return;
-		}
-	}
-	
-	if(!is_located(loc) && !is_input) {
-		window->log(Format("Unable to identify why a variable \"%s\" was not located.", var->name.data()), true);
-		return;
-	}
-	
-	int parent_id = top_node;
-	if(is_located(loc)) {
-		if(!loc.is_dissolved() && !var->is_flux() && !connection_agg && !in_flux_agg) {
-			auto find = nodes_compartment.find(loc.first());
-			if(find == nodes_compartment.end()) {
-				auto comp = app->model->components[loc.first()];
-				window->series_nodes.Create(invalid_var, comp->name.data());
-				parent_id = selecter.Add(top_node, IconImg::Compartment(), window->series_nodes.Top());//, false);
-				selecter.SetNode(parent_id, selecter.GetNode(parent_id).CanSelect(false));
-				nodes_compartment[loc.first()] = parent_id;
-			} else
-				parent_id = find->second;
-			
-		} else {
-			dissolved = true;
-			Var_Location parent_loc = loc;
-			if(!diss_conc && !var->is_flux() && !connection_agg && !in_flux_agg)
-				parent_loc = remove_dissolved(loc);
-			
-			auto find = nodes_quantity.find(parent_loc);
-			if(find == nodes_quantity.end()) {
-				window->log("Something went wrong with looking up quantities", true);
-				return;
-			}
-			parent_id = find->second;
-		}
-	}
-	
-	String name;
-	
-	if(connection_agg) {
-		auto var2 = as<State_Var::Type::connection_aggregate>(var);
-		auto conn = app->model->connections[var2->connection];
-		if(var2->is_source)
-			name = "to connection (" + conn->name + ")";
-		else
-			name = "from connection (" + conn->name + ")";
-	} else if(in_flux_agg) {
-		name = "total in (excluding connections)";
-	} else if(is_input) {
-		name = var->name;
-	} else if(diss_conc) {
-		name = "concentration";
-	} else if(var->is_flux()) {
-		// NOTE: we don't want to use the generated name here, only the name of the base flux
-		auto var2 = var;
-		while(var2->type == State_Var::Type::dissolved_flux)
-			var2 = app->state_vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
-		
-		name = var2->name;
-		//TODO: (other) aggregate fluxes!
-	} else {
-		auto quant = app->model->components[loc.last()];
-		name = quant->name;
-	}
-
-	bool is_quantity = false;
-	Image *img = nullptr;
-	if(connection_agg) {
-		auto var2 = as<State_Var::Type::connection_aggregate>(var);
-		img = var2->is_source ? &IconImg::ConnectionFlux() : &IconImg::ConnectionFluxTo();
-	} else if(in_flux_agg) {
-		img = &IconImg::ConnectionFluxTo();
-	} else if(var->is_flux()) {
-		img = flux_to ? &IconImg::FluxTo() : &IconImg::Flux();
-	} else if(var->type == State_Var::Type::declared && as<State_Var::Type::declared>(var)->decl_type == Decl_Type::quantity) {
-		img = dissolved ? &IconImg::Dissolved() : &IconImg::Quantity();
-		is_quantity = true;
-	} else  {
-		img = diss_conc ? &IconImg::DissolvedConc() : &IconImg::Property();
-	}
-	
-	window->series_nodes.Create(var_id, name);
-	int id = selecter.Add(parent_id, *img, window->series_nodes.Top());//, false);
-	
-	if(is_quantity && is_located(loc))
-		nodes_quantity[loc] = id;
 }
 
 void MobiView2::build_interface() {
@@ -851,42 +679,9 @@ void MobiView2::build_interface() {
 	}
 	par_group_selecter.OpenDeep(0, true);
 	
-	std::unordered_map<Entity_Id, int, Hash_Fun<Entity_Id>> nodes_compartment;
-	std::unordered_map<Var_Location, int, Var_Location_Hash> nodes_quantity;
+	result_selecter.build(app);
+	input_selecter.build(app);
 
-	try {
-		for(int pass = 0; pass < 3; ++pass) {
-			for(Var_Id var_id : app->state_vars) {
-				auto var = app->state_vars[var_id];
-				add_series_node(this, result_selecter, app, var_id, var, 0, nodes_compartment, nodes_quantity, pass);
-			}
-		}
-		nodes_compartment.clear();
-		nodes_quantity.clear();
-		
-		int input_id = input_selecter.Add(0, Null, "Model inputs", false);
-		int additional_id = input_selecter.Add(0, Null, "Additional series", false);
-		
-		input_selecter.SetNode(input_id, input_selecter.GetNode(input_id).CanSelect(false));
-		input_selecter.SetNode(additional_id, input_selecter.GetNode(additional_id).CanSelect(false));
-		
-		for(Var_Id var_id : app->series) {
-			auto var = app->series[var_id];
-			add_series_node(this, input_selecter, app, var_id, var, input_id, nodes_compartment, nodes_quantity, 1, true);
-		}
-		
-		
-		for(Var_Id var_id : app->additional_series) {
-			auto var = app->additional_series[var_id];
-			add_series_node(this, input_selecter, app, var_id, var, additional_id, nodes_compartment, nodes_quantity, 1, true);
-		}
-		
-	} catch (int) {}
-	log_warnings_and_errors();
-	
-	result_selecter.OpenDeep(0, true);
-	input_selecter.OpenDeep(0, true);
-	
 	params.build_index_set_selecters(app);
 	plotter.build_index_set_selecters(app);
 	

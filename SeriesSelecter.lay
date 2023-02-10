@@ -1,0 +1,5 @@
+LAYOUT(SeriesSelecterLayout, 120, 96)
+	ITEM(Upp::Option, show_favorites, SetLabel(t_("Show favorites only")).HSizePosZ(4, 4).BottomPosZ(4, 16))
+	ITEM(Upp::TabCtrl, tree_tab, HSizePosZ(0, 0).VSizePosZ(0, 20))
+END_LAYOUT
+
