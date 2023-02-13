@@ -28,11 +28,14 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	if(type == Var_Id::Type::state_var) {
 		tree_tab.Add(var_tree.SizePos(), "Comp.");//IconImg47::Compartment(), "Comp.");
 		tree_tab.Add(quant_tree.SizePos(), "Quant."); //IconImg47::Quantity(), "Quant.");
+		//show_fluxes.SetData(true);
 	} else {
 		tree_tab.Disable();
 		tree_tab.Hide();
 		Add(var_tree.HSizePosZ(0, 0).VSizePosZ(25, 20));
+		//show_fluxes.Hide();
 	}
+	//show_fluxes.WhenAction << [this]() { show_fluxes_changed(); }
 }
 
 void
@@ -110,17 +113,24 @@ make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Re
 	
 		auto find = loc_to_node.find(at_loc);
 		if(find == loc_to_node.end()) {
-			auto comp_id = at_loc.components[len-1];
-			auto comp = model->components[comp_id];
+			Entity_Id comp_id_img;
+			if(!by_quantity)
+				comp_id_img = at_loc.last();
+			else
+				comp_id_img = at_loc.first();
+			auto comp_img = model->components[comp_id_img];
+			auto comp_name = model->components[at_loc.last()];
 			
 			auto var_id = reg->id_of(reorder(at_loc, by_quantity, len, true));
-			nodes.Create(var_id, comp->name.data());
+			nodes.Create(var_id, comp_name->name.data());
+			
+			
 			Image *img;
-			if(comp->decl_type == Decl_Type::compartment)
+			if(comp_img->decl_type == Decl_Type::compartment || (by_quantity && !is_valid(var_id)))
 				img = &IconImg47::Compartment();
-			else if(comp->decl_type == Decl_Type::quantity) {
+			else if(comp_img->decl_type == Decl_Type::quantity) {
 				img = len>2 ? &IconImg47::Dissolved() : &IconImg47::Quantity();
-			} else if (comp->decl_type == Decl_Type::property)
+			} else if (comp_img->decl_type == Decl_Type::property)
 				img = &IconImg47::Property();
 			
 			at = tree.Add(at, *img, nodes.Top());
