@@ -129,8 +129,12 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	get_storage_and_var(md, var_id, &data, &var);
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
-	String unit = var->unit.to_utf8();
-	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
+	auto unit = var->unit;
+	if(draw->setup.aggregation_type == Aggregation_Type::sum)
+		unit = unit_of_sum(var->unit, app->time_step_unit, draw->setup.aggregation_period);
+	
+	String unit_str = unit.to_utf8();
+	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit_str + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
@@ -141,7 +145,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	} else
 		draw->AddSeries(draw->series_data.Top());
 	
-	format_plot(draw, var_id.type, &draw->series_data.Top(), color, legend, unit);
+	format_plot(draw, var_id.type, &draw->series_data.Top(), color, legend, unit_str);
 	
 	if(draw->plot_info) {
 		Time_Series_Stats stats;
@@ -1226,7 +1230,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 		s32 y = time.year;
 		s32 m = time.month;
 		s32 d = time.day_of_month;
-		s32 w = week_of_year(time.day_of_year);
+		s32 w = time.date_time.week_since_epoch();
 		time.advance();
 		
 		//TODO: Want more aggregation interval types than year or month for models with
@@ -1236,8 +1240,10 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 			push = push || (time.year != y);
 		if(agg_period == Aggregation_Period::monthly)
 			push = push || (time.month != m);
-		if(agg_period == Aggregation_Period::weekly)
-			push = push || (week_of_year(time.day_of_year) != w);
+		if(agg_period == Aggregation_Period::weekly) {
+			auto week = time.date_time.week_since_epoch();
+			push = push || (week != w);
+		}
 		
 		if(push) {
 			double yval = curr_agg;

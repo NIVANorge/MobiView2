@@ -34,14 +34,6 @@ enum class Aggregation_Type {
 	max,
 };
 
-//NOTE: The matching of this with the selector should be dynamic, so no worries.
-enum class Aggregation_Period {
-	none = 0,
-	weekly,
-	monthly,
-	yearly,
-};
-
 //NOTE: This has to match up to the y axis mode selector.
 enum class Y_Axis_Mode {
 	regular = 0,
