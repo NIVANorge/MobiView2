@@ -260,7 +260,8 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 		
 		name = var2->name;
 		//TODO: (other) aggregate fluxes!
-	}
+	} else
+		name = var->name;
 
 	Image *img = nullptr;
 	if(connection_agg) {

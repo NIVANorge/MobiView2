@@ -1,0 +1,4 @@
+LAYOUT(StructureViewLayout, 656, 536)
+	ITEM(Upp::TabCtrl, view_tabs, HSizePosZ(4, 4).VSizePosZ(4, 4))
+END_LAYOUT
+

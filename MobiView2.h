@@ -27,6 +27,7 @@
 #include "ModelInfoWindow.h"
 #include "AdditionalPlotView.h"
 #include "OptimizationWindow.h"
+#include "StructureView.h"
 
 /*
 class ChangeIndexesWindow;
@@ -40,18 +41,6 @@ public :
 	ChangeIndexesWindow *OtherParent;
 	
 	virtual void Paint(Draw &W);
-};
-
-class StructureViewWindow : public WithStructureViewLayout<TopWindow>
-{
-public:
-	typedef StructureViewWindow CLASSNAME;
-	
-	StructureViewWindow();
-	
-	MobiView *ParentWindow;
-	
-	void RefreshText();
 };
 
 class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow>
@@ -144,6 +133,7 @@ public:
 	AdditionalPlotView    additional_plots;
 	OptimizationWindow    optimization_window;
 	MCMCResultWindow      mcmc_window;
+	StructureViewWindow   structure_window;
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -186,6 +176,7 @@ public:
 	void open_info_window();
 	void open_additional_plots();
 	void open_optimization_window();
+	void open_structure_view();
 	
 private :
 	void delete_model();

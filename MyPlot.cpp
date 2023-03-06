@@ -28,8 +28,7 @@ MyPlot::MyPlot() {
 	AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SHOW_INFO);
 	AddMouseBehavior(false, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
 	AddMouseBehavior(false, false, false, false, true, 0, false, ScatterCtrl::SCROLL);
-	
-	SurfRainbow(BLUE_WHITE_RED);   // TODO: Make this selectable
+
 	SetRainbowPalettePos({50, 10});
 }
 
@@ -1104,6 +1103,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				for(auto &series : series_data)
 					profile2D.add(&series);
 				AddSurf(profile2D);
+				SurfRainbow(BLUE_WHITE_RED);   // TODO: Make this selectable
 			} else if ((mode == Plot_Mode::profile2D) && profile2D_is_timed) {
 				int dimy = setup.selected_indexes[profile_set_idx].size();
 				int dimx = setup.selected_indexes[profile_set_idx2].size();
@@ -1189,10 +1189,22 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		Refresh();
 }
 
-void MyPlot::replot_profile() {
+void
+MyPlot::replot_profile() {
 	profile.set_ts(setup.profile_time_step);
 	profile2Dt.set_ts(setup.profile_time_step);
 	Refresh();
+}
+
+double
+reset_aggregate(Aggregation_Type type) {
+	if(type == Aggregation_Type::mean || type == Aggregation_Type::sum)
+		return 0.0;
+	else if(type == Aggregation_Type::min)
+		return std::numeric_limits<double>::infinity();
+	else if(type == Aggregation_Type::max)
+		return -std::numeric_limits<double>::infinity();
+	return 0.0;
 }
 
 void
@@ -1201,13 +1213,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 {
 	s64 steps = data->GetCount();
 	
-	double curr_agg;
-	if(agg_type == Aggregation_Type::mean || agg_type == Aggregation_Type::sum)
-		curr_agg = 0.0;
-	else if(agg_type == Aggregation_Type::min)
-		curr_agg = std::numeric_limits<double>::infinity();
-	else if(agg_type == Aggregation_Type::max)
-		curr_agg = -std::numeric_limits<double>::infinity();
+	double curr_agg = reset_aggregate(agg_type);
 		
 	int count = 0;
 	Expanded_Date_Time time(start_time, ts_size);
@@ -1256,12 +1262,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 			double xval = (double)(mark.seconds_since_epoch - ref_time.seconds_since_epoch);
 			x_vals.push_back(xval);
 			
-			if(agg_type == Aggregation_Type::mean || agg_type == Aggregation_Type::sum)
-				curr_agg = 0.0;
-			else if(agg_type == Aggregation_Type::min)
-				curr_agg = std::numeric_limits<double>::infinity();
-			else if(agg_type == Aggregation_Type::max)
-				curr_agg = -std::numeric_limits<double>::infinity();
+			curr_agg = reset_aggregate(agg_type);
 			
 			count = 0;
 		}

@@ -18,7 +18,7 @@ using namespace Upp;
 MobiView2::MobiView2() :
 	params(this), plotter(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
-	optimization_window(this), mcmc_window(this),
+	optimization_window(this), mcmc_window(this), structure_window(this),
 	result_selecter(this, "Result time series", Var_Id::Type::state_var), input_selecter(this, "Input time series", Var_Id::Type::series) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
@@ -201,7 +201,7 @@ void MobiView2::sub_bar(Bar &bar) {
 	bar.Add(IconImg::Optimize(), THISBACK(open_optimization_window)).Tip("Optimization and MCMC setup");
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(open_stat_settings)).Tip("Edit statistics settings");
-	//bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
+	bar.Add(IconImg::BatchStructure(), THISBACK(open_structure_view)).Tip("View model structure debug information");
 	bar.Add(IconImg::Info(), THISBACK(open_info_window)).Tip("View model information");
 }
 
@@ -246,7 +246,8 @@ bool MobiView2::do_the_load() {
 		data_set->read_from_file(data_file.data());
 		
 		app->build_from_data_set(data_set);
-		app->compile();
+		app->compile(true);
+		
 #if CATCH_ERRORS
 	} catch(int) {
 		success = false;
@@ -329,7 +330,7 @@ void MobiView2::reload(bool recompile_only) {
 			delete app;
 			app = new Model_Application(model);
 			app->build_from_data_set(data_set);
-			app->compile();
+			app->compile(true);
 		} catch(int) {
 			delete_model();
 			success = false;
@@ -764,6 +765,13 @@ void MobiView2::open_additional_plots() {
 void MobiView2::open_optimization_window() {
 	if(!optimization_window.IsOpen())
 		optimization_window.Open();
+}
+
+void MobiView2::open_structure_view() {
+	if(!structure_window.IsOpen()) {
+		structure_window.refresh_text();
+		structure_window.Open();
+	}
 }
 
 GUI_APP_MAIN {
