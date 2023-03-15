@@ -517,7 +517,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 		
 		if(mode == Plot_Mode::histogram || mode == Plot_Mode::residuals_histogram) {
 			//NOTE: Histograms require special zooming.
-			plot->ZoomToFit(true, true);
+			plot->ZoomToFitNonLinked(true, true, 0, 0);
 			plot->was_auto_resized = false;
 			double x_range = plot->GetXRange();
 			double x_min   = plot->GetXMin();
@@ -537,7 +537,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			};
 		} else if(mode == Plot_Mode::qq) {
 			//NOTE: qq plots require special zooming.
-			plot->ZoomToFit(true, true);
+			plot->ZoomToFitNonLinked(true, true, 0, 0);
 			plot->was_auto_resized = false;
 			
 			double y_range = plot->GetYRange();
@@ -571,7 +571,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				if(d >= 0 && d < count && (idx < plot->labels.size())) s = plot->labels[idx];
 			};
 		} else if (mode == Plot_Mode::profile2D && plot->profile2D_is_timed) {
-			plot->ZoomToFit(true, true);
+			plot->ZoomToFitNonLinked(true, true, 0, 0);
 			plot->was_auto_resized = false;
 			plot->SetSurfMinZ(plot->profile2Dt.get_min());
 			plot->SetSurfMaxZ(plot->profile2Dt.get_max());
@@ -596,7 +596,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			};
 			
 		} else if (!plot->profile2D_is_timed) {
-			plot->ZoomToFit(false, true);
+			plot->ZoomToFitNonLinked(false, true, 0, 0);
 			
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
 			if(mode == Plot_Mode::profile2D) {
@@ -623,7 +623,7 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			}
 			
 			if(!plot->was_auto_resized) {
-				plot->ZoomToFit(true, false);
+				plot->ZoomToFitNonLinked(true, false, 0, 0);
 				plot->was_auto_resized = true;
 			}
 			
@@ -695,7 +695,6 @@ void add_line(MyPlot *plot, double x0, double y0, double x1, double y1, Color co
 void add_trend_line(MyPlot *plot, double xy_covar, double x_var, double y_mean, double x_mean, double start_x, double end_x, String &legend) {
 	double beta = xy_covar / x_var;
 	double alpha = y_mean - beta*x_mean;
-
 	add_line(plot, start_x, alpha + start_x*beta, end_x, alpha + end_x*beta, Null, legend);
 }
 
@@ -944,7 +943,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				double xy_covar, x_var, y_mean, x_mean;
 				// Hmm, this will make a trend of the aggregated data. Should we do it that way?
 				compute_trend_stats(&series_data.Top(), x_mean, y_mean, x_var, xy_covar);
-				add_trend_line(this, xy_covar, x_var, y_mean, x_mean, first_x, last_x, String("Trend line"));
+				
+				double slope_days = (xy_covar / x_var)*86400;  // TODO: Ideally scale it to the time step unit, but it is a bit tricky.
+				auto trend_legend = Format("Trend line. Slope: %g (%s day⁻¹)", slope_days, unit);
+				add_trend_line(this, xy_covar, x_var, y_mean, x_mean, first_x, last_x, trend_legend);
 				
 				add_line(this, first_x, residual_stats.min_error, first_x, residual_stats.max_error, Red(), Null);
 				add_line(this, last_x,  residual_stats.min_error, last_x,  residual_stats.max_error, Red(), Null);
