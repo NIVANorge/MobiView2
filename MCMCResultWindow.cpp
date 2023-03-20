@@ -61,7 +61,7 @@ MCMCResultWindow::MCMCResultWindow(MobiView2 *parent) : parent(parent) {
 }
 
 void MCMCResultWindow::sub_bar(Bar &bar) {
-	auto load = [&](){ bool success = load_results(); if(!success) PromptOK("There was an error in the file format"); }; //TODO: Handle error?
+	auto load = [&](){ bool success = load_results(); if(!success) PromptOK("There was an error in the file format."); }; //TODO: Handle error?
 	
 	bar.Add(IconImg6::Open(), load).Tip("Load data from file");
 	bar.Add(IconImg6::Save(), THISBACK(save_results)).Tip("Save data to file");
@@ -981,178 +981,151 @@ void
 MCMCResultWindow::save_results() {
 	
 	/*
-	if(!Data) return;
-	
-	FileSel Sel;
-	Sel.Type("MCMC results", "*.mcmc");
-	
-	if(!ParentWindow->ParameterFile.empty())
-		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
-	else
-		Sel.ActiveDir(GetCurrentDirectory());
-	
-	Sel.ExecuteSaveAs();
-	std::string Filename = Sel.Get().ToStd();
-	
-	if(Filename.size() == 0) return;
-	
-	std::ofstream File(Filename.data());
-	
-	if(File.fail()) return;
-	
-	File << Data->NPars << " " << Data->NWalkers << " " << Data->NSteps << " " << (int)BurninEdit.GetData() << " " << Data->NAccepted << "\n";
-	
-	for(int Par = 0; Par < Data->NPars; ++Par)
-	{
-		String &ParName = FreeSyms[Par];
-		
-		File << ParName.ToStd() << " " << MinBound[Par] << " " << MaxBound[Par] << "\n";
-		
-		for(int Step = 0; Step < Data->NSteps; ++Step)
-		{
-			for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-				File << (*Data)(Walker, Par, Step) << "\t";
-			File << "\n";
-		}
-	}
-	File << "logprob\n";
-	for(int Step = 0; Step < Data->NSteps; ++Step)
-	{
-		for(int Walker = 0; Walker  < Data->NWalkers; ++Walker)
-			File << Data->LLValue(Walker, Step) << "\t";
-		File << "\n";
-	}
-	
-	String JsonData = ParentWindow->OptimizationWin.SaveToJsonString();
-	File << JsonData.ToStd();
-	
-	File.close();
-	
-	ParentWindow->Log(Format("MCMC data saved to %s", Filename.data()));
+		TODO: Serialization should just be baked into the Mobius2 mcmc package.
 	*/
+	
+	if(!data) return;
+	
+	FileSel sel;
+	sel.Type("MCMC results", "*.mcmc");
+	
+	if(!parent->data_file.empty())
+		sel.ActiveDir(GetFileFolder(parent->data_file.data()));
+	else
+		sel.ActiveDir(GetCurrentDirectory());
+	
+	sel.ExecuteSaveAs();
+	std::string file_name = sel.Get().ToStd();
+	
+	if(file_name.empty()) return;
+	
+	try {
+		auto file = open_file(file_name.data(), "w");
+		
+		fprintf(file, "%d %d %d %d %d\n", data->n_pars, data->n_walkers, data->n_steps, (int)burnin_edit.GetData(), data->n_accepted);
+		
+		for(int par = 0; par < data->n_pars; ++par) {
+			String &par_name = free_syms[par];
+			
+			fprintf(file, "%s %g %g\n", par_name.ToStd().data(), min_bound[par], max_bound[par]);
+
+			for(int step = 0; step < data->n_steps; ++step) {
+				for(int walker = 0; walker < data->n_walkers; ++walker)
+					fprintf(file, "%g\t", (*data)(walker, par, step));
+				fprintf(file, "\n");
+			}
+		}
+		fprintf(file, "logprob\n");
+		for(int step = 0; step < data->n_steps; ++step)	{
+			for(int walker = 0; walker  < data->n_walkers; ++walker)
+				fprintf(file, "%g\t", data->score_value(walker, step));
+			fprintf(file, "\n");
+		}
+		
+		String json_data = parent->optimization_window.write_to_json_string();
+		fprintf(file, "%s", json_data.ToStd().data());
+	
+		fclose(file);
+
+		parent->log(Format("MCMC data saved to %s", file_name.data()));
+	} catch(int) {
+		parent->log_warnings_and_errors();
+	}
 }
 
 bool
 MCMCResultWindow::load_results() {
+	
 	//NOTE: Error handling is very rudimentary for now.
 	
-	/*
-	if(!Data) Data = &ParentWindow->OptimizationWin.Data; //TODO: Maybe this window should own the data block instead..
+	if(!data) data = &parent->optimization_window.mc_data; //TODO: Maybe this window should own the data block instead..
 	
-	FileSel Sel;
-	Sel.Type("MCMC results", "*.mcmc");
+	FileSel sel;
+	sel.Type("MCMC results", "*.mcmc");
 	
-	if(!ParentWindow->ParameterFile.empty())
-		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	if(!parent->data_file.empty())
+		sel.ActiveDir(GetFileFolder(parent->data_file.data()));
 	else
-		Sel.ActiveDir(GetCurrentDirectory());
+		sel.ActiveDir(GetCurrentDirectory());
 	
-	Sel.ExecuteOpen();
-	std::string Filename = Sel.Get().ToStd();
+	sel.ExecuteOpen();
+	std::string file_name = sel.Get().ToStd();
 	
-	if(Filename.size() == 0) return false;
+	bool success = true;
 	
-	std::ifstream File(Filename.data(), std::ifstream::in);
-	
-	if(File.fail()) return false;
-	
-	ClearPlots();
-	
-	std::string Line;
-	std::getline(File, Line);
-	if(File.eof() || File.bad() || File.fail()) return false;
-	std::stringstream LL(Line, std::ios_base::in);
-	
-	int NPars, NWalkers, NSteps, BurninVal, NAccepted;
-	LL >> NPars;
-	LL >> NWalkers;
-	LL >> NSteps;
-	LL >> BurninVal;
-	LL >> NAccepted;
-	if(LL.bad() || LL.fail()) return false;
-	
-	//NOTE: we need to have locals of these and pass them to BeginNewPlots, otherwise they will
-	//be cleared inside BeginNewPlots at the same time as it reads them. TODO: should pack
-	//these inside the Data struct instead.
-	std::vector<double> MinBound(NPars);
-	std::vector<double> MaxBound(NPars);
-	Array<String> FreeSyms;
-	
-	Data->Allocate(NWalkers, NPars, NSteps);
-	Data->NAccepted = NAccepted;
-	
-	for(int Par = 0; Par < NPars; ++Par)
-	{
-		std::getline(File, Line);
-		if(File.eof() || File.bad() || File.fail()) return false;
-		std::stringstream LL(Line, std::ios_base::in);
+	String_View file_data = {};
+	try {
+		file_data = read_entire_file(file_name.data());
+		//auto file = open_file(file_name.data(), "w");
+		clean();
 		
-		std::string Sym;
-		double Min, Max;
-		LL >> Sym;
-		LL >> Min;
-		LL >> Max;
+		Token_Stream stream(file_name, file_data);
 		
-		if(LL.bad() || LL.fail()) return false;
+		s64 n_pars = stream.expect_int();
+		s64 n_walkers = stream.expect_int();
+		s64 n_steps = stream.expect_int();
+		s64 n_burnin = stream.expect_int();
+		s64 n_accepted = stream.expect_int();
 		
-		FreeSyms.push_back(Sym.data());
-		MinBound[Par] = Min;
-		MaxBound[Par] = Max;
+		// NOTE: Because of how betgin_new_plots works, we can't construct the member vectors
+		// directly, we have to pass them to the function.
+		std::vector<double> min_bound(n_pars);
+		std::vector<double> max_bound(n_pars);
+		Vector<String>      free_syms;            // Hmm, seems like this goes unused since it begin_new_plots doesn't need it any more
 		
-		for(int Step = 0; Step < NSteps; ++Step)
-		{
-			std::getline(File, Line);
-			if(File.bad() || File.fail()) return false;
-			std::stringstream LL(Line, std::ios_base::in);
+		data->allocate(n_walkers, n_pars, n_steps);
+		data->n_accepted = n_accepted;
+		
+		for(int par = 0; par < n_pars; ++par) {
+			auto sym = stream.expect_identifier();
+			free_syms.push_back(sym.data);
+			min_bound[par] = stream.expect_real();
+			max_bound[par] = stream.expect_real();
 			
-			for(int Walker = 0; Walker < NWalkers; ++Walker)
-			{
-				double Val;
-				LL >> Val;
-				if(LL.bad() || LL.fail()) return false;
-				
-				(*Data)(Walker, Par, Step) = Val;
+			for(int step = 0; step < n_steps; ++step) {
+				for(int walker = 0; walker < n_walkers; ++walker)
+					(*data)(walker, par, step) = stream.expect_real();
 			}
 		}
-	}
-	
-	std::getline(File, Line);
-	if(File.bad() || File.fail()) return false;
-	if(Line != "logprob") return false;
-	for(int Step = 0; Step < NSteps; ++Step)
-	{
-		std::getline(File, Line);
-		if(File.bad() || File.fail()) return false;
-		std::stringstream LL(Line, std::ios_base::in);
 		
-		for(int Walker = 0; Walker < NWalkers; ++Walker)
-		{
-			double Val;
-			LL >> Val;
-			if(LL.bad() || LL.fail()) return false;
+		auto str = stream.expect_identifier();
+		if(str == "logprob") {
 			
-			Data->LLValue(Walker, Step) = Val;
-		}
+			for(int step = 0; step < n_steps; ++step) {
+				for(int walker = 0; walker < n_walkers; ++walker)
+					data->score_value(walker, step) = stream.expect_real();
+			}
+		
+			// TODO: Feels like some of this stuff should be factored out
+			
+			String json_data(stream.remainder());
+			parent->optimization_window.read_from_json_string(json_data);
+			parent->optimization_window.mcmc_setup.push_extend_run.Enable();
+			// TODO: Why is this not a part of read_from_json_string ?
+			
+			parent->optimization_window.expr_pars.set(parent->app, parent->optimization_window.parameters);
+			parent->optimization_window.err_sym_fixup();
+			
+			expr_pars.copy(parent->optimization_window.expr_pars);
+			targets    = parent->optimization_window.targets;
+			
+			begin_new_plots(*data, min_bound, max_bound, 1);
+			burnin_slider.SetData(n_burnin);
+			burnin_edit.SetData(n_burnin);
+			burnin[0] = burnin[1] = (double)n_burnin;
+			
+			refresh_plots();
+			
+			parent->log(Format("MCMC data loaded from %s", file_name.data()));
+		
+		} else
+			success = false;
+	} catch(int) {
+		success = false;
+		parent->log_warnings_and_errors();
 	}
 	
-	std::string JsonData(std::istreambuf_iterator<char>(File), {});
-	String JsonData2(JsonData.data());
-	ParentWindow->OptimizationWin.LoadFromJsonString(JsonData2);
-	ParentWindow->OptimizationWin.MCMCSetup.PushExtendRun.Enable();
-	ParentWindow->OptimizationWin.ErrSymFixup();
+	if(file_data.data) free(file_data.data);
 	
-	Parameters = ParentWindow->OptimizationWin.Parameters;
-	Targets    = ParentWindow->OptimizationWin.Targets;
-
-	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1);
-	
-	BurninSlider.SetData(BurninVal);
-	BurninEdit.SetData(BurninVal);
-	Burnin[0] = (double)BurninVal; Burnin[1] = (double)BurninVal;
-	
-	RefreshPlots();
-	
-	ParentWindow->Log(Format("MCMC data loaded from %s", Filename.data()));
-	*/
-	return true;
+	return success;
 }

@@ -144,7 +144,7 @@ public:
 	
 	MobiView2 *parent;
 	
-	void begin_new_plots(MC_Data &Data, std::vector<double> &min_bound, std::vector<double> &max_bound, int run_type);
+	void begin_new_plots(MC_Data &data, std::vector<double> &min_bound, std::vector<double> &max_bound, int run_type);
 	void clean();
 	void resize_chain_plots();
 	void refresh_plots(s64 step = -1);
@@ -170,7 +170,7 @@ private:
 	Upp::ToolBar tool;
 	
 	MC_Data *data = nullptr;
-	//TODO: Pack these into Data? Would make more sense for serialization.
+	//TODO: Pack these into MC_Data? Would make more sense for serialization.
 	Upp::Vector<Upp::String> free_syms;
 	std::vector<double>      min_bound;
 	std::vector<double>      max_bound;
