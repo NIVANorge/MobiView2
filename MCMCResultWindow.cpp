@@ -603,7 +603,7 @@ MCMCResultWindow::map_to_main_pushed() {
 	for(int par = 0; par < data->n_pars; ++par)
 		pars[par] = (*data)(best_w, par, best_s);
 	
-	set_parameters(&parent->app->data, expr_pars, pars.data());
+	set_parameters(&parent->app->data, expr_pars, pars);
 	parent->log("Wrote MCMC MAP parameters to main dataset.");
 	parent->run_model();
 }
@@ -624,7 +624,7 @@ MCMCResultWindow::median_to_main_pushed() {
 	for(int par = 0; par < data->n_pars; ++par)
 		pars[par] = median_of_sorted(par_values[par].data(), par_values[par].size());
 	
-	set_parameters(&parent->app->data, expr_pars, pars.data());
+	set_parameters(&parent->app->data, expr_pars, pars);
 	parent->log("Wrote MCMC median parameters to main dataset.");
 	parent->run_model();
 }
@@ -775,7 +775,7 @@ MCMCResultWindow::generate_projections_pushed() {
 					for(int par = 0; par < n_pars; ++par) pars[par] = par_values[par][draw];
 				}
 				auto model_data = model_datas[worker];
-				set_parameters(model_data, expr_pars, pars.data());
+				set_parameters(model_data, expr_pars, pars);
 				run_model(model_data);
 				for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
 					auto &target = targets[target_idx];
@@ -810,7 +810,7 @@ MCMCResultWindow::generate_projections_pushed() {
 		std::sort(par_vals.begin(), par_vals.end());
 		pars[par] = median_of_sorted(par_vals.data(), par_vals.size());
 	}
-	set_parameters(model_datas[0], expr_pars, pars.data());
+	set_parameters(model_datas[0], expr_pars, pars);
 	run_model(model_datas[0]);
 	
 	for(int target_idx = 0; target_idx < targets.size(); ++target_idx) {
@@ -875,23 +875,25 @@ MCMCResultWindow::generate_projections_pushed() {
 		// TODO: "Median" etc. should not be a prefix, it should be the entire series name...
 		//          also the Y axis label is screwed up.
 		add_single_plot(&plot, model_datas[1], parent->app, target.sim_id, target.indexes,
-				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, upper_color, false, Format("%.2f percentile", max_conf), true);
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, upper_color, false, Format("%.2f percentile ", max_conf), true);
 		
 		add_single_plot(&plot, model_datas[2], parent->app, target.sim_id, target.indexes,
 				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, median_color, false, "Median ", true);
 				
 		add_single_plot(&plot, model_datas[3], parent->app, target.sim_id, target.indexes,
-				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, lower_color, false, Format("%.2f percentile", min_conf), true);
+				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, lower_color, false, Format("%.2f percentile ", min_conf), true);
 		
 		add_single_plot(&plot, model_datas[0], parent->app, target.obs_id, target.indexes,
 				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, obs_color, false, Null, true);
 		
+		auto &sim_name = parent->app->state_vars[target.sim_id]->name;
 		double coverage_percent = 100.0*(double)coverage/(double)n_obs;
-		plot.SetTitle(Format("Coverage: %.2f%%", coverage_percent));
+		plot.SetTitle(Format("%s, Coverage: %.2f%%", sim_name.data(), coverage_percent));
+		//plot.SetLabels(Null, app->state_vars[target.sim_id]->name.data());
 		
 		format_axes(&plot, Plot_Mode::regular, 0, result_start, parent->app->time_step_size);
 		set_round_grid_line_positions(&plot, 1);
-		
+		plot.SetLabels(Null, Null, Null);
 		
 		/*************** Compute and plot standardized residuals **********************/
 		
@@ -917,14 +919,14 @@ MCMCResultWindow::generate_projections_pushed() {
 		
 		Color resid_color = resid_plot.colors.next();
 		resid_plot.SetSequentialXAll(false);
-		//ResidPlot.SetTitle(Target.ResultName.data());
-		resid_plot.SetTitle("Standard residuals"); // TODO: name the target!
+		resid_plot.SetTitle(sim_name.data());
+		//resid_plot.SetTitle("Standard residuals");
 		resid_plot.AddSeries(resid_series).Stroke(0.0, resid_color).MarkColor(resid_color).MarkStyle<CircleMarkPlot>();
 		resid_plot.SetLabelX("Simulated").SetLabelY("Standard residual").ShowLegend(false);
 		resid_plot.ZoomToFit(true, true);
 		set_round_grid_line_positions(&resid_plot, 0);
 		set_round_grid_line_positions(&resid_plot, 1);
-		
+	
 		
 		double min_resid = *std::min_element(standard_residuals.begin(), standard_residuals.end());
 		double max_resid = *std::max_element(standard_residuals.begin(), standard_residuals.end());
@@ -965,9 +967,9 @@ MCMCResultWindow::generate_projections_pushed() {
 		acor_plot.ZoomToFit(true, false).SetMouseHandling(false, true).SetXYMin(Null, -1.0).SetRange(Null, 2.0);
 		set_round_grid_line_positions(&acor_plot, 0);
 		set_round_grid_line_positions(&acor_plot, 1);
-		//acor_plot.SetTitle(Format("\"%s\"", Target.ResultName.data()));  //TODO
 		acor_plot.SetLabelY("Autocorrelation");
 		acor_plot.SetLabelX("Lag");
+		acor_plot.SetTitle(sim_name.data());
 	}
 	
 	for(int worker = 0; worker < n_workers; ++worker)

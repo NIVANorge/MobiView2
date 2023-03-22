@@ -589,7 +589,7 @@ mcmc_ll_eval(void *run_data_0, int walker, int step) {
 		pars[par] = val;
 	}
 	
-	return run_data->optim_models[walker].evaluate(pars.data());
+	return run_data->optim_models[walker].evaluate(pars);
 }
 
 bool
@@ -1078,7 +1078,7 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	try {
 		Timer timer;
-		Dlib_Optimization_Model opt_model(data, expr_pars, targets, initial_pars.data(), callback, ms_timeout);
+		Dlib_Optimization_Model opt_model(data, expr_pars, targets, &initial_pars, callback, ms_timeout);
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
 		
 		update_step = std::ceil(4000.0 / (double)ms);
@@ -1437,6 +1437,8 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			ValueArray index_arr = target_json["Indexes"];
 			bool found = !IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count());
 			int row2 = 0;
+			target.indexes.resize(MAX_INDEX_SETS, invalid_index);
+			
 			for(Entity_Id index_set : model->index_sets) {
 				String index_name = Null;
 				if(found) index_name = index_arr[row2];
@@ -1445,10 +1447,12 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 					index = app->get_index(index_set, index_name.ToStd());
 				else
 					index = { index_set, -1 };
-				target.indexes.push_back(index);
+				//target.indexes.push_back(index);
+				target.indexes[row2] = index;
 				++row2;
 			}
-
+			
+			target.set_offsets(&parent->app->data);
 			add_optimization_target(target);
 			
 			// TODO: set these to the array instead
