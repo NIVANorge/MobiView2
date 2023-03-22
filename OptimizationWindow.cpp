@@ -97,6 +97,8 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	run_setup.edit_epsilon.Min(0.0);
 	run_setup.edit_epsilon.SetData(0.0);
 	
+	run_setup.option_show_progress.SetData(true);
+	
 	
 	mcmc_setup.push_run.WhenPush         = [this](){ run_clicked(1); };
 	mcmc_setup.push_run.SetImage(IconImg4::Run());
@@ -152,9 +154,8 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	Add(main_vertical.SizePos());
 	
 	auto font = GetStdFont();
-	font.Bold();
-	target_setup.error_label.SetFont(font);
-	target_setup.error_label.SetInk(Color(255, 0, 0));
+	target_setup.error_label.SetFont(font.Bold());
+	target_setup.error_label.SetInk(Red());
 }
 
 void OptimizationWindow::set_error(const String &err_str) {
@@ -345,8 +346,11 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	int col = target_setup.target_view.GetPos(Id("__targetstat"));
 	target_setup.target_view.SetCtrl(row, col, sel_stat);
 	sel_stat.WhenAction << [this, row]() { stat_edited(row); };
-	
-	sel_stat.GoBegin();
+
+	if(target.stat_type >= 0 && target.stat_type <= (int)LL_Type::end)
+		sel_stat.SetData(target.stat_type);
+	else
+		sel_stat.GoBegin();
 	
 	target_err_ctrls.Create<EditField>();
 	EditField &err_ctrl = target_err_ctrls.Top();

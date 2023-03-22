@@ -40,6 +40,7 @@ void ModelInfoWindow::refresh_text() {
 	
 	for(auto module_id : parent->app->model->modules) {
 		auto mod = parent->app->model->modules[module_id];
+		if(!mod->has_been_processed) continue;
 		
 		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->name.data(), mod->version.major, mod->version.minor, mod->version.revision);
 		if(!mod->doc_string.empty())
