@@ -872,8 +872,9 @@ MCMCResultWindow::generate_projections_pushed() {
 		Color upper_color  = plot.colors.next();
 		Color lower_color  = plot.colors.next();
 		
+		plot.SetLabelY(" "); // otherwise it generates a label that we don't want.
+		
 		// TODO: "Median" etc. should not be a prefix, it should be the entire series name...
-		//          also the Y axis label is screwed up.
 		add_single_plot(&plot, model_datas[1], parent->app, target.sim_id, target.indexes,
 				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, upper_color, false, Format("%.2f percentile ", max_conf), true);
 		
@@ -889,11 +890,9 @@ MCMCResultWindow::generate_projections_pushed() {
 		auto &sim_name = parent->app->state_vars[target.sim_id]->name;
 		double coverage_percent = 100.0*(double)coverage/(double)n_obs;
 		plot.SetTitle(Format("%s, Coverage: %.2f%%", sim_name.data(), coverage_percent));
-		//plot.SetLabels(Null, app->state_vars[target.sim_id]->name.data());
 		
 		format_axes(&plot, Plot_Mode::regular, 0, result_start, parent->app->time_step_size);
 		set_round_grid_line_positions(&plot, 1);
-		plot.SetLabels(Null, Null, Null);
 		
 		/*************** Compute and plot standardized residuals **********************/
 		

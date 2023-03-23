@@ -2,6 +2,7 @@
 #include "MobiView2.h"
 
 #include "support/dlib_optimization.h"
+#include "support/effect_indexes.h"
 
 /*
 #ifdef _WIN32
@@ -119,7 +120,6 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	mcmc_setup.sampler_param_view.AddColumn("Description");
 	mcmc_setup.sampler_param_view.ColumnWidths("3 2 5");
 	
-	//TODO!
 	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::affine_stretch,         "Affine stretch (recommended)");
 	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::affine_walk,            "Affine walk");
 	mcmc_setup.select_sampler.Add((int)MCMC_Sampler::differential_evolution, "Differential evolution");
@@ -130,9 +130,9 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	
 	sensitivity_setup.edit_sample_size.Min(10);
 	sensitivity_setup.edit_sample_size.SetData(1000);
-	sensitivity_setup.push_run.WhenPush  = [&](){ run_clicked(3); };
-	//TODO
-	//sensitivity_setup.push_view_results.WhenPush = [&]() {	if(!ParentWindow->VarSensitivityWin.IsOpen()) ParentWindow->VarSensitivityWin.Open(); };
+	sensitivity_setup.push_run.WhenPush  = [this](){ run_clicked(3); };
+
+	sensitivity_setup.push_view_results.WhenPush = [this]() {	if(!this->parent->variance_window.IsOpen()) this->parent->variance_window.Open(); };
 	sensitivity_setup.push_run.SetImage(IconImg4::Run());
 	sensitivity_setup.push_view_results.SetImage(IconImg4::ViewMorePlots());
 	
@@ -711,188 +711,100 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 	return finished;
 }
 
-/*
-bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound)
-{
+struct Sensitivity_Target_State {
+	std::vector<Optimization_Model> optim_models;
+};
+
+double
+sensitivity_target_fun(void *state, int worker, const std::vector<double> &values) {
+	auto target_state = static_cast<Sensitivity_Target_State *>(state);
 	
-	int ProgressInterval = 50; //TODO: Make the caller set this.
+	double result = target_state->optim_models[worker].evaluate(values);
 	
-	VarianceSensitivityWindow &SensWin = ParentWindow->VarSensitivityWin;
-	if(!SensWin.IsOpen()) SensWin.Open();
+	//if(worker == 0)
+	//	warning_print(result, "\n");
 	
-	SensWin.Plot.ClearAll(true);
-	SensWin.Plot.SetLabels("Combined statistic", "Frequency");
+	return result;
+}
+
+struct Sensitivity_Callback_State {
+	VarianceSensitivityWindow *result_window;
+	MobiView2                 *parent;
+};
+
+bool
+sensitivity_callback(void *state, int par, double main_ei, double total_ei) {
 	
-	SensWin.ShowProgress.Show();
-	SensWin.ResultData.Clear();
+	auto callback_state = static_cast<Sensitivity_Callback_State *>(state);
 	
-	for(indexed_parameter &Par : *Optim->Parameters)
-	{
-		if(Par.Expr == "") SensWin.ResultData.Add(Par.Symbol.data(), Null, Null);
-	}
-	ParentWindow->ProcessEvents();
+	double prec = callback_state->parent->stat_settings.display_settings.decimal_precision;
+
+	callback_state->result_window->result_data.Set(par, "__main", FormatDouble(main_ei, prec));
+	callback_state->result_window->result_data.Set(par, "__total", FormatDouble(total_ei, prec));
 	
-	int NPars = Optim->FreeParCount;
-	
-	//NOTE: We re-appropriate the MCMC data for use here.
-	mcmc_data MatA;
-	mcmc_data MatB;
-	MatA.Allocate(1, NPars, NSamples);
-	MatB.Allocate(1, NPars, NSamples);
-	
-	if(Method == 0)
-	{
-		DrawLatinHyperCubeSamples(&MatA, MinBound, MaxBound);
-		DrawLatinHyperCubeSamples(&MatB, MinBound, MaxBound);
-	}
-	else if(Method == 1)
-	{
-		DrawUniformSamples(&MatA, MinBound, MaxBound);
-		DrawUniformSamples(&MatB, MinBound, MaxBound);
-	}
-	
-	//NOTE This is a bit wasteful since we already allocated storage for result data in the
-	//mcmc_data. But it is very convenient to have these in one large vector below ...
-	std::vector<double> f0(NSamples*2);
-	double *fA = f0.data();
-	double *fB = fA + NSamples;
-	
-	int TotalEvals = NSamples*(NPars + 2);
-	int Evals = 0;
-	
-	Array<AsyncWork<double>> Workers;
-	auto NThreads = std::thread::hardware_concurrency();
-	int NWorkers = std::max(32, (int)NThreads);
-	Workers.InsertN(0, NWorkers);
-	
-	std::vector<void *> DataSets(NWorkers);
-	for(int Worker = 0; Worker < NWorkers; ++Worker)
-		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-	
-	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
-	{
-		for(int Worker = 0; Worker < NWorkers; ++Worker)
-		{
-			int Sample = SuperSample*NWorkers + Worker;
-			if(Sample >= NSamples) break;
-			Workers[Worker].Do([=, & MatA, & MatB, & fA, & fB, &DataSets] () -> double {
-				column_vector Pars(NPars);
-				for(int Par = 0; Par < NPars; ++Par)
-					Pars(Par) = MatA(0, Par, Sample);
-				
-				fA[Sample] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
-		
-				for(int Par = 0; Par < NPars; ++Par)
-					Pars(Par) = MatB(0, Par, Sample);
-				
-				fB[Sample] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
-				
-				return 0.0; //NOTE: Just to be able to reuse the same workers. we have them returning double
-			});
-		}
-		for(auto &Worker : Workers) Worker.Get();
-		
-		Evals += NWorkers*2;
-		if(Evals > NSamples*2) Evals = NSamples*2;
-		if(SuperSample % 8 == 0)
-		{
-			SensWin.ShowProgress.Set(Evals, TotalEvals);
-			ParentWindow->ProcessEvents();
-		}
-	}
-	
-	int NBinsHistogram = SensWin.Plot.AddHistogram(Null, Null, f0.data(), 2*NSamples);
-	Time Dummy;
-	SensWin.Plot.FormatAxes(MajorMode_Histogram, NBinsHistogram, Dummy, ParentWindow->TimestepSize);
-	SensWin.Plot.ShowLegend(false);
-	
-	//TODO: What should we use to compute overall variance?
-	double mA = 0.0;
-	double vA = 0.0;
-	for(int J = 0; J < 2*NSamples; ++J) mA += f0[J];
-	mA /= 2.0*(double)NSamples;
-	for(int J = 0; J < 2*NSamples; ++J) vA += (f0[J]-mA)*(f0[J]-mA);
-	vA /= 2.0*(double)NSamples;
-	
-	
-	for(int I = 0; I < NPars; ++I)
-	{
-		double Main  = 0;
-		double Total = 0;
-		
-		for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
-		{
-			for(int Worker = 0; Worker < NWorkers; ++Worker)
-			{
-				int Sample = SuperSample*NWorkers + Worker;
-				if(Sample >= NSamples) break;
-				
-				Workers[Worker].Do([=, & MatA, & MatB, & DataSets] () -> double {
-					column_vector Pars(NPars);
-					for(int II = 0; II < NPars; ++II)
-					{
-						if(II == I) Pars(II) = MatB(0, II, Sample);//matB[Sample*NPars + II];
-						else        Pars(II) = MatA(0, II, Sample);//matA[Sample*NPars + II];
-					}
-					return Optim->EvaluateObjectives(DataSets[Worker], Pars);
-				});
-			}
-			for(int Worker = 0; Worker < NWorkers; ++Worker)
-			{
-				int J = SuperSample*NWorkers + Worker;
-				if(J >= NSamples) break;
-				double fABij = Workers[Worker].Get();
-				
-				Main  += fB[J]*(fABij - fA[J]);
-				Total += (fA[J] - fABij)*(fA[J] - fABij);
-				
-				Evals++;
-			}
-			if(SuperSample % 8 == 0)
-			{
-				SensWin.ShowProgress.Set(Evals, TotalEvals);
-				ParentWindow->ProcessEvents();
-			}
-		}
-		
-		Main /= (vA * (double)NSamples);
-		Total /= (vA * 2.0 * (double)NSamples);
-		
-		SensWin.ResultData.Set(I, "__main", FormatDouble(Main, ParentWindow->StatSettings.Precision));
-		SensWin.ResultData.Set(I, "__total", FormatDouble(Total, ParentWindow->StatSettings.Precision));
-		
-		ParentWindow->ProcessEvents();
-	}
-	
-	SensWin.ShowProgress.Hide();
-	
-	for(int Worker = 0; Worker < NWorkers; ++Worker)
-		ParentWindow->ModelDll.DeleteDataSet(DataSets[Worker]);
-	
-	MatA.Free();
-	MatB.Free();
+	callback_state->parent->ProcessEvents();
 	
 	return true;
-	
-//	#undef DO_PROGRESS
 }
 
-VarianceSensitivityWindow::VarianceSensitivityWindow()
-{
-	CtrlLayout(*this, "MobiView variance based sensitivity results");
+bool
+OptimizationWindow::run_variance_based_sensitivity(int n_samples, int sample_method, Optimization_Model *optim, double *min_bound, double *max_bound) {
+	
+	int n_pars = optim->initial_pars.size();
+	
+	auto n_threads = std::thread::hardware_concurrency();
+	int n_workers = std::max(32, (int)n_threads);
+	
+	Sensitivity_Target_State target_state;
+	for(int worker = 0; worker < n_workers; ++worker) {
+		Optimization_Model opt = *optim;
+		opt.data = optim->data->copy(false);
+		target_state.optim_models.push_back(opt);
+	}
+	
+	Sensitivity_Callback_State callback_state;
+	callback_state.result_window = &parent->variance_window;
+	callback_state.parent        = parent;
+	
+	int callback_interval = 50; //TODO: Make the caller set this.
+	
+	// TODO: Actually need one more type of callback for just regular progress update.
+	
+	// TODO: Need to extract data to populate the histogram.
+	
+	int idx = 0;
+	for(Indexed_Parameter &par : optim->parameters->parameters) {
+		if(!optim->parameters->exprs[idx])
+			parent->variance_window.result_data.Add(par.symbol.data(), Null, Null);
+	}
+	parent->ProcessEvents();
+	
+	compute_effect_indexes(n_samples, n_pars, n_workers, sample_method, min_bound, max_bound, 
+		sensitivity_target_fun, &target_state, sensitivity_callback, &callback_state, callback_interval);
+
+	// Clean up copied data.
+	for(int worker = 0; worker < n_workers; ++worker)
+		delete target_state.optim_models[worker].data;
+
+	parent->log_warnings_and_errors();
+
+	return true;
+}
+
+VarianceSensitivityWindow::VarianceSensitivityWindow() {
+	
+	CtrlLayout(*this, "MobiView2 variance based sensitivity results");
 	MinimizeBox().Sizeable().Zoomable();
 
-	ShowProgress.Set(0, 1);
-	ShowProgress.Hide();
+	show_progress.Set(0, 1);
+	show_progress.Hide();
 	
-	ResultData.AddColumn("__par", "Parameter");
-	ResultData.AddColumn("__main", "First-order sensitivity coefficient");
-	ResultData.AddColumn("__total", "Total effect index");
+	result_data.AddColumn("__par", "Parameter");
+	result_data.AddColumn("__main", "First-order sensitivity coefficient");
+	result_data.AddColumn("__total", "Total effect index");
 	
-	Plot.SetLabels("Combined statistic", "Frequency");
+	plot.SetLabels("Combined statistic", "Frequency");
 }
-
-*/
 
 bool
 OptimizationWindow::err_sym_fixup() {
@@ -1167,7 +1079,26 @@ void OptimizationWindow::run_clicked(int run_type)
 			
 			mcmc_setup.push_extend_run.Enable();
 		} else if (run_type == 3) {
-			//TODO
+			int n_samples = sensitivity_setup.edit_sample_size.GetData();
+			int sample_method = sensitivity_setup.select_method.GetData();
+			
+			int n_pars = opt_model.initial_pars.size();
+			
+			auto n_cores = std::thread::hardware_concurrency();
+			double exp_duration_1 = ms*1e-3*(double)n_samples*(2.0 + (double)n_pars) / (double)n_cores;
+			double exp_duration_2 = 2.0*exp_duration_1;   //TODO: This is just because we are not able to get the number of physical cores..
+			
+			parent->log(Format("Running variance based sensitiviy sampling. Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.", exp_duration_1, exp_duration_2, (int)n_cores));
+			
+			if(!parent->variance_window.IsOpen())
+				parent->variance_window.Open();
+			
+			timer = Timer();
+			run_variance_based_sensitivity(n_samples, sample_method, &opt_model, min_vals.data(), max_vals.data());
+			
+			ms = timer.get_milliseconds();
+			
+			parent->log(Format("Variance based sensitivity sampling finished after %g seconds.", (double)ms*1e-3));
 		}
 		
 		run_setup.push_run.Enable();

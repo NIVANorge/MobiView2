@@ -64,6 +64,8 @@ file
 	C:\Data\Mobius2\src\ast.h,
 	C:\Data\Mobius2\src\common_types.h,
 	C:\Data\Mobius2\src\data_set.cpp,
+	C:\Data\Mobius2\src\support\effect_indexes.cpp,
+	C:\Data\Mobius2\src\support\effect_indexes.h,
 	C:\Data\Mobius2\src\data_set.h,
 	C:\Data\Mobius2\src\datetime.h,
 	C:\Data\Mobius2\src\model_declaration.cpp,

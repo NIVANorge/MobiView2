@@ -133,6 +133,7 @@ public:
 	AdditionalPlotView    additional_plots;
 	OptimizationWindow    optimization_window;
 	MCMCResultWindow      mcmc_window;
+	VarianceSensitivityWindow variance_window;
 	StructureViewWindow   structure_window;
 	
 	Mobius_Model      *model = nullptr;

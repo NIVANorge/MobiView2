@@ -90,6 +90,7 @@ void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color
 		
 		bool prev_prev_valid = false;
 		bool prev_valid = false;
+		// See if there are any isolated points.
 		for(int64 id = 0; id < data->GetCount(); ++id) {
 			double y = data->y(id);
 			bool valid = std::isfinite(y);

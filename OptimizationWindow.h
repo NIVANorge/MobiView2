@@ -96,7 +96,7 @@ private:
 		std::vector<double> &initial_values, std::vector<double> &min_bound, std::vector<double> &max_bound, int init_type, int callback_interval, int run_type);
 		
 		
-	//bool RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound);
+	bool run_variance_based_sensitivity(int n_samples, int sample_method, Optimization_Model *optim, double *min_bound, double *max_bound);
 
 	
 	Upp::Array<Upp::EditDoubleNotNull> edit_min_ctrls;
@@ -218,6 +218,13 @@ private:
 public:
 	Expr_Parameters                  expr_pars;
 	std::vector<Optimization_Target> targets;
+};
+
+class VarianceSensitivityWindow : public WithVarSensitivityResultLayout<Upp::TopWindow> {
+public:
+	typedef VarianceSensitivityWindow CLASSNAME;
+	
+	VarianceSensitivityWindow();	
 };
 
 Plot_Setup
