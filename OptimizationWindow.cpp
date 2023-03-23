@@ -762,32 +762,43 @@ OptimizationWindow::run_variance_based_sensitivity(int n_samples, int sample_met
 		target_state.optim_models.push_back(opt);
 	}
 	
+	auto win = &parent->variance_window;
+	
 	Sensitivity_Callback_State callback_state;
-	callback_state.result_window = &parent->variance_window;
+	callback_state.result_window = win;
 	callback_state.parent        = parent;
 	
 	int callback_interval = 50; //TODO: Make the caller set this.
 	
 	// TODO: Actually need one more type of callback for just regular progress update.
 	
-	// TODO: Need to extract data to populate the histogram.
-	
 	int idx = 0;
 	for(Indexed_Parameter &par : optim->parameters->parameters) {
 		if(!optim->parameters->exprs[idx])
-			parent->variance_window.result_data.Add(par.symbol.data(), Null, Null);
+			win->result_data.Add(par.symbol.data(), Null, Null);
 	}
 	parent->ProcessEvents();
 	
+	std::vector<double> samples;
 	compute_effect_indexes(n_samples, n_pars, n_workers, sample_method, min_bound, max_bound, 
-		sensitivity_target_fun, &target_state, sensitivity_callback, &callback_state, callback_interval);
-
+		sensitivity_target_fun, &target_state, sensitivity_callback, &callback_state, callback_interval, samples);
+	
 	// Clean up copied data.
 	for(int worker = 0; worker < n_workers; ++worker)
 		delete target_state.optim_models[worker].data;
-
-	parent->log_warnings_and_errors();
-
+	
+	std::vector<double> xs(samples.size());
+	
+	win->plot.series_data.Create<Data_Source_Owns_XY>(&xs, &samples);
+	auto *data = &win->plot.series_data.Top();
+	int n_bins_histogram = add_histogram(&win->plot, data, data->MinY(), data->MaxY(), data->GetCount(), Null, Null, win->plot.colors.next());
+	
+	format_axes(&win->plot, Plot_Mode::histogram, n_bins_histogram, {}, {});
+	win->plot.ShowLegend(false);
+	win->plot.Refresh();
+	
+	//TODO: Maybe error handling
+	
 	return true;
 }
 
