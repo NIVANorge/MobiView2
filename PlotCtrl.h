@@ -54,6 +54,7 @@ struct Plot_Setup {
 	Aggregation_Period aggregation_period;
 	Y_Axis_Mode        y_axis_mode;
 	bool               scatter_inputs;
+	int                pivot_month;
 	
 	std::vector<Var_Id> selected_results;
 	std::vector<Var_Id> selected_series;
@@ -104,7 +105,7 @@ private:
 
 void
 aggregate_data(Date_Time &ref_time, Date_Time &start_time, Upp::DataSource *source,
-	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, std::vector<double> &x_vals, std::vector<double> &y_vals);
+	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, int pivot_month, std::vector<double> &x_vals, std::vector<double> &y_vals);
 
 class Agg_Data_Source : public Upp::DataSource {
 	
@@ -165,7 +166,7 @@ private :
 				for(s64 ts = 0; ts < steps; ++ts) agg_y[ts] = source->y(ts);
 			}
 		} else {
-			aggregate_data(ref_x_start, start, source, setup->aggregation_period, setup->aggregation_type, ts_size, agg_x, agg_y);
+			aggregate_data(ref_x_start, start, source, setup->aggregation_period, setup->aggregation_type, ts_size, setup->pivot_month, agg_x, agg_y);
 			copied_y = true;
 		}
 

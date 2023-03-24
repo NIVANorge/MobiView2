@@ -21,5 +21,6 @@ LAYOUT(PlotCtrlLayout, 776, 308)
 	ITEM(Upp::ButtonOption, push_sel_all4, LeftPosZ(280, 20).BottomPosZ(4, 20))
 	ITEM(Upp::ButtonOption, push_sel_all5, LeftPosZ(372, 20).BottomPosZ(4, 20))
 	ITEM(Upp::ButtonOption, push_sel_all6, LeftPosZ(464, 20).BottomPosZ(4, 20))
+	ITEM(Upp::DropList, pivot_month, RightPosZ(156, 64).BottomPosZ(5, 19))
 END_LAYOUT
 

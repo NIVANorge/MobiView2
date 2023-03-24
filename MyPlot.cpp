@@ -157,7 +157,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 }
 
 Date_Time
-normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
+normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg, int pivot_month) {
 	if(agg == Aggregation_Period::none) return time;
 	Date_Time result = time;
 	result.seconds_since_epoch -= result.second_of_day();
@@ -167,7 +167,10 @@ normalize_to_aggregation_period(Date_Time time, Aggregation_Period agg) {
 	} else {
 		s32 y, m, d;
 		result.year_month_day(&y, &m, &d);
-		m = (agg == Aggregation_Period::yearly) ? 1 : m;
+		if(agg == Aggregation_Period::yearly) {
+			if(m < pivot_month) y--;
+			m = pivot_month;
+		}
 		result = Date_Time(y, m, 1);
 	}
 	return result;
@@ -1074,7 +1077,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			s64 agg_steps = series_data[0].GetCount();
 			
 			if(plot_ctrl && (mode == Plot_Mode::profile || profile2D_is_timed)) {
-				Date_Time prof_start = normalize_to_aggregation_period(start, setup.aggregation_period);
+				Date_Time prof_start = normalize_to_aggregation_period(start, setup.aggregation_period, setup.pivot_month);
 				plot_ctrl->profile_base_time = prof_start;
 				plot_ctrl->time_step_edit.SetData(convert_time(prof_start));
 				plot_ctrl->time_step_slider.Range(agg_steps-1);
@@ -1220,7 +1223,7 @@ reset_aggregate(Aggregation_Type type) {
 
 void
 aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
-	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, std::vector<double> &x_vals, std::vector<double> &y_vals)
+	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, int pivot_month, std::vector<double> &x_vals, std::vector<double> &y_vals)
 {
 	s64 steps = data->GetCount();
 	
@@ -1253,11 +1256,11 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 		//TODO: Want more aggregation interval types than year or month for models with
 		//non-daily resolutions
 		bool push = (step == steps-1);
-		if(agg_period == Aggregation_Period::yearly || agg_period == Aggregation_Period::monthly)
-			push = push || (time.year != y);
-		if(agg_period == Aggregation_Period::monthly)
-			push = push || (time.month != m);
-		if(agg_period == Aggregation_Period::weekly) {
+		if(agg_period == Aggregation_Period::yearly) {
+			push = push || (time.month >= pivot_month && (time.year != y || m < pivot_month));
+		} else if(agg_period == Aggregation_Period::monthly)
+			push = push || (time.month != m) || (time.year != y);
+		else if(agg_period == Aggregation_Period::weekly) {
 			auto week = time.date_time.week_since_epoch();
 			push = push || (week != w);
 		}
@@ -1269,7 +1272,7 @@ aggregate_data(Date_Time &ref_time, Date_Time &start_time, DataSource *data,
 			y_vals.push_back(yval);
 			
 			// Put the mark down at a round location.
-			Date_Time mark = normalize_to_aggregation_period(prev, agg_period);
+			Date_Time mark = normalize_to_aggregation_period(prev, agg_period, pivot_month);
 			double xval = (double)(mark.seconds_since_epoch - ref_time.seconds_since_epoch);
 			x_vals.push_back(xval);
 			

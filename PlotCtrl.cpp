@@ -100,6 +100,13 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	};
 	
 	main_plot.plot_ctrl = this;
+	
+	static const char *month_names[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	for(int idx = 0; idx < 12; ++idx)
+		pivot_month.Add(idx+1, month_names[idx]);
+	pivot_month.GoBegin();
+	pivot_month.WhenAction << THISBACK(plot_change);
+	pivot_month.Disable();
 }
 
 void PlotCtrl::time_step_slider_event() {
@@ -191,6 +198,7 @@ void PlotCtrl::plot_change() {
 	time_step_slider.Disable();
 	push_play.Hide();
 	push_rewind.Hide();
+	pivot_month.Disable();
 	
 	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
 		scatter_inputs.Enable();
@@ -216,6 +224,8 @@ void PlotCtrl::plot_change() {
 			y_axis_mode.Disable();
 			time_step_edit.Disable();
 		}
+		if(main_plot.setup.aggregation_period == Aggregation_Period::yearly)
+			pivot_month.Enable();
 	} else
 		aggregation.Disable();
 	
@@ -343,6 +353,8 @@ void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	} else
 		ps.aggregation_period = Aggregation_Period::none;
 	
+	ps.pivot_month = pivot_month.GetData();
+	
 	ps.mode = (Plot_Mode)(int)plot_major_mode.GetData();
 	
 	if(y_axis_mode.IsEnabled())
@@ -414,6 +426,8 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 				index_list[idx]->Select(row);
 		}
 	}
+	if(ps.pivot_month >= 1 && ps.pivot_month <= 12)
+		pivot_month.SetData(ps.pivot_month);
 	
 	parent->result_selecter.set_selection(ps.selected_results);
 	parent->input_selecter.set_selection(ps.selected_series);
