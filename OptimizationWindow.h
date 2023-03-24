@@ -224,7 +224,8 @@ class VarianceSensitivityWindow : public WithVarSensitivityResultLayout<Upp::Top
 public:
 	typedef VarianceSensitivityWindow CLASSNAME;
 	
-	VarianceSensitivityWindow();	
+	VarianceSensitivityWindow();
+	void clean();	
 };
 
 Plot_Setup

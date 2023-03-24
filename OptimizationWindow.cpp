@@ -733,15 +733,21 @@ struct Sensitivity_Callback_State {
 };
 
 bool
-sensitivity_callback(void *state, int par, double main_ei, double total_ei) {
+sensitivity_callback(void *state, int cb_type, int par_or_sample, double main_ei, double total_ei) {
 	
 	auto callback_state = static_cast<Sensitivity_Callback_State *>(state);
 	
-	double prec = callback_state->parent->stat_settings.display_settings.decimal_precision;
-
-	callback_state->result_window->result_data.Set(par, "__main", FormatDouble(main_ei, prec));
-	callback_state->result_window->result_data.Set(par, "__total", FormatDouble(total_ei, prec));
-	
+	if(cb_type == 0) {
+		auto &sp = callback_state->result_window->show_progress;
+		//warning_print("Part is ", par_or_sample, " Total is ", sp.GetTotal());
+		sp.Set(par_or_sample);//, sp.GetTotal());
+	} else {
+		double prec = callback_state->parent->stat_settings.display_settings.decimal_precision;
+		int par = par_or_sample;
+		
+		callback_state->result_window->result_data.Set(par, "__main", FormatDouble(main_ei, prec));
+		callback_state->result_window->result_data.Set(par, "__total", FormatDouble(total_ei, prec));
+	}
 	callback_state->parent->ProcessEvents();
 	
 	return true;
@@ -764,11 +770,17 @@ OptimizationWindow::run_variance_based_sensitivity(int n_samples, int sample_met
 	
 	auto win = &parent->variance_window;
 	
+	win->clean();
+	
 	Sensitivity_Callback_State callback_state;
 	callback_state.result_window = win;
 	callback_state.parent        = parent;
 	
-	int callback_interval = 50; //TODO: Make the caller set this.
+	int callback_interval = 10*n_workers; //TODO: Make the caller set this. Note, it must be a multiple of 2*n_workers
+	
+	int total_samples = n_samples*(2 + n_pars);
+	win->show_progress.Set(0, total_samples);
+	win->show_progress.Show();
 	
 	// TODO: Actually need one more type of callback for just regular progress update.
 	
@@ -796,6 +808,7 @@ OptimizationWindow::run_variance_based_sensitivity(int n_samples, int sample_met
 	format_axes(&win->plot, Plot_Mode::histogram, n_bins_histogram, {}, {});
 	win->plot.ShowLegend(false);
 	win->plot.Refresh();
+	win->show_progress.Hide();
 	
 	//TODO: Maybe error handling
 	
@@ -815,6 +828,12 @@ VarianceSensitivityWindow::VarianceSensitivityWindow() {
 	result_data.AddColumn("__total", "Total effect index");
 	
 	plot.SetLabels("Combined statistic", "Frequency");
+}
+
+void
+VarianceSensitivityWindow::clean() {
+	result_data.Clear();
+	plot.clean();
 }
 
 bool

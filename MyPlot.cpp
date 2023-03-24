@@ -536,6 +536,14 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 				for(int idx = 0; idx < n_bins_histogram; idx+=line_skip)
 					pos << stride * (double)idx;
 			};
+			
+			// Skip some of the numeric labels since they tend to overlap otherwise.
+			plot->cbModifFormatXGridUnits << [](String &s, int i, double d) {
+				if(i % 2 == 1)
+					s = FormatDouble(d, 3);
+				else
+					s = "";
+			};
 		} else if(mode == Plot_Mode::qq) {
 			//NOTE: qq plots require special zooming.
 			plot->ZoomToFitNonLinked(true, true, 0, 0);
