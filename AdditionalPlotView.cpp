@@ -28,8 +28,8 @@ AdditionalPlotView::AdditionalPlotView(MobiView2 *parent) : parent(parent) {
 	link_all.Set(1);
 	link_all.WhenAction = THISBACK(update_link_status);
 	
-	AddFrame(tool);
-	tool.Set(THISBACK(sub_bar));
+	//AddFrame(tool);
+	//tool.Set(THISBACK(sub_bar));
 	
 	for(int row = 0; row < MAX_ADDITIONAL_PLOTS; ++row) {
 		plots[row].copy_main.WhenPush << [this, row](){ copy_main_plot(row); };
@@ -144,17 +144,17 @@ void AdditionalPlotView::SetAll(std::vector<plot_setup> &Setups)
 	EditNumRows.SetData(Count);
 	NumRowsChanged(true);	
 }
-
-void SerializePlotSetup(Json &SetupJson, plot_setup &Setup, MobiView *ParentWindow)
-{
+*/
+/*
+void serialize_plot_setup(Json &setup_json, Plot_Setup &setup, MobiView2 *parent) {
 	//NOTE: This is not robust if we change the enums!
 	
-	SetupJson("MajorMode", (int)Setup.MajorMode);
-	SetupJson("AggregationType", (int)Setup.AggregationType);
-	SetupJson("AggregationPeriod", (int)Setup.AggregationPeriod);
-	SetupJson("YAxisMode", (int)Setup.YAxisMode);
-	SetupJson("ProfileTimestep", Setup.ProfileTimestep);
-	SetupJson("ScatterInputs", Setup.ScatterInputs);
+	SetupJson("MajorMode", (int)setup.major_mode);
+	SetupJson("AggregationType", (int)setup.aggregation_type);
+	SetupJson("AggregationPeriod", (int)setup.aggregation_period);
+	SetupJson("YAxisMode", (int)setup.y_axis_mode);
+	SetupJson("ProfileTimestep", setup.profile_timestep);
+	SetupJson("ScatterInputs", setup.scatter_inputs);
 	
 	JsonArray ResultArr;
 	for(std::string &R : Setup.SelectedResults)
@@ -240,8 +240,9 @@ void AdditionalPlotView::WriteToJson()
 	
 	SaveFile(Filename, MainFile.ToString());
 }
+*/
 
-
+/*
 void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup, MobiView *ParentWindow)
 {
 	if(IsNull(SetupJson)) return;

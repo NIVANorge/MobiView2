@@ -459,6 +459,11 @@ void
 MCMCResultWindow::refresh_result_summary(s64 cur_step) {
 	result_summary.Clear();
 	
+	result_summary.append("Please stand by while we compute the values.");
+	parent->ProcessEvents();
+	
+	result_summary.Clear();
+	
 	if(!data) return;
 	s64 burnin_val = (int)burnin[0];
 	if(cur_step < 0) cur_step = data->n_steps - 1;

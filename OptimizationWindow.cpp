@@ -739,8 +739,7 @@ sensitivity_callback(void *state, int cb_type, int par_or_sample, double main_ei
 	
 	if(cb_type == 0) {
 		auto &sp = callback_state->result_window->show_progress;
-		//warning_print("Part is ", par_or_sample, " Total is ", sp.GetTotal());
-		sp.Set(par_or_sample);//, sp.GetTotal());
+		sp.Set(par_or_sample);
 	} else {
 		double prec = callback_state->parent->stat_settings.display_settings.decimal_precision;
 		int par = par_or_sample;
