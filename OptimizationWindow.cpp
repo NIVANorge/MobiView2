@@ -48,11 +48,15 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	par_setup.parameter_view.AddColumn(Id("__unit"), "Unit");
 	par_setup.parameter_view.AddColumn(Id("__sym"), "Symbol");
 	par_setup.parameter_view.AddColumn(Id("__expr"), "Expression");
+	par_setup.parameter_view.AddColumn(Id("__idx"), "Index");
+	
+	par_setup.parameter_view.Moving(true);
 	
 	par_setup.option_use_expr.Set((int)false);
 	par_setup.option_use_expr.WhenAction     = THISBACK(enable_expressions_clicked);
 	par_setup.parameter_view.HeaderObject().HideTab(5);
 	par_setup.parameter_view.HeaderObject().HideTab(6);
+	par_setup.parameter_view.HeaderObject().HideTab(7);
 	
 	target_setup.target_view.AddColumn(Id("__resultname"), "Result name");
 	target_setup.target_view.AddColumn(Id("__resultindexes"), "Result idxs.");
@@ -233,7 +237,7 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 		parameters.push_back(std::move(parameter));
 		int row = parameters.size()-1;
 		
-		par_setup.parameter_view.Add(name, index_str, min, max, unit, sym, expr);
+		par_setup.parameter_view.Add(name, index_str, min, max, unit, sym, expr, row);
 
 		edit_min_ctrls.Create<EditDoubleNotNull>();
 		edit_max_ctrls.Create<EditDoubleNotNull>();
@@ -255,11 +259,13 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 }
 
 void OptimizationWindow::symbol_edited(int row) {
-	parameters[row].symbol = par_setup.parameter_view.Get(row, "__sym").ToStd();
+	int idx = par_setup.parameter_view.Get(row, "__idx");
+	parameters[idx].symbol = par_setup.parameter_view.Get(row, "__sym").ToStd();
 }
 
 void OptimizationWindow::expr_edited(int row) {
-	parameters[row].expr = par_setup.parameter_view.Get(row, "__expr").ToStd();
+	int idx = par_setup.parameter_view.Get(row, "__idx");
+	parameters[idx].expr = par_setup.parameter_view.Get(row, "__expr").ToStd();
 }
 
 void OptimizationWindow::add_parameter_clicked() {
@@ -283,8 +289,10 @@ void OptimizationWindow::remove_parameter_clicked() {
 	int sel_row = par_setup.parameter_view.GetCursor();
 	if(sel_row < 0) return;
 	
+	int idx = par_setup.parameter_view.Get(sel_row, "__idx");
+	
 	par_setup.parameter_view.Remove(sel_row);
-	parameters.erase(parameters.begin()+sel_row);
+	parameters.erase(parameters.begin()+idx);
 	edit_min_ctrls.Remove(sel_row);
 	edit_max_ctrls.Remove(sel_row);
 	edit_sym_ctrls.Remove(sel_row);
@@ -933,10 +941,18 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	auto app = parent->app;
 	
+	int n_rows = par_setup.parameter_view.GetCount();
+	
+	std::vector<Indexed_Parameter> sorted_params;
+	for(int row = 0; row < n_rows; ++row) {
+		int idx = par_setup.parameter_view.Get(row, "__idx");
+		sorted_params.push_back(parameters[idx]);
+	}
+	
 	bool error = false;
 	try {
 		// NOTE: Must set the expr_pars before we call err_sym_fixup() !
-		expr_pars.set(app, parameters);
+		expr_pars.set(app, sorted_params);
 	} catch (int) {
 		set_error("There was an error. See the main log window.");
 		error = true;
@@ -952,7 +968,8 @@ void OptimizationWindow::run_clicked(int run_type)
 	std::vector<double> initial_pars, min_vals, max_vals;
 	
 	int active_idx = 0;
-	for(int row = 0; row < expr_pars.parameters.size(); ++row) {
+	for(int row = 0; row < n_rows; ++row) {
+		
 		if(expr_pars.exprs[row].get()) continue; // Don't check for parameters that have expressions.
 		
 		auto &par = expr_pars.parameters[row];

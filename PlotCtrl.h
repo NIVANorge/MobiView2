@@ -7,6 +7,7 @@
 #include "ParameterCtrl.h"
 #include "MyRichView.h"
 #include "support/statistics.h"
+#include "support/aggregate.h"
 #include "model_application.h"
 
 //NOTE: This has to match up to the aggregation selector. It should also match the override
@@ -24,14 +25,6 @@ enum class Plot_Mode {
 	qq,
 	
 	none = 100, // Only used to signify a non-override
-};
-
-//NOTE: This has to match up to the aggregation selector.
-enum class Aggregation_Type {
-	mean = 0,
-	sum,
-	min,
-	max,
 };
 
 //NOTE: This has to match up to the y axis mode selector.
@@ -102,10 +95,6 @@ private:
 	Mobius_Data_Source sim;
 	Mobius_Data_Source obs;
 };
-
-void
-aggregate_data(Date_Time &ref_time, Date_Time &start_time, Upp::DataSource *source,
-	Aggregation_Period agg_period, Aggregation_Type agg_type, Time_Step_Size ts_size, int pivot_month, std::vector<double> &x_vals, std::vector<double> &y_vals);
 
 class Agg_Data_Source : public Upp::DataSource {
 	
