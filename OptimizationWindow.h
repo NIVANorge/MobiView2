@@ -125,6 +125,9 @@ public:
 	
 	MC_Data                    mc_data;
 	
+	// The only function of the 'parameters' vector is to hold data that is being edited by the parameter view.
+	// expr_pars is the final setup used in the optimizer runs, and will then hold a copy of data from
+	// 'parameters'
 	std::vector<Indexed_Parameter>   parameters;
 	std::vector<Optimization_Target> targets;
 	Expr_Parameters                  expr_pars;

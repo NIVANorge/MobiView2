@@ -394,6 +394,8 @@ void MobiView2::reload(bool recompile_only) {
 		}
 	}
 	
+	log(Format("Reloaded model \"%s\"", app->model->model_name));
+	
 	if(!recompile_only)
 		run_model();
 }
@@ -462,7 +464,9 @@ void MobiView2::load() {
 
 	log(Format("Selecting data file: %s", data_file.data()));
 
-	do_the_load();
+	bool success = do_the_load();
+	if(success)
+		log(Format("Loaded model \"%s\"", app->model->model_name));
 }
 
 void MobiView2::save_parameters() {
@@ -515,6 +519,7 @@ void MobiView2::save_parameters_as() {
 }
 
 void MobiView2::plot_rebuild() {
+	if(!app) return;
 	// If the calibration interval is not set, set it based on the last model run.
 	s64 time_steps = app->data.results.time_steps;
 	if(time_steps > 0) {
@@ -666,9 +671,12 @@ void MobiView2::build_interface() {
 			module_id = { Reg_Type::module, idx };
 			
 			auto mod = model->modules[module_id];
-			if(!mod->has_been_processed) continue;
+			auto temp = model->module_templates[mod->template_id];
 			
-			String name = Format("%s v. %d.%d.%d", mod->name.data(), mod->version.major, mod->version.minor, mod->version.revision);
+			// TODO: This must be rethought. Maybe create another branch under each template
+			// with each specialization?
+			
+			String name = Format("%s v. %d.%d.%d", mod->name.data(), temp->version.major, temp->version.minor, temp->version.revision);
 			id = par_group_selecter.Add(0, Null, name, false);
 			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 		}

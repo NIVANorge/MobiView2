@@ -167,8 +167,11 @@ void ParameterCtrl::refresh(bool values_only) {
 	bool expanded_active = false;
 	bool column_expand   = false;
 	
-	if(!par_group->parameters.empty()) {
-		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_structure.get_index_sets(par_group->parameters[0]);
+	auto par_range = parent->model->by_scope<Reg_Type::parameter>(par_group_id);
+	s64  par_count = par_range.size();
+	
+	if(par_count) {
+		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_structure.get_index_sets(*par_range.begin());
 		
 		int sz = (int)grp_index_sets.size()-1;
 		if(sz >= 1 && grp_index_sets[sz] == grp_index_sets[sz-1]) {    // Two last index set dependencies are the same -> matrix parameter
@@ -264,9 +267,9 @@ void ParameterCtrl::refresh(bool values_only) {
 		exp_count_2 = Index_T {expanded_set, 1};
 	
 	if(!values_only)
-		listed_pars.resize(par_group->parameters.size()*exp_count.index);
+		listed_pars.resize(par_count*exp_count.index);
 	
-	for(Entity_Id par_id : par_group->parameters) {
+	for(Entity_Id par_id : par_range) {
 		auto par = parent->model->parameters[par_id];
 		
 		for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {

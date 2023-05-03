@@ -292,7 +292,8 @@ void OptimizationWindow::remove_parameter_clicked() {
 	int idx = par_setup.parameter_view.Get(sel_row, "__idx");
 	
 	par_setup.parameter_view.Remove(sel_row);
-	parameters.erase(parameters.begin()+idx);
+	//parameters.erase(parameters.begin()+idx);    // NOTE: We can't do this, because then we
+	// invalidate the indexes that are stored in the row for the rest of them...
 	edit_min_ctrls.Remove(sel_row);
 	edit_max_ctrls.Remove(sel_row);
 	edit_sym_ctrls.Remove(sel_row);
@@ -922,7 +923,9 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	set_error("");
 	
-	if(parameters.empty()) {
+	int n_rows = par_setup.parameter_view.GetCount();
+	
+	if(!n_rows) {
 		set_error("At least one parameter must be added before running");
 		ProcessEvents();
 		return;
@@ -940,8 +943,6 @@ void OptimizationWindow::run_clicked(int run_type)
 		return;
 	
 	auto app = parent->app;
-	
-	int n_rows = par_setup.parameter_view.GetCount();
 	
 	std::vector<Indexed_Parameter> sorted_params;
 	for(int row = 0; row < n_rows; ++row) {
@@ -1269,7 +1270,8 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			// have to be scoped to par group + module!
 			Value name = par_json["Name"];
 			if(!IsNull(name))
-				par.id = model->parameters.find_by_name(name.ToStd());
+				//par.id = model->parameters.find_by_name(name.ToStd());
+				par.id = model->deserialize(name.ToStd(), Reg_Type::parameter);
 			
 			Value virt_val = par_json["Virtual"];
 			if(!IsNull(virt_val)) par.virt = (bool)virt_val;
@@ -1282,7 +1284,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				
 				// TODO: May need better error handling here:
 				Value idx_set_name_val = idx_val["IndexSetName"];
-				if(!IsNull(idx_set_name_val)) index_set = model->index_sets.find_by_name(idx_set_name_val.ToStd());
+				if(!IsNull(idx_set_name_val)) index_set = model->deserialize(idx_set_name_val.ToStd(), Reg_Type::index_set);
 				Value name_val = idx_val["Name"];
 				if(!IsNull(name_val) && name_val != "") {
 					index = parent->app->get_index(index_set, name_val.ToStd());
@@ -1479,13 +1481,17 @@ String OptimizationWindow::write_to_json_string() {
 	JsonArray parameter_arr;
 	
 	//TODO: Factor out a serialization method for an indexed parameter?
-	int row = 0;
-	for(Indexed_Parameter &par : parameters) {
+	int n_rows = par_setup.parameter_view.GetCount();
+	for(int row = 0; row < n_rows; ++row) {
+		
+		int idx = par_setup.parameter_view.Get(row, Id("__idx"));
+		auto &par = parameters[idx];
+		
 		Json par_json;
 		
 		if(!par.virt) {
-			auto par_data = model->parameters[par.id];
-			par_json("Name", par_data->name.data());
+			//auto par_data = model->parameters[par.id];
+			par_json("Name", model->serialize(par.id).data());
 		}
 		
 		par_json("Virtual", par.virt);
@@ -1496,20 +1502,19 @@ String OptimizationWindow::write_to_json_string() {
 		par_json("Expr", par.expr.data());
 		
 		JsonArray index_arr;
-		int idx = 0;
+		int idx2 = 0;
 		for(Index_T index : par.indexes) {
 			Json index_json;
 			if(is_valid(index)) {
 				index_json("Name", app->get_index_name(index).data());
 				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
 			}
-			index_json("Locked", (bool)par.locks[idx]);
+			index_json("Locked", (bool)par.locks[idx2]);
 			index_arr << index_json;
-			++idx;
+			++idx2;
 		}
 		par_json("Indexes", index_arr);
 		parameter_arr << par_json;
-		++row;
 	}
 	main_file("Parameters", parameter_arr);
 	
@@ -1549,7 +1554,7 @@ String OptimizationWindow::write_to_json_string() {
 	
 	JsonArray target_arr;
 	
-	row = 0;
+	int row = 0;
 	for(Optimization_Target &target : targets) {
 		Json target_json;
 		target_json("ResultName", app->state_vars.serialize(target.sim_id).data());

@@ -38,13 +38,15 @@ void ModelInfoWindow::refresh_text() {
 	
 	MarkdownConverter mdc;
 	
+	// TODO: What to do here if there are multiple specializations of the same module template?
+	
 	for(auto module_id : parent->app->model->modules) {
 		auto mod = parent->app->model->modules[module_id];
-		if(!mod->has_been_processed) continue;
+		auto temp = parent->app->model->module_templates[mod->template_id];
 		
-		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->name.data(), mod->version.major, mod->version.minor, mod->version.revision);
-		if(!mod->doc_string.empty())
-			buf += mdc.ToQtf(mod->doc_string.data());
+		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->name.data(), temp->version.major, temp->version.minor, temp->version.revision);
+		if(!temp->doc_string.empty())
+			buf += mdc.ToQtf(temp->doc_string.data());
 		else
 			buf +=  "(no description provided by model creator)";
 		buf += "\n";

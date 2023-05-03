@@ -7,8 +7,8 @@ SearchWindow::SearchWindow(MobiView2 *parent) : parent(parent) {
 	Sizeable();
 	search_field.WhenAction = THISBACK(find);
 	result_field.AddColumn("Parameter");
-	result_field.AddColumn("Group");
 	result_field.AddColumn("Module");
+	result_field.AddColumn("Group");
 	
 	result_field.WhenSel = THISBACK(select_item);
 }
@@ -30,12 +30,12 @@ void SearchWindow::find() {
 		if(idx >= 0) {
 			module_id = { Reg_Type::module, idx };
 			auto mod = parent->model->modules[module_id];
-			if(!mod->has_been_processed) continue;
+			//if(!mod->has_been_processed) continue;
 			mod_name = mod->name.data();
 		}
 		for(auto group_id : parent->model->by_scope<Reg_Type::par_group>(module_id)) {
 			auto group = parent->model->par_groups[group_id];
-			for(auto par_id : group->parameters) {
+			for(auto par_id : parent->model->by_scope<Reg_Type::parameter>(group_id)) {
 				auto par = parent->model->parameters[par_id];
 				std::string par_name = par->name;
 				std::transform(par_name.begin(), par_name.end(), par_name.begin(), ::tolower);

@@ -1057,6 +1057,9 @@ MCMCResultWindow::load_results() {
 	sel.ExecuteOpen();
 	std::string file_name = sel.Get().ToStd();
 	
+	if(file_name.empty())
+		return true;
+	
 	bool success = true;
 	
 	String_View file_data = {};
