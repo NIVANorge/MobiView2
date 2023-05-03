@@ -1379,13 +1379,13 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			
 			String result_name = target_json["ResultName"];
 			if(!IsNull(result_name))
-				target.sim_id  = app->state_vars.deserialize(result_name.ToStd());
+				target.sim_id  = app->deserialize(result_name.ToStd());
+			// TODO: Check that this is actually a model result, not a series
 			
 			String input_name  = target_json["InputName"];
 			if(!IsNull(input_name)) {
-				target.obs_id  = app->series.deserialize(input_name.ToStd());
-				if(!is_valid(target.obs_id))
-					target.obs_id = app->additional_series.deserialize(input_name.ToStd());
+				target.obs_id  = app->deserialize(input_name.ToStd());
+				// TODO: Check that this is actually a series.
 			}
 			
 			target.stat_type    = (int)Stat_Type::mean;
@@ -1557,9 +1557,8 @@ String OptimizationWindow::write_to_json_string() {
 	int row = 0;
 	for(Optimization_Target &target : targets) {
 		Json target_json;
-		target_json("ResultName", app->state_vars.serialize(target.sim_id).data());
-		std::string input_name = target.obs_id.type == Var_Id::Type::series ? app->series.serialize(target.obs_id) : app->additional_series.serialize(target.obs_id);
-		target_json("InputName", input_name.data());
+		target_json("ResultName", app->serialize(target.sim_id).data());
+		target_json("InputName", app->serialize(target.obs_id).data());
 		
 		JsonArray index_arr;
 		for(Index_T index : target.indexes) {

@@ -289,12 +289,12 @@ void MobiView2::reload(bool recompile_only) {
 	std::vector<std::string> sel_additional;
 	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
 	for(Var_Id var_id : setup.selected_results)
-		sel_results.push_back(app->state_vars.serialize(var_id));
+		sel_results.push_back(app->serialize(var_id));
 	for(Var_Id var_id : setup.selected_series) {
 		if(var_id.type == Var_Id::Type::series)
-			sel_inputs.push_back(app->series.serialize(var_id));
+			sel_inputs.push_back(app->serialize(var_id));
 		else
-			sel_additional.push_back(app->additional_series.serialize(var_id));
+			sel_additional.push_back(app->serialize(var_id));
 	}
 	//TODO: the index sets themselves could change (or change order). So we have to store their
 	//names and remap the order! Also rebuild "index set is active"
@@ -346,17 +346,17 @@ void MobiView2::reload(bool recompile_only) {
 	setup.selected_results.clear();
 	setup.selected_series.clear();
 	for(auto &name : sel_results) {
-		Var_Id var_id = app->state_vars.deserialize(name);
+		Var_Id var_id = app->deserialize(name);
 		if(is_valid(var_id))
 			setup.selected_results.push_back(var_id);
 	}
 	for(auto &name : sel_inputs) {
-		Var_Id var_id = app->series.deserialize(name);
+		Var_Id var_id = app->deserialize(name);
 		if(is_valid(var_id))
 			setup.selected_series.push_back(var_id);
 	}
 	for(auto &name : sel_additional) {
-		Var_Id var_id = app->additional_series.deserialize(name);
+		Var_Id var_id = app->deserialize(name);
 		if(is_valid(var_id))
 			setup.selected_series.push_back(var_id);
 	}
