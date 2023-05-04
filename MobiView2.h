@@ -179,6 +179,8 @@ public:
 	void open_optimization_window();
 	void open_structure_view();
 	
+	bool select_par_group(Entity_Id group_id);
+	
 private :
 	void delete_model();
 	bool do_the_load();

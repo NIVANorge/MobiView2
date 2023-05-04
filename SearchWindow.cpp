@@ -50,22 +50,7 @@ void SearchWindow::find() {
 	}
 }
 
-bool
-select_group_recursive(TreeCtrl &tree, int node, Entity_Id group_id) {
-	Upp::Ctrl *ctrl = ~tree.GetNode(node).ctrl;
-	if(ctrl) {
-		if(group_id == reinterpret_cast<Entity_Node *>(ctrl)->entity_id) {
-			tree.SetFocus();
-			tree.SetCursor(node);
-			return true;
-		}
-	}
-	for(int idx = 0; idx < tree.GetChildCount(node); ++idx) {
-		if(select_group_recursive(tree, tree.GetChild(node, idx), group_id))
-			return true;
-	}
-	return false;
-}
+
 
 void
 SearchWindow::select_item() {
@@ -75,7 +60,7 @@ SearchWindow::select_item() {
 	auto sel_group = par_list[row].first;
 	auto sel_par   = par_list[row].second;
 
-	bool success = select_group_recursive(parent->par_group_selecter, 0, sel_group);
+	bool success = parent->select_par_group(sel_group);
 	
 	if(success) {
 		int row = 0;

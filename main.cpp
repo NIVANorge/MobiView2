@@ -266,6 +266,28 @@ bool MobiView2::do_the_load() {
 
 #undef CATCH_ERRORS
 
+bool
+select_group_recursive(TreeCtrl &tree, int node, Entity_Id group_id) {
+	Upp::Ctrl *ctrl = ~tree.GetNode(node).ctrl;
+	if(ctrl) {
+		if(group_id == reinterpret_cast<Entity_Node *>(ctrl)->entity_id) {
+			tree.SetFocus();
+			tree.SetCursor(node);
+			return true;
+		}
+	}
+	for(int idx = 0; idx < tree.GetChildCount(node); ++idx) {
+		if(select_group_recursive(tree, tree.GetChild(node, idx), group_id))
+			return true;
+	}
+	return false;
+}
+
+bool
+MobiView2::select_par_group(Entity_Id group_id) {
+	return select_group_recursive(par_group_selecter, 0, group_id);
+}
+
 void MobiView2::reload(bool recompile_only) {
 	if(!model_is_loaded()) {
 		if(data_file.empty() || model_file.empty())
@@ -285,16 +307,13 @@ void MobiView2::reload(bool recompile_only) {
 	// TODO: this should probably be factored out to be reused in serialization..
 	Plot_Setup setup = plotter.main_plot.setup;
 	std::vector<std::string> sel_results;
-	std::vector<std::string> sel_inputs;
-	std::vector<std::string> sel_additional;
+	std::vector<std::string> sel_series;
 	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
-	for(Var_Id var_id : setup.selected_results)
+	for(Var_Id var_id : setup.selected_results) {
 		sel_results.push_back(app->serialize(var_id));
+	}
 	for(Var_Id var_id : setup.selected_series) {
-		if(var_id.type == Var_Id::Type::series)
-			sel_inputs.push_back(app->serialize(var_id));
-		else
-			sel_additional.push_back(app->serialize(var_id));
+		sel_series.push_back(app->serialize(var_id));
 	}
 	//TODO: the index sets themselves could change (or change order). So we have to store their
 	//names and remap the order! Also rebuild "index set is active"
@@ -307,15 +326,13 @@ void MobiView2::reload(bool recompile_only) {
 	}
 	
 	// Selected parameter group.
-	//TODO: not sure if scoping it to the module will be necessary eventually.
-	String selected_group;
+	std::string selected_group;
 	Vector<int> selected_groups = par_group_selecter.GetSel();
 	if(!selected_groups.empty()) {
 		Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
 		if(ctrl) {
 			Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-			auto par_group = model->par_groups[par_group_id];
-			selected_group = par_group->name;
+			selected_group = model->serialize(par_group_id);
 		}
 	}
 	
@@ -341,23 +358,16 @@ void MobiView2::reload(bool recompile_only) {
 	
 	if(!success) return;
 	
-	// TODO: it is not ideal for this functionality that series names may not be unique. Fix
-	// this in Mobius 2?
 	setup.selected_results.clear();
 	setup.selected_series.clear();
 	for(auto &name : sel_results) {
 		Var_Id var_id = app->deserialize(name);
-		if(is_valid(var_id))
+		if(is_valid(var_id) && var_id.type == Var_Id::Type::state_var)
 			setup.selected_results.push_back(var_id);
 	}
-	for(auto &name : sel_inputs) {
+	for(auto &name : sel_series) {
 		Var_Id var_id = app->deserialize(name);
-		if(is_valid(var_id))
-			setup.selected_series.push_back(var_id);
-	}
-	for(auto &name : sel_additional) {
-		Var_Id var_id = app->deserialize(name);
-		if(is_valid(var_id))
+		if(is_valid(var_id) && (var_id.type == Var_Id::Type::series || var_id.type == Var_Id::Type::additional_series))
 			setup.selected_series.push_back(var_id);
 	}
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
@@ -375,24 +385,12 @@ void MobiView2::reload(bool recompile_only) {
 	// TODO: doesn't work for top level parameter groups. Factor out stuff from search window
 	// instead.
 	bool breakout = false;
-	if(selected_group != "") {
-		for(int node_id = 0; node_id < par_group_selecter.GetChildCount(0); ++node_id) {
-			for(int node_id2 = 0; node_id2 < par_group_selecter.GetChildCount(node_id); ++node_id2) {
-				Ctrl *ctrl = ~par_group_selecter.GetNode(node_id2).ctrl;
-				if(ctrl) {
-					Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-					auto par_group = model->par_groups[par_group_id];
-					if(selected_group == String(par_group->name)) {
-						par_group_selecter.SetFocus();
-						par_group_selecter.SetCursor(node_id2);
-						breakout = true;
-						break;
-					}
-				}
-			}
-			if(breakout) break;
-		}
-	}
+	//warning_print("Trying to find par group ", selected_group, "\n");
+	Entity_Id group_id = invalid_entity_id;
+	if(selected_group != "")
+		group_id = model->deserialize(selected_group, Reg_Type::par_group);
+	if(is_valid(group_id))	
+		select_par_group(group_id);
 	
 	log(Format("Reloaded model \"%s\"", app->model->model_name));
 	
