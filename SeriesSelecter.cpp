@@ -15,15 +15,15 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	
 	var_tree.WhenSel << [=,this]() { parent->plotter.plot_change(); };
 	var_tree.MultiSelect();
-	var_tree.SetRoot(Null, String(root));
-	var_tree.HighlightCtrl(true);
+	var_tree.Set(0, root); // For some reason this works, while SetRoot gets overwritten by the SetNode call.
 	var_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false));
+	var_tree.HighlightCtrl(true);
 	
 	quant_tree.WhenSel << [=,this]() { parent->plotter.plot_change(); };
 	quant_tree.MultiSelect();
-	quant_tree.SetRoot(Null, String(root));
+	quant_tree.Set(0, root);
+	quant_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false));  // For some reason this overwrites the name..
 	quant_tree.HighlightCtrl(true);
-	quant_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false));
 	
 	if(type == Var_Id::Type::state_var) {
 		tree_tab.Add(var_tree.SizePos(), "Comp.");//IconImg47::Compartment(), "Comp.");
