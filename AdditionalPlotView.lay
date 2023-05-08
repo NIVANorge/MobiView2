@@ -1,4 +1,4 @@
-LAYOUT(AdditionalPlotViewLayout, 532, 320)
+LAYOUT(AdditionalPlotViewLayout, 816, 412)
 	ITEM(Upp::Option, link_all, SetLabel(t_("Link axes")).RightPosZ(192, 68).TopPosZ(4, 16))
 	ITEM(Upp::EditIntSpin, edit_n_rows, Min(1).Max(10).RightPosZ(264, 64).TopPosZ(4, 19))
 	ITEM(Upp::Label, row_label, SetLabel(t_("Rows:")).RightPosZ(332, 32).TopPosZ(4, 19))

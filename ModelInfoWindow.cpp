@@ -44,7 +44,7 @@ void ModelInfoWindow::refresh_text() {
 		auto mod = parent->app->model->modules[module_id];
 		auto temp = parent->app->model->module_templates[mod->template_id];
 		
-		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->name.data(), temp->version.major, temp->version.minor, temp->version.revision);
+		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
 		if(!temp->doc_string.empty())
 			buf += mdc.ToQtf(temp->doc_string.data());
 		else

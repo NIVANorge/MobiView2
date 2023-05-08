@@ -655,10 +655,7 @@ void MobiView2::build_interface() {
 			auto mod = model->modules[module_id];
 			auto temp = model->module_templates[mod->template_id];
 			
-			// TODO: This must be rethought. Maybe create another branch under each template
-			// with each specialization?
-			
-			String name = Format("%s v. %d.%d.%d", mod->name.data(), temp->version.major, temp->version.minor, temp->version.revision);
+			String name = Format("%s v. %d.%d.%d", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
 			id = par_group_selecter.Add(0, Null, name, false);
 			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 		}
