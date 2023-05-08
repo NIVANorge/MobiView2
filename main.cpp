@@ -156,6 +156,7 @@ void MobiView2::log(String msg, bool error) {
 	format_msg.Replace("<", "`<");
 	format_msg.Replace(">", "`>");
 	format_msg.Replace("-", "`-");
+	format_msg.Replace(":", "`:");
 	format_msg.Replace("/", "\1/\1");
 	format_msg.Replace("\\", "\1\\\1");
 	format_msg.Replace("\n", "&");
@@ -301,39 +302,45 @@ void MobiView2::reload(bool recompile_only) {
 			do_the_load();
 		return;
 	}
-	//TODO: decide what to do about changed parameters.
+	//TODO: decide what to do about changed parameters. (are they saved first?)
 	
-	//NOTE: we have to get out the names of selected series and indexes, since the Var_Ids may have changed after the reload.
-	// TODO: this should probably be factored out to be reused in serialization..
 	Plot_Setup setup = plotter.main_plot.setup;
 	std::vector<std::string> sel_results;
 	std::vector<std::string> sel_series;
 	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
-	for(Var_Id var_id : setup.selected_results) {
-		sel_results.push_back(app->serialize(var_id));
-	}
-	for(Var_Id var_id : setup.selected_series) {
-		sel_series.push_back(app->serialize(var_id));
-	}
-	//TODO: the index sets themselves could change (or change order). So we have to store their
-	//names and remap the order! Also rebuild "index set is active"
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		for(Index_T index : setup.selected_indexes[idx]) {
-			if(!is_valid(index)) continue;
-			// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
-			sel_indexes[idx].push_back(app->get_index_name(index));
-		}
-	}
-	
-	// Selected parameter group.
 	std::string selected_group;
-	Vector<int> selected_groups = par_group_selecter.GetSel();
-	if(!selected_groups.empty()) {
-		Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
-		if(ctrl) {
-			Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-			selected_group = model->serialize(par_group_id);
+	
+	try {
+		//NOTE: we have to get out the names of selected series and indexes, since the Var_Ids may have changed after the reload.
+		// TODO: this should probably be factored out to be reused in serialization..
+		
+		for(Var_Id var_id : setup.selected_results) {
+			sel_results.push_back(app->serialize(var_id));
 		}
+		for(Var_Id var_id : setup.selected_series) {
+			sel_series.push_back(app->serialize(var_id));
+		}
+		//TODO: the index sets themselves could change (or change order). So we have to store their
+		//names and remap the order! Also rebuild "index set is active"
+		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+			for(Index_T index : setup.selected_indexes[idx]) {
+				if(!is_valid(index)) continue;
+				// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
+				sel_indexes[idx].push_back(app->get_index_name(index));
+			}
+		}
+		
+		// Selected parameter group.
+		Vector<int> selected_groups = par_group_selecter.GetSel();
+		if(!selected_groups.empty()) {
+			Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
+			if(ctrl) {
+				Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
+				selected_group = model->serialize(par_group_id);
+			}
+		}
+	} catch(int) {
+		log_warnings_and_errors();
 	}
 	
 	bool resized = plotter.main_plot.was_auto_resized;

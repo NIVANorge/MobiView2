@@ -892,7 +892,7 @@ MCMCResultWindow::generate_projections_pushed() {
 		add_single_plot(&plot, model_datas[0], parent->app, target.obs_id, target.indexes,
 				result_ts, result_start, result_start, plot.x_data.data(), 0, 0, obs_color, false, Null, true);
 		
-		auto &sim_name = parent->app->state_vars[target.sim_id]->name;
+		auto &sim_name = parent->app->vars[target.sim_id]->name;
 		double coverage_percent = 100.0*(double)coverage/(double)n_obs;
 		plot.SetTitle(Format("%s, Coverage: %.2f%%", sim_name.data(), coverage_percent));
 		

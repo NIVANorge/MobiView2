@@ -203,11 +203,10 @@ SensitivityViewWindow::run() {
 	
 	Var_Id var_id = plot.setup.selected_results[0];
 	
-	Data_Storage<double, Var_Id> *data, *data_ser;
-	State_Var *var, *var_ser;
-	data_ser = nullptr;
-	var_ser = nullptr;
-	get_storage_and_var(model_data, var_id, &data, &var);
+	auto *data = &model_data->get_storage(var_id.type);
+	auto var = parent->app->vars[var_id];
+	
+	
 	String result_unit = var->unit.to_utf8();
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	s64 offset_ser = -1;
@@ -227,10 +226,13 @@ SensitivityViewWindow::run() {
 
 	plot.compute_x_data(input_start, input_ts, parent->app->time_step_size);
 	
+	Data_Storage<double, Var_Id> *data_ser;
+	State_Var *var_ser;
 	Var_Id ser_id;
 	if(has_input) {
 		ser_id = plot.setup.selected_series[0];
-		get_storage_and_var(model_data, ser_id, &data_ser, &var_ser);
+		data_ser = &model_data->get_storage(ser_id.type);
+		var_ser  = parent->app->vars[ser_id];
 		offset_ser = data_ser->structure->get_offset(ser_id, indexes);
 	}
 	

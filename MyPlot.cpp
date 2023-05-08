@@ -68,20 +68,6 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 	}
 }
 
-// TODO: This could maybe be a utility function in the Model_Application itself!
-void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Var **var) {
-	if(var_id.type == Var_Id::Type::state_var) {
-		*data = &md->results;
-		*var = md->app->state_vars[var_id];
-	} else if(var_id.type == Var_Id::Type::series) {
-		*data = &md->series;
-		*var  = md->app->series[var_id];
-	} else if(var_id.type == Var_Id::Type::additional_series) {
-		*data = &md->additional_series;
-		*var = md->app->additional_series[var_id];
-	}
-}
-
 void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color, String &legend, String &unit) {
 	draw->Legend(legend).Units(unit);
 	
@@ -124,9 +110,8 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 		return false;
 	}
 	
-	Data_Storage<double, Var_Id> *data;
-	State_Var *var;
-	get_storage_and_var(md, var_id, &data, &var);
+	auto *data = &md->get_storage(var_id.type);
+	auto var = app->vars[var_id];
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
 	auto unit = var->unit;
@@ -870,9 +855,8 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				gof_offset  = input_gof_offset;
 			}
 			
-			Data_Storage<double, Var_Id> *data;
-			State_Var *var;
-			get_storage_and_var(&app->data, var_id, &data, &var);
+			auto *data = &app->data.get_storage(var_id.type);
+			auto var = app->vars[var_id];
 			
 			//TODO: with the new data system, it would be easy to allow aggregation also.
 			s64 offset = data->structure->get_offset(var_id, indexes);
@@ -899,11 +883,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			Var_Id var_id_sim = setup.selected_results[0];
 			Var_Id var_id_obs = setup.selected_series[0];
-			Data_Storage<double, Var_Id> *data_sim, *data_obs;
-			State_Var *var_sim, *var_obs;
-			get_storage_and_var(&app->data, var_id_sim, &data_sim, &var_sim);
-			get_storage_and_var(&app->data, var_id_obs, &data_obs, &var_obs);
-			
+			auto *data_sim = &app->data.get_storage(var_id_sim.type);
+			auto *data_obs = &app->data.get_storage(var_id_obs.type);
+			auto var_sim = app->vars[var_id_sim];
+			auto var_obs = app->vars[var_id_obs];
 			s64 offset_sim = data_sim->structure->get_offset(var_id_sim, indexes);
 			s64 offset_obs = data_obs->structure->get_offset(var_id_obs, indexes);
 			
@@ -1025,9 +1008,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				steps = input_ts;
 				start = input_start;
 			}
-			Data_Storage<double, Var_Id> *data;
-			State_Var *var;
-			get_storage_and_var(&app->data, var_id, &data, &var);
+
+			auto *data = &app->data.get_storage(var_id.type);
+			auto var = app->vars[var_id];
+			
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			

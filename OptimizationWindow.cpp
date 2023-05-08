@@ -235,22 +235,24 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 		
 		parameter.symbol = sym.ToStd();
 		parameters.push_back(std::move(parameter));
-		int row = parameters.size()-1;
+		//int row = parameters.size()-1;
+		int idx = parameters.size()-1;
+		int row = par_setup.parameter_view.GetCount();
 		
-		par_setup.parameter_view.Add(name, index_str, min, max, unit, sym, expr, row);
+		par_setup.parameter_view.Add(name, index_str, min, max, unit, sym, expr, idx);
 
 		edit_min_ctrls.Create<EditDoubleNotNull>();
 		edit_max_ctrls.Create<EditDoubleNotNull>();
-		par_setup.parameter_view.SetCtrl(row, 2, edit_min_ctrls[row]);
-		par_setup.parameter_view.SetCtrl(row, 3, edit_max_ctrls[row]);
+		par_setup.parameter_view.SetCtrl(row, 2, edit_min_ctrls.Top());
+		par_setup.parameter_view.SetCtrl(row, 3, edit_max_ctrls.Top());
 		
 		edit_sym_ctrls.Create<EditField>();
 		edit_expr_ctrls.Create<EditField>();
-		par_setup.parameter_view.SetCtrl(row, 5, edit_sym_ctrls[row]);
-		par_setup.parameter_view.SetCtrl(row, 6, edit_expr_ctrls[row]);
+		par_setup.parameter_view.SetCtrl(row, 5, edit_sym_ctrls.Top());
+		par_setup.parameter_view.SetCtrl(row, 6, edit_expr_ctrls.Top());
 		
-		edit_sym_ctrls[row].WhenAction <<  [this, row](){ symbol_edited(row); };
-		edit_expr_ctrls[row].WhenAction << [this, row](){ expr_edited(row); };
+		edit_sym_ctrls.Top().WhenAction <<  [this, row](){ symbol_edited(row); };
+		edit_expr_ctrls.Top().WhenAction << [this, row](){ expr_edited(row); };
 	}
 	else
 		par_setup.parameter_view.Set(overwrite_row, 1, index_str);
@@ -289,7 +291,7 @@ void OptimizationWindow::remove_parameter_clicked() {
 	int sel_row = par_setup.parameter_view.GetCursor();
 	if(sel_row < 0) return;
 	
-	int idx = par_setup.parameter_view.Get(sel_row, "__idx");
+	//int idx = par_setup.parameter_view.Get(sel_row, "__idx");
 	
 	par_setup.parameter_view.Remove(sel_row);
 	//parameters.erase(parameters.begin()+idx);    // NOTE: We can't do this, because then we
@@ -314,15 +316,20 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	
 	auto app = parent->app;
 	
-	Data_Storage<double, Var_Id> *sim_data, *obs_data;
-	State_Var *var_sim, *var_obs;
-	get_storage_and_var(&app->data, target.sim_id, &sim_data, &var_sim);
+	//get_storage_and_var(&app->data, target.sim_id, &sim_data, &var_sim);
+	auto *sim_data = &app->data.get_storage(target.sim_id.type);
+	auto var_sim = app->vars[target.sim_id];
+	
 	String sim_index_str = make_index_string(sim_data->structure, target.indexes, target.sim_id);
 	
+	Data_Storage<double, Var_Id> *obs_data;
+	State_Var *var_obs;
 	String obs_index_str;
 	String obs_name;
 	if(is_valid(target.obs_id)) {
-		get_storage_and_var(&app->data, target.obs_id, &obs_data, &var_obs);
+		//get_storage_and_var(&app->data, target.obs_id, &obs_data, &var_obs);
+		obs_data = &app->data.get_storage(target.obs_id.type);
+		var_obs = app->vars[target.obs_id];
 		String obs_index_str = make_index_string(obs_data->structure, target.indexes, target.obs_id);
 		obs_name = var_obs->name.data();
 	}
@@ -1508,9 +1515,9 @@ String OptimizationWindow::write_to_json_string() {
 			if(is_valid(index)) {
 				index_json("Name", app->get_index_name(index).data());
 				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
+				index_json("Locked", (bool)par.locks[idx2]);
+				index_arr << index_json;
 			}
-			index_json("Locked", (bool)par.locks[idx2]);
-			index_arr << index_json;
 			++idx2;
 		}
 		par_json("Indexes", index_arr);

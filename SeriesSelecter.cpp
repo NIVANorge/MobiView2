@@ -150,18 +150,8 @@ void
 add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Model_Application *app, Var_Id var_id,
 	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool by_quantity = false) {
 
-	Var_Registry *reg = nullptr;
-	bool is_input = false;
-	if(var_id.type == Var_Id::Type::state_var)
-		reg = &app->state_vars;
-	else if(var_id.type == Var_Id::Type::series) {
-		is_input = true;
-		reg = &app->series;
-	} else if(var_id.type == Var_Id::Type::additional_series) {
-		is_input = true;
-		reg = &app->additional_series;
-	}
-	auto var = (*reg)[var_id];
+	bool is_input = (var_id.type != Var_Id::Type::state_var);
+	auto var = app->vars[var_id];
 	
 	//TODO: allow regular aggregate
 	if(
@@ -198,19 +188,19 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	
 	if(var->type == State_Var::Type::dissolved_conc) {
 		auto var2 = as<State_Var::Type::dissolved_conc>(var);
-		loc = app->state_vars[var2->conc_of]->loc1;
+		loc = app->vars[var2->conc_of]->loc1;
 		diss_conc = true;
 	}
 	
 	if(var->type == State_Var::Type::connection_aggregate) {
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
-		loc = app->state_vars[var2->agg_for]->loc1;
+		loc = app->vars[var2->agg_for]->loc1;
 		connection_agg = true;
 	}
 	
 	if(var->type == State_Var::Type::in_flux_aggregate) {
 		auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
-		loc = app->state_vars[var2->in_flux_to]->loc1;
+		loc = app->vars[var2->in_flux_to]->loc1;
 		in_flux_agg = true;
 	}
 	
@@ -231,7 +221,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	
 	int at = root;
 	if(is_located(loc))
-		at = make_branch(tree, loc, app->model, reg, loc_to_node, nodes, root, by_quantity);
+		at = make_branch(tree, loc, app->model, &app->vars, loc_to_node, nodes, root, by_quantity);
 	
 	// If we are a quantity or a property, the make_branch call took care of adding the node.
 	if(var->type == State_Var::Type::declared && !var->is_flux() && is_located(loc))
@@ -256,7 +246,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 		// NOTE: we don't want to use the generated name here, only the name of the base flux
 		auto var2 = var;
 		while(var2->type == State_Var::Type::dissolved_flux)
-			var2 = app->state_vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
+			var2 = app->vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
 		
 		name = var2->name;
 		//TODO: (other) aggregate fluxes!
@@ -286,14 +276,14 @@ SeriesSelecter::build(Model_Application *app) {
 	try {
 		if(type == Var_Id::Type::state_var) {
 			for(int pass = 0; pass < 3; ++pass) {
-				for(Var_Id var_id : app->state_vars)
+				for(Var_Id var_id : app->vars.all_state_vars())
 					add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass);
 			}
 			
 			loc_to_node.clear();
 			
 			for(int pass = 0; pass < 3; ++pass) {
-				for(Var_Id var_id : app->state_vars)
+				for(Var_Id var_id : app->vars.all_state_vars())
 					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, true);
 			}
 			
@@ -305,10 +295,10 @@ SeriesSelecter::build(Model_Application *app) {
 			var_tree.SetNode(input_id, var_tree.GetNode(input_id).CanSelect(false));
 			var_tree.SetNode(additional_id, var_tree.GetNode(additional_id).CanSelect(false));
 			
-			for(Var_Id var_id : app->series)
+			for(Var_Id var_id : app->vars.all_series())
 				add_series_node(parent, var_tree, nodes, app, var_id, input_id, loc_to_node, 1);
 			
-			for(Var_Id var_id : app->additional_series)
+			for(Var_Id var_id : app->vars.all_additional_series())
 				add_series_node(parent, var_tree, nodes, app, var_id, additional_id, loc_to_node, 1);
 		}
 		
