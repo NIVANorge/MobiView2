@@ -49,14 +49,20 @@ struct Plot_Setup {
 	bool               scatter_inputs;
 	int                pivot_month;
 	
+	int profile_time_step;
+	
 	std::vector<Var_Id> selected_results;
 	std::vector<Var_Id> selected_series;
 	
 	std::vector<u8> index_set_is_active;  // NOTE: should be bool, but that has strange behaviour.
 	std::vector<std::vector<Index_T>> selected_indexes;
-	
-	int profile_time_step;
 };
+
+void        serialize_plot_setup(Model_Application *app, Upp::Json &json, Plot_Setup &setup);
+Upp::String serialize_plot_setup(Model_Application *app, Plot_Setup &setup);
+
+Plot_Setup  deserialize_plot_setup(Model_Application *app, Upp::Value &json);
+Plot_Setup  deserialize_plot_setup(Model_Application *app, Upp::String &data);
 
 class Mobius_Data_Source : public Upp::DataSource {
 public :

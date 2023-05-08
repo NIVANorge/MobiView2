@@ -36,6 +36,8 @@ public:
 	
 	void set_all(std::vector<Plot_Setup> &setups);
 	
+	Upp::Vector<Upp::String> serialize_setups();
+	
 private:
 	MobiView2 *parent;
 	

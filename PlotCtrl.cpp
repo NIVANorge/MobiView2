@@ -317,7 +317,8 @@ void PlotCtrl::build_index_set_selecters(Model_Application *app) {
 	plot_major_mode.Enable();
 }
 
-void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app) {
+void
+register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app) {
 	
 	for(Var_Id var_id : ps.selected_series) {
 		const std::vector<Entity_Id> &var_index_sets = var_id.type == Var_Id::Type::series ? app->series_structure.get_index_sets(var_id) : app->additional_series_structure.get_index_sets(var_id);
@@ -339,7 +340,8 @@ void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app) {
 	}
 }
 	
-void PlotCtrl::get_plot_setup(Plot_Setup &ps) {
+void
+PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	ps.selected_results.clear();
 	ps.selected_series.clear();
 	ps.selected_indexes.clear();

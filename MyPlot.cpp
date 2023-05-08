@@ -1173,3 +1173,135 @@ MyPlot::replot_profile() {
 	profile2Dt.set_ts(setup.profile_time_step);
 	Refresh();
 }
+
+void 
+serialize_plot_setup(Model_Application *app, Json &json_data, Plot_Setup &setup) {
+	
+	auto model = app->model;
+		
+	JsonArray sel_results;
+	for(Var_Id var_id : setup.selected_results)
+		sel_results << app->serialize(var_id).data();
+	json_data("sel_results", sel_results);
+	
+	JsonArray sel_series;
+	for(Var_Id var_id : setup.selected_series)
+		sel_series << app->serialize(var_id).data();
+	json_data("sel_series", sel_series);
+	
+	Json index_sets;
+	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		Entity_Id index_set = {Reg_Type::index_set, idx};
+		
+		if(idx > model->index_sets.count() || idx >= setup.selected_indexes.size() || setup.selected_indexes[idx].empty()) continue;
+		
+		JsonArray indexes;
+		for(Index_T index : setup.selected_indexes[idx]) {
+			if(!is_valid(index)) continue;
+			indexes << app->get_index_name(index).data();
+		}
+		index_sets(model->serialize(index_set).data(), indexes);
+	}
+	json_data("index_sets", index_sets);
+
+	// TODO: This will break if one saves the string and the enums change in the mean time.
+	// Should really save by name.	
+	json_data("mode", (int)setup.mode);
+	json_data("aggregation_type", (int)setup.aggregation_type);
+	json_data("aggregation_period", (int)setup.aggregation_period);
+	json_data("y_axis_mode", (int)setup.y_axis_mode);
+	json_data("scatter_inputs", setup.scatter_inputs);
+	json_data("pivot_month", setup.pivot_month);
+	json_data("profile_time_step", setup.profile_time_step);
+}
+
+String
+serialize_plot_setup(Model_Application *app, Plot_Setup &setup) {
+	Json json_data;
+	serialize_plot_setup(app, json_data, setup);
+	return json_data.ToString();
+}
+
+
+Plot_Setup
+deserialize_plot_setup(Model_Application *app, Value &setup_json) {
+	
+	auto model = app->model;
+	
+	Plot_Setup setup;
+	
+	Value mode = setup_json["mode"];
+	if(!IsNull(mode)) setup.mode = (Plot_Mode)(int)mode;
+	
+	Value aggregation_type = setup_json["aggregation_type"];
+	if(!IsNull(aggregation_type)) setup.aggregation_type = (Aggregation_Type)(int)aggregation_type;
+	
+	Value aggregation_period = setup_json["aggregation_period"];
+	if(!IsNull(aggregation_period)) setup.aggregation_period = (Aggregation_Period)(int)aggregation_period;
+	
+	Value y_axis_mode = setup_json["y_axis_mode"];
+	if(!IsNull(y_axis_mode)) setup.y_axis_mode = (Y_Axis_Mode)(int)y_axis_mode;
+	
+	Value scatter_inputs = setup_json["scatter_inputs"];
+	if(!IsNull(scatter_inputs)) setup.scatter_inputs = (bool)scatter_inputs;
+	
+	Value pivot_month = setup_json["pivot_month"];
+	if(!IsNull(pivot_month)) setup.pivot_month = (int)pivot_month;
+	
+	Value profile_time_step = setup_json["profile_time_step"];
+	if(!IsNull(profile_time_step)) setup.profile_time_step = (int)profile_time_step;
+	
+	ValueArray sel_results = setup_json["sel_results"];
+	if(!IsNull(sel_results)) {
+		int count = sel_results.GetCount();
+		for(int idx = 0; idx < count; ++idx) {
+			Var_Id var_id = app->deserialize(sel_results[idx].ToStd());
+			if(is_valid(var_id) && var_id.type == Var_Id::Type::state_var)
+				setup.selected_results.push_back(var_id);
+		}
+	}
+	ValueArray sel_series = setup_json["sel_series"];
+	if(!IsNull(sel_series)) {
+		int count = sel_series.GetCount();
+		for(int idx = 0; idx < count; ++idx) {
+			Var_Id var_id = app->deserialize(sel_series[idx].ToStd());
+			if(is_valid(var_id) && var_id.type != Var_Id::Type::state_var)
+				setup.selected_series.push_back(var_id);
+			//else
+				//PromptOK(Format("Invalid var_id %d %d for series \"%s\"", (int)var_id.type, var_id.id, sel_series[idx].ToString()));
+		}
+	}
+	
+	setup.selected_indexes.resize(MAX_INDEX_SETS);
+	setup.index_set_is_active.resize(MAX_INDEX_SETS);
+	
+	ValueMap index_sets = setup_json["index_sets"];
+	if(!IsNull(index_sets)) {
+		int count = index_sets.GetCount();
+		for(int idx = 0; idx < count; ++idx) {
+			auto index_set_id = model->deserialize(index_sets.GetKey(idx).ToStd(), Reg_Type::index_set);
+			if(!is_valid(index_set_id)) continue;
+			ValueArray indexes = index_sets.GetValue(idx);
+			if(!IsNull(indexes)) {
+				int count2 = indexes.GetCount();
+				for(int idx2 = 0; idx2 < count2; ++idx2) {
+					Value index_name = indexes[idx2];
+					Index_T index = app->get_index(index_set_id, index_name.ToStd());
+					if(is_valid(index))
+						setup.selected_indexes[index_set_id.id].push_back(index);
+				}
+			}
+		}
+	}
+	
+	
+	register_if_index_set_is_active(setup, app);
+	
+	return std::move(setup);
+}
+
+Plot_Setup
+deserialize_plot_setup(Model_Application *app, String &data) {
+	Value setup_json  = ParseJSON(data);
+	return deserialize_plot_setup(app, setup_json);
+}

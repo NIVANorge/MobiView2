@@ -304,31 +304,16 @@ void MobiView2::reload(bool recompile_only) {
 	}
 	//TODO: decide what to do about changed parameters. (are they saved first?)
 	
-	Plot_Setup setup = plotter.main_plot.setup;
-	std::vector<std::string> sel_results;
-	std::vector<std::string> sel_series;
-	std::vector<std::vector<std::string>> sel_indexes(MAX_INDEX_SETS);
+	
+	// We serialize the selected setup by names since all the ids could have changed when we
+	// recompile.
+	
 	std::string selected_group;
 	
-	try {
-		//NOTE: we have to get out the names of selected series and indexes, since the Var_Ids may have changed after the reload.
-		// TODO: this should probably be factored out to be reused in serialization..
-		
-		for(Var_Id var_id : setup.selected_results) {
-			sel_results.push_back(app->serialize(var_id));
-		}
-		for(Var_Id var_id : setup.selected_series) {
-			sel_series.push_back(app->serialize(var_id));
-		}
-		//TODO: the index sets themselves could change (or change order). So we have to store their
-		//names and remap the order! Also rebuild "index set is active"
-		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-			for(Index_T index : setup.selected_indexes[idx]) {
-				if(!is_valid(index)) continue;
-				// TODO: this is a bit unsafe. Maybe make api for it in model_application.h
-				sel_indexes[idx].push_back(app->get_index_name(index));
-			}
-		}
+	String plot_setup_data;
+	Vector<String> additional_setup_data;
+	
+	try {   // Note this should really not give an error, but could if we messed up the serialization code.
 		
 		// Selected parameter group.
 		Vector<int> selected_groups = par_group_selecter.GetSel();
@@ -339,6 +324,12 @@ void MobiView2::reload(bool recompile_only) {
 				selected_group = model->serialize(par_group_id);
 			}
 		}
+		
+		// TODO: Also the additional plot view.
+		plot_setup_data = serialize_plot_setup(app, plotter.main_plot.setup);
+		
+		additional_setup_data = additional_plots.serialize_setups();
+		
 	} catch(int) {
 		log_warnings_and_errors();
 	}
@@ -365,26 +356,12 @@ void MobiView2::reload(bool recompile_only) {
 	
 	if(!success) return;
 	
-	setup.selected_results.clear();
-	setup.selected_series.clear();
-	for(auto &name : sel_results) {
-		Var_Id var_id = app->deserialize(name);
-		if(is_valid(var_id) && var_id.type == Var_Id::Type::state_var)
-			setup.selected_results.push_back(var_id);
-	}
-	for(auto &name : sel_series) {
-		Var_Id var_id = app->deserialize(name);
-		if(is_valid(var_id) && (var_id.type == Var_Id::Type::series || var_id.type == Var_Id::Type::additional_series))
-			setup.selected_series.push_back(var_id);
-	}
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		setup.selected_indexes[idx].clear();
-		for(auto &name : sel_indexes[idx]) {
-			Index_T index = app->get_index({Reg_Type::index_set, idx}, name);
-			if(is_valid(index))
-				setup.selected_indexes[idx].push_back(index);
-		}
-	}
+	Plot_Setup setup = deserialize_plot_setup(app, plot_setup_data);
+	std::vector<Plot_Setup> additional_setups;
+	for(auto &data : additional_setup_data)
+		additional_setups.push_back(deserialize_plot_setup(app, data));
+	additional_plots.set_all(additional_setups);
+	
 	
 	plotter.main_plot.was_auto_resized = resized; // A bit hacky, but should cause it to not re-size x axis if it is already set.
 	plotter.set_plot_setup(setup);
