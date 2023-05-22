@@ -101,9 +101,9 @@ void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color
 
 bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
-	const String &legend_prefix, bool always_copy_y) {
+	const String &legend_prefix, bool always_copy_y, bool indexes_are_alternately_ordered) {
 	
-	if(!app->is_in_bounds(indexes)) return true;
+	if(!indexes_are_alternately_ordered && !app->is_in_bounds(indexes)) return true;
 	
 	if(draw->GetCount() == 100) {
 		draw->SetTitle("Warning: only displaying the 100 first selected series");
@@ -112,14 +112,18 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	
 	auto *data = &md->get_storage(var_id.type);
 	auto var = app->vars[var_id];
-	s64 offset = data->structure->get_offset(var_id, indexes);
+	s64 offset;
+	if(indexes_are_alternately_ordered)
+		offset = data->structure->get_offset_alternate(var_id, indexes);
+	else
+		offset = data->structure->get_offset(var_id, indexes);
 	
 	auto unit = var->unit;
 	if(draw->setup.aggregation_type == Aggregation_Type::sum)
 		unit = unit_of_sum(var->unit, app->time_step_unit, draw->setup.aggregation_period);
 	
 	String unit_str = unit.to_utf8();
-	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit_str + "]";
+	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id, indexes_are_alternately_ordered) + "[" + unit_str + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
@@ -145,11 +149,32 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode) {
 	if(level == draw->setup.selected_indexes.size()) {
 
-		Color &graph_color = draw->colors.next();
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
-		bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps, ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
-		return success;
-
+		
+		int sz = index_sets.size();
+		if(sz >= 2 && index_sets[sz-1] == index_sets[sz-2]) {
+			// If it is matrix indexed, we also loop over the final index set one more time.
+			// TODO: it is not awfully clean to have this here. :(
+			auto set = index_sets[sz-1];
+			std::vector<Index_T> indexes2(sz);
+			for(int idx = 0; idx < sz; ++idx)
+				indexes2[idx] = indexes[index_sets[idx].id];
+			int count = app->get_index_count(set, indexes).index;
+			for(int idx = 0; idx < count; ++idx) {
+				indexes2[sz-1].index = idx;
+				Color &graph_color = draw->colors.next();
+				bool success = add_single_plot(draw, &app->data, app, var_id, indexes2, time_steps,
+					ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked, "", false, true);
+				if(!success) return false;		
+			}
+		} else {
+			
+			// This is the vast majority of cases.
+			Color &graph_color = draw->colors.next();
+			bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps,
+				ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
+			return success;
+		}
 	} else {
 		bool loop = false;
 		if(!draw->setup.selected_indexes[level].empty()) {

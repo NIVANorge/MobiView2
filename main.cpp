@@ -11,7 +11,7 @@
 #include <iomanip>
 
 std::stringstream global_error_stream;
-std::stringstream global_warning_stream;
+std::stringstream global_log_stream;
 
 using namespace Upp;
 
@@ -170,10 +170,10 @@ void MobiView2::log(String msg, bool error) {
 }
 
 void MobiView2::log_warnings_and_errors() {
-	std::string warnbuf = global_warning_stream.str();
+	std::string warnbuf = global_log_stream.str();
 	if(warnbuf.size() > 0) {
 		log(warnbuf.data());
-		global_warning_stream.str("");
+		global_log_stream.str("");
 	}
 	
 	std::string errbuf = global_error_stream.str();
@@ -341,11 +341,13 @@ void MobiView2::reload(bool recompile_only) {
 		success = do_the_load();
 	} else {
 		try {
+			clean_interface();
 			app->save_to_data_set();
 			delete app;
 			app = new Model_Application(model);
 			app->build_from_data_set(data_set);
 			app->compile(true);
+			build_interface();
 		} catch(int) {
 			delete_model();
 			success = false;
@@ -650,7 +652,7 @@ void MobiView2::build_interface() {
 		int id = 0;
 		
 		if(idx >= 0) {
-			module_id = { Reg_Type::module, idx };
+			module_id = { Reg_Type::module, (s16)idx };
 			
 			auto mod = model->modules[module_id];
 			auto temp = model->module_templates[mod->template_id];

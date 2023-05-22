@@ -28,7 +28,7 @@ void SearchWindow::find() {
 		Entity_Id module_id = invalid_entity_id;
 		String mod_name = "";
 		if(idx >= 0) {
-			module_id = { Reg_Type::module, idx };
+			module_id = { Reg_Type::module, (s16)idx };
 			auto mod = parent->model->modules[module_id];
 			//if(!mod->has_been_processed) continue;
 			mod_name = mod->name.data();

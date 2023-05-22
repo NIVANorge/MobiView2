@@ -40,7 +40,7 @@ parse_percent_list(String &list_str, std::vector<double> &result) {
 
 template<typename Handle_T>
 inline Upp::String
-make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle) {
+make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle, bool indexes_are_alternately_ordered = false) {
 
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
 	if(index_sets.empty()) return "";
@@ -48,9 +48,14 @@ make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> i
 	Upp::String result = "[";
 	int idx = 0;
 	for(const Entity_Id &index_set : index_sets) {
-		if(idx++ != 0) result << " ";
-		ASSERT(indexes[index_set.id].index_set == index_set);
-		result << structure->parent->get_possibly_quoted_index_name(indexes[index_set.id]).data();
+		if(idx != 0) result << " ";
+		if(indexes_are_alternately_ordered) {
+			result << structure->parent->get_possibly_quoted_index_name(indexes[idx]).data();
+		} else {
+			ASSERT(indexes[index_set.id].index_set == index_set);
+			result << structure->parent->get_possibly_quoted_index_name(indexes[index_set.id]).data();
+		}
+		++idx;
 	}
 	result << "]";
 	return result;
