@@ -16,7 +16,7 @@ std::stringstream global_log_stream;
 using namespace Upp;
 
 MobiView2::MobiView2() :
-	params(this), plotter(this), stat_settings(this), search_window(this),
+	params(this), plotter(this), model_graph(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
 	optimization_window(this), mcmc_window(this), structure_window(this),
 	result_selecter(this, "Result time series", Var_Id::Type::state_var), input_selecter(this, "Input time series", Var_Id::Type::series) {
@@ -451,6 +451,10 @@ void MobiView2::load() {
 	bool success = do_the_load();
 	if(success)
 		log(Format("Loaded model \"%s\"", app->model->model_name));
+	
+	// TODO: Just testing:
+	if(!model_graph.IsOpen())
+		model_graph.Open();
 }
 
 void MobiView2::save_parameters() {
@@ -678,6 +682,8 @@ void MobiView2::build_interface() {
 	plotter.build_time_intervals_ctrl();
 	
 	plotter.plot_change();
+	
+	model_graph.rebuild_image();
 }
 
 void MobiView2::closing_checks() {

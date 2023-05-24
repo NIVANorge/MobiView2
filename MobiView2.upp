@@ -37,6 +37,8 @@ file
 	StructureView.cpp,
 	StructureView.h,
 	Acor.h,
+	ModelGraph.h,
+	ModelGraph.cpp,
 	Acor.cpp,
 	Info.rc,
 	mobius.ico,

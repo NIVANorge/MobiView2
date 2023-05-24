@@ -29,6 +29,8 @@
 #include "OptimizationWindow.h"
 #include "StructureView.h"
 
+#include "ModelGraph.h"
+
 /*
 class ChangeIndexesWindow;
 
@@ -125,6 +127,8 @@ public:
 	Upp::ToolBar    tool_bar;
 	
 	PlotCtrl        plotter;
+	
+	ModelGraph      model_graph;
 	
 	EditStatSettings      stat_settings;
 	SearchWindow          search_window;
