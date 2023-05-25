@@ -1,8 +1,7 @@
 #ifndef _MobiView2_StructureView_h_
 #define _MobiView2_StructureView_h_
 
-#define LAYOUTFILE <MobiView2/StructureView.lay>
-#include <CtrlCore/lay.h>
+#include "StructureLayout.h"
 
 class MobiView2;
 

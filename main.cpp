@@ -16,9 +16,10 @@ std::stringstream global_log_stream;
 using namespace Upp;
 
 MobiView2::MobiView2() :
-	params(this), plotter(this), model_graph(this), stat_settings(this), search_window(this),
+	params(this), plotter(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
 	optimization_window(this), mcmc_window(this), structure_window(this),
+	model_chart_window(this),
 	result_selecter(this, "Result time series", Var_Id::Type::state_var), input_selecter(this, "Input time series", Var_Id::Type::series) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
@@ -185,11 +186,11 @@ void MobiView2::log_warnings_and_errors() {
 
 void MobiView2::sub_bar(Bar &bar) {
 	bar.Add(IconImg::Open(), THISBACK(load)).Tip("Load model and data files").Key(K_CTRL_O);
-	bar.Add(IconImg::ReLoad(), [this](){ reload(); } ).Tip("Reload the already loaded model and data files.").Key(K_F5);
+	bar.Add(IconImg::ReLoad(), [this](){ reload(); } ).Tip("Reload the already loaded model and data files").Key(K_F5);
 	bar.Add(IconImg::Save(), THISBACK(save_parameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(save_parameters_as)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(open_search_window)).Tip("Search parameters").Key(K_CTRL_F);
-	//bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
+	bar.Add(IconImg::ViewReaches(), THISBACK(open_view_chart)).Tip("Model chart and index distribution");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(run_model)).Tip("Run model").Key(K_F7);
 	bar.Add(IconImg::ViewMorePlots(), THISBACK(open_additional_plots)).Tip("Open additional plot view");
@@ -451,10 +452,6 @@ void MobiView2::load() {
 	bool success = do_the_load();
 	if(success)
 		log(Format("Loaded model \"%s\"", app->model->model_name));
-	
-	// TODO: Just testing:
-	if(!model_graph.IsOpen())
-		model_graph.Open();
 }
 
 void MobiView2::save_parameters() {
@@ -683,7 +680,8 @@ void MobiView2::build_interface() {
 	
 	plotter.plot_change();
 	
-	model_graph.rebuild_image();
+	model_chart_window.rebuild();
+	// TODO: Also for structure view.
 }
 
 void MobiView2::closing_checks() {
@@ -727,46 +725,48 @@ void MobiView2::revert_baseline() {
 }
 
 void MobiView2::open_stat_settings() {
-	if(!stat_settings.IsOpen()) {
-		stat_settings.load_interface();
-		stat_settings.Open();
-	}
+	if(stat_settings.IsOpen()) return;
+	stat_settings.load_interface();
+	stat_settings.Open();
 }
 
 void MobiView2::open_search_window() {
-	if(!search_window.IsOpen())
-		search_window.Open();
+	if(search_window.IsOpen()) return;
+	search_window.Open();
 }
 
 void MobiView2::open_sensitivity_window() {
-	if(!sensitivity_window.IsOpen())
-		sensitivity_window.Open();
+	if(sensitivity_window.IsOpen()) return;
+	sensitivity_window.Open();
 }
 
 void MobiView2::open_info_window() {
-	if(!info_window.IsOpen()) {
-		info_window.refresh_text();
-		info_window.Open();
-	}
+	if(info_window.IsOpen()) return;
+	info_window.refresh_text();
+	info_window.Open();
 }
 
 void MobiView2::open_additional_plots() {
-	if(!additional_plots.IsOpen()) {
-		additional_plots.Open();
-		additional_plots.build_all();
-	}
+	if(additional_plots.IsOpen()) return;
+	additional_plots.Open();
+	additional_plots.build_all();
 }
 
 void MobiView2::open_optimization_window() {
-	if(!optimization_window.IsOpen())
-		optimization_window.Open();
+	if(optimization_window.IsOpen()) return;
+	optimization_window.Open();
 }
 
 void MobiView2::open_structure_view() {
-	if(!structure_window.IsOpen()) {
-		structure_window.refresh_text();
-		structure_window.Open();
-	}
+	if(structure_window.IsOpen()) return;
+	structure_window.refresh_text();
+	structure_window.Open();
+}
+
+void MobiView2::open_view_chart() {
+	if(model_chart_window.IsOpen()) return;
+	model_chart_window.rebuild();
+	model_chart_window.Open();
 }
 
 GUI_APP_MAIN {

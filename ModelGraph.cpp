@@ -5,10 +5,6 @@ using namespace Upp;
 
 #include <graphviz/gvc.h>
 
-ModelGraph::ModelGraph(MobiView2 *parent) : parent(parent) {
-	Sizeable();
-}
-
 // TODO: This is a hack. For some reason, we don't get this with the libs we use. Should
 // rebuild them?
 Agdesc_t 	Agdirected = { 1, 0, 0, 1 };
@@ -167,23 +163,18 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 }
 
 void
-ModelGraph::rebuild_image() {
+ModelGraph::rebuild_image(Model_Application *app) {
 	
+	if(!app) {
+		image = Image();
+		return;
+	}
 #ifndef _DEBUG     // NOTE: Currently we don't have debug versions of the graphviz libraries
-	if(!parent->model_is_loaded()) return;
-	//if(has_image) return;
-	has_image = true;
+	
+	//has_image = true;
 	GVC_t *gvc = gvContext();
-
-	auto app = parent->app;
-
 	// Create a simple digraph
 	Agraph_t *g = agopen("Model graph", Agdirected, 0);
-	
-	
-	
-	bool show_properties = false;
-	bool show_flux_labels = true;
 	
 	agsafeset(g, "compound", "true", "");
 	
@@ -238,7 +229,7 @@ ModelGraph::rebuild_image() {
 		image = StreamRaster::LoadAny(MemReadStream(data, len));
 		gvFreeRenderData(data);
 	} else {
-		parent->log("Graphviz error when rendering model graph.", true);
+		fatal_error(Mobius_Error::internal, "Graphviz error when rendering model graph.");
 	}
 	
 	gvFreeLayout(gvc, g);
@@ -254,8 +245,8 @@ ModelGraph::Paint(Draw& w) {
 	w.DrawRect(GetSize(), White());
 #ifndef _DEBUG
 	
-	if(!has_image) rebuild_image();	
+	//if(!has_image) rebuild_image();	
     
-    w.DrawImage(10, 10, image);
+    w.DrawImage(0, 0, image);
 #endif
 }

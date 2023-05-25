@@ -28,8 +28,7 @@
 #include "AdditionalPlotView.h"
 #include "OptimizationWindow.h"
 #include "StructureView.h"
-
-#include "ModelGraph.h"
+#include "ModelChartView.h"
 
 /*
 class ChangeIndexesWindow;
@@ -115,11 +114,6 @@ public:
 	
 	MyRichView plot_info;
 	MyRichView log_box;
-
-	//Upp::ParentCtrl result_selecter_rect;
-	//Upp::TreeCtrl   result_selecter;
-	//Upp::Option     show_favorites;
-	//Upp::TreeCtrl   input_selecter;
 	
 	SeriesSelecter     result_selecter;
 	SeriesSelecter     input_selecter;
@@ -127,9 +121,7 @@ public:
 	Upp::ToolBar    tool_bar;
 	
 	PlotCtrl        plotter;
-	
-	ModelGraph      model_graph;
-	
+
 	EditStatSettings      stat_settings;
 	SearchWindow          search_window;
 	SensitivityViewWindow sensitivity_window;
@@ -139,6 +131,8 @@ public:
 	MCMCResultWindow      mcmc_window;
 	VarianceSensitivityWindow variance_window;
 	StructureViewWindow   structure_window;
+	ModelChartView        model_chart_window;
+	
 	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
@@ -182,6 +176,7 @@ public:
 	void open_additional_plots();
 	void open_optimization_window();
 	void open_structure_view();
+	void open_view_chart();
 	
 	bool select_par_group(Entity_Id group_id);
 	

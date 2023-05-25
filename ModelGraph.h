@@ -3,21 +3,22 @@
 
 #include <CtrlLib/CtrlLib.h>
 
-class MobiView2;
+struct Model_Application;
 
-
-class ModelGraph : public Upp::TopWindow {
-	
-	MobiView2 *parent;
-	bool has_image = false;
-	Upp::Image image;
+class ModelGraph : public Upp::Ctrl {
 	
 public :
-	ModelGraph(MobiView2 *parent);
+	ModelGraph() {};
+	
+	Upp::Image image;
 	
 	virtual void Paint(Upp::Draw& w) override;
 	
-	void rebuild_image();
+	void rebuild_image(Model_Application *app);
+	
+	bool show_properties = false;
+	bool show_flux_labels = true;
+	//bool show_short_names = false;
 };
 
 
