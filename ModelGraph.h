@@ -18,7 +18,7 @@ public :
 	
 	bool show_properties = false;
 	bool show_flux_labels = true;
-	//bool show_short_names = false;
+	bool show_short_names = false;
 };
 
 

@@ -18,6 +18,7 @@ public :
 	ModelGraph     model_graph;
 	Upp::Option    show_properties;
 	Upp::Option    show_flux_labels;
+	Upp::Option    short_names;
 	
 	ModelChartView(MobiView2 *parent);
 	

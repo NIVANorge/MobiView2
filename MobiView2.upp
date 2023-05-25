@@ -45,6 +45,8 @@ file
 	Acor.cpp,
 	Info.rc,
 	mobius.ico,
+	C:\Data\Mobius2\src\support\graph_visualisation.cpp,
+	C:\Data\Mobius2\src\support\graph_visualisation.h,
 	logos.iml,
 	C:\Data\Mobius2\src\special_computations.cpp,
 	C:\Data\Mobius2\src\special_computations.h,
