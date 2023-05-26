@@ -14,7 +14,7 @@ public :
 	
 	virtual void Paint(Upp::Draw& w) override;
 	
-	void rebuild_image(Model_Application *app);
+	void rebuild_image(Model_Application *app, int type);
 	
 	bool show_properties = false;
 	bool show_flux_labels = true;

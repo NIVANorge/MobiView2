@@ -680,8 +680,12 @@ void MobiView2::build_interface() {
 	
 	plotter.plot_change();
 	
-	model_chart_window.rebuild();
-	// TODO: Also for structure view.
+	if(model_chart_window.IsOpen())
+		model_chart_window.rebuild();
+	if(structure_window.IsOpen())
+		structure_window.refresh_text();
+	if(info_window.IsOpen())
+		info_window.refresh_text();
 }
 
 void MobiView2::closing_checks() {

@@ -12,7 +12,7 @@ Agdesc_t 	Agdirected = { 1, 0, 0, 1 };
 
 
 void
-ModelGraph::rebuild_image(Model_Application *app) {
+ModelGraph::rebuild_image(Model_Application *app, int type) {
 	
 	if(!app) {
 		image = Image();
@@ -24,7 +24,10 @@ ModelGraph::rebuild_image(Model_Application *app) {
 
 	Agraph_t *g = agopen("Model graph", Agdirected, 0);
 	
-	build_flux_graph(app, g, show_properties, show_flux_labels, show_short_names);
+	if(type == 0)
+		build_flux_graph(app, g, show_properties, show_flux_labels, show_short_names);
+	else if(type == 1)
+		build_distrib_connection_graph(app, g, show_short_names);
 	
 	gvLayout(gvc, g, "dot");
 	
@@ -52,8 +55,6 @@ ModelGraph::Paint(Draw& w) {
 	w.DrawRect(GetSize(), White());
 #ifndef _DEBUG
 	
-	//if(!has_image) rebuild_image();	
-    
     w.DrawImage(0, 0, image);
 #endif
 }

@@ -14,11 +14,14 @@ public :
 	MobiView2 *parent;
 	
 	Upp::ParentCtrl model_graph_tab;
-	AutoScroller   model_graph_scroll;
-	ModelGraph     model_graph;
-	Upp::Option    show_properties;
-	Upp::Option    show_flux_labels;
-	Upp::Option    short_names;
+	AutoScroller    model_graph_scroll;
+	ModelGraph      model_graph;
+	Upp::Option     show_properties;
+	Upp::Option     show_flux_labels;
+	Upp::Option     short_names;
+	
+	Upp::ParentCtrl distrib_graph_tab;
+	AutoScroller    distrib_graph_scroll;
 	
 	ModelChartView(MobiView2 *parent);
 	
