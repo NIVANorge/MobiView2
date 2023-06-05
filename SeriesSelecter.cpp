@@ -105,7 +105,7 @@ reorder(const Var_Location &loc, bool actually_reorder, int len, bool inverse) {
 
 int
 make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Registry *reg,
-	std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, Array<Entity_Node> &nodes, int root, bool by_quantity) {
+	std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, Array<Entity_Node> &nodes, int root, bool by_quantity, Var_Id::Type type) {
 	int at = root;
 	
 	for(int len = 1; len <= loc.n_components; ++len) {
@@ -134,7 +134,7 @@ make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Re
 				img = &IconImg47::Property();
 			
 			at = tree.Add(at, *img, nodes.Top());
-			if(!is_valid(var_id))
+			if(!is_valid(var_id) || var_id.type != type)
 				tree.SetNode(at, tree.GetNode(at).CanSelect(false));
 			loc_to_node[at_loc] = at;
 		} else {
@@ -221,7 +221,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	
 	int at = root;
 	if(is_located(loc))
-		at = make_branch(tree, loc, app->model, &app->vars, loc_to_node, nodes, root, by_quantity);
+		at = make_branch(tree, loc, app->model, &app->vars, loc_to_node, nodes, root, by_quantity, var_id.type);
 	
 	// If we are a quantity or a property, the make_branch call took care of adding the node.
 	if(var->type == State_Var::Type::declared && !var->is_flux() && is_located(loc))

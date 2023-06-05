@@ -458,8 +458,13 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	// TODO: Do we really want to do this here? Ideally it should be a part of Mobius2 itself
 	// so that it also happens if done through other APIs.
 	if(std::find(app->baked_parameters.begin(), app->baked_parameters.end(), par_data.id) != app->baked_parameters.end()) {
-		parent->reload(true);
-		parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
+		// NOTE: We have to put it on the event queue instead of doing it immediately, because
+		// otherwise we may end up deleting the parameter editor Ctrl inside one of its
+		// callbacks, which can cause a crash.
+		SetTimeCallback(0, [this]() {
+			parent->reload(true);
+			parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
+		});
 	}
 }
 

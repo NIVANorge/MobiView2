@@ -45,9 +45,8 @@ ModelGraph::rebuild_image(Model_Application *app, int type) {
 	gvFreeLayout(gvc, g);
 
 	agclose(g);
-	
+#endif	
 	Refresh();
-#endif
 }
 
 void

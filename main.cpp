@@ -365,7 +365,6 @@ void MobiView2::reload(bool recompile_only) {
 		additional_setups.push_back(deserialize_plot_setup(app, data));
 	additional_plots.set_all(additional_setups);
 	
-	
 	plotter.main_plot.was_auto_resized = resized; // A bit hacky, but should cause it to not re-size x axis if it is already set.
 	plotter.set_plot_setup(setup);
 	
