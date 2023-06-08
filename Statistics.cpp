@@ -134,6 +134,8 @@ EditStatSettings::EditStatSettings(MobiView2 *parent) : parent(parent) {
 	};
 	
 	percentiles_edit.WhenEnter = THISBACK(save_and_close);
+	
+	ms_timeout.SetData(-1);
 }
 
 void EditStatSettings::save_and_close() {

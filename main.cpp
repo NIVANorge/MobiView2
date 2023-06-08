@@ -533,10 +533,17 @@ void MobiView2::run_model() {
 	ProcessEvents();
 	try {
 		Timer run_timer;
-		::run_model(app, -1);
+		
+		s64 timeout = stat_settings.ms_timeout.GetData();
+		bool check_for_nan = stat_settings.check_for_nan.GetData();
+		
+		bool finished = ::run_model(app, timeout, check_for_nan);
 		double ms = run_timer.get_milliseconds();
 		
-		log(Format("Model run finished.\nDuration: %g ms.", ms ));
+		if(finished)
+			log(Format("Model run finished.\nDuration: %g ms.", ms ));
+		else
+			fatal_error("Model run failed to finish.");
 	} catch(int) {
 		
 	}
