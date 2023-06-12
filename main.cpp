@@ -529,13 +529,14 @@ void MobiView2::run_model() {
 		return;
 	}
 	
-	log("Starting model run.");
-	ProcessEvents();
 	try {
-		Timer run_timer;
-		
 		s64 timeout = stat_settings.ms_timeout.GetData();
 		bool check_for_nan = stat_settings.check_for_nan.GetData();
+		
+		log(Format("Starting model run%s.", check_for_nan ? " (with checks for non-finite values turned on)" : ""));
+		ProcessEvents();
+		
+		Timer run_timer;
 		
 		bool finished = ::run_model(app, timeout, check_for_nan);
 		double ms = run_timer.get_milliseconds();
