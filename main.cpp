@@ -397,10 +397,19 @@ void MobiView2::load() {
 	String previous_model = settings_json["Model file"];
 	String previous_data  = settings_json["Data file"];
 	
+	std::string mobius_base_path;
+	try {
+		Mobius_Config config = load_config();
+		mobius_base_path = config.mobius_base_path;
+	} catch(int) {
+		log_warnings_and_errors();
+		return;
+	}
+	
 	FileSel model_sel;
 
 	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them1
-
+		
 	if(!previous_model.IsEmpty()) {
 		if(FileExists(previous_model))
 			model_sel.PreSelect(previous_model);
@@ -409,7 +418,10 @@ void MobiView2::load() {
 			if(DirectoryExists(folder))
 				model_sel.ActiveDir(folder);
 		}
-	}
+	} else if(!mobius_base_path.empty())
+		model_sel.ActiveDir(mobius_base_path.data());
+	else
+		model_sel.ActiveDir(GetCurrentDirectory());
 	
 	model_sel.ExecuteOpen();
 	std::string new_model_file = model_sel.Get().ToStd();
@@ -425,11 +437,7 @@ void MobiView2::load() {
 	log(Format("Selecting model: %s", model_file.data()));
 
 	FileSel data_sel;
-#ifdef PLATFORM_WIN32
-	data_sel.Type("Input .dat or spreadsheet files", "*.dat *.xls *.xlsx");
-#else
 	data_sel.Type("Input .dat files", "*.dat");
-#endif
 
 	if(!changed_model && !previous_data.IsEmpty() && FileExists(previous_data))
 		data_sel.PreSelect(previous_data);

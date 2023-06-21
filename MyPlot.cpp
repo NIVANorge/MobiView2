@@ -161,7 +161,7 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 				indexes2[idx] = indexes[index_sets[idx].id];
 			int count = app->get_index_count(set, indexes).index;
 			for(int idx = 0; idx < count; ++idx) {
-				if(indexes2[sz-2].index == idx) continue; // Skip for when the two last indexes are the same.
+				if(indexes2[sz-2].index == idx) continue; // Skip for when the two last indexes are the same (the corresponding series is not computed).
 				
 				indexes2[sz-1].index = idx;
 				Color &graph_color = draw->colors.next();
