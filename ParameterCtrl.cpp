@@ -241,6 +241,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	
 	Indexed_Parameter par_data;
 	if(!values_only) {
+		
 		par_data.indexes.resize(MAX_INDEX_SETS, invalid_index);
 		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
 			if(!is_valid(index_sets[idx])) break;
@@ -278,6 +279,17 @@ void ParameterCtrl::refresh(bool values_only) {
 				par_data.id    = par_id;
 				if(is_valid(expanded_set))
 					par_data.indexes[expanded_set.id] = exp_idx;
+				
+				// TODO: This is a very inefficient fix...
+				//  It is needed because of the inbounds check below, but could just be done
+				//  once, not per par_id and iteration.
+				//  It also works only because all parameters within the view are going to be
+				//  indexed the same.
+				auto &par_index_sets = parent->app->parameter_structure.get_index_sets(par_data.id);
+				for(auto &index : par_data.indexes) {
+					if(std::find(par_index_sets.begin(), par_index_sets.end(), index.index_set) == par_index_sets.end())
+						index.index = -1;
+				}
 			}
 			
 			// NOTE: This can happen if we got an index from a sub-indexed index set that is
@@ -335,6 +347,7 @@ void ParameterCtrl::refresh(bool values_only) {
 					offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes, par_data.mat_col);
 					
 				Parameter_Value val = *parent->app->data.parameters.get_value(offset);
+				
 				if(par->decl_type == Decl_Type::par_real) {
 					row_data.Set(value_column, val.val_real);
 					if(show_additional) {

@@ -26,8 +26,8 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	quant_tree.HighlightCtrl(true);
 	
 	if(type == Var_Id::Type::state_var) {
-		tree_tab.Add(var_tree.SizePos(), "Comp.");//IconImg47::Compartment(), "Comp.");
-		tree_tab.Add(quant_tree.SizePos(), "Quant."); //IconImg47::Quantity(), "Quant.");
+		tree_tab.Add(var_tree.SizePos(), "By compartment");//IconImg47::Compartment(), "Comp.");
+		tree_tab.Add(quant_tree.SizePos(), "By quantity"); //IconImg47::Quantity(), "Quant.");
 		//show_fluxes.SetData(true);
 	} else {
 		tree_tab.Disable();

@@ -230,7 +230,7 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 				unit    = app->model->units[par->unit]->data.to_utf8();
 			name    = par->name.data();
 			if(lookup_default)
-				sym     = par->symbol.data();
+				sym     = app->model->get_symbol(parameter.id).data();
 		}
 		
 		parameter.symbol = sym.ToStd();

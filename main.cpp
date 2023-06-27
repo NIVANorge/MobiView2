@@ -126,16 +126,7 @@ MobiView2::MobiView2() :
 	if((bool)settings_json["Maximize"]) Maximize();
 	
 	stat_settings.read_from_json(settings_json);
-	/*
-
-	Value IdxEditWindowDim = settings_json["Index set editor window dimensions"];
-	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
-		ChangeIndexes.SetRect(0, 0, (int)IdxEditWindowDim[0], (int)IdxEditWindowDim[1]);
 	
-	Value AdditionalPlotViewDim = settings_json["Additional plot view dimensions"];
-	if(AdditionalPlotViewDim.GetCount() == 2 && (int)AdditionalPlotViewDim[0] > 0 && (int)AdditionalPlotViewDim[1] > 0)
-		OtherPlots.SetRect(0, 0, (int)AdditionalPlotViewDim[0], (int)AdditionalPlotViewDim[1]);
-	*/
 	plotter.main_plot.build_plot(); // NOTE: Just to make it initially set the message that no model is loaded
 }
 
@@ -150,18 +141,12 @@ void MobiView2::log(String msg, bool error) {
 	String format_msg = "";
 	format_msg << oss.str().data();
 	format_msg << msg;
-	format_msg << "&&";
-	format_msg.Replace("[", "`[");
-	format_msg.Replace("]", "`]");
-	format_msg.Replace("_", "`_");
-	format_msg.Replace("<", "`<");
-	format_msg.Replace(">", "`>");
-	format_msg.Replace("-", "`-");
-	format_msg.Replace(":", "`:");
-	format_msg.Replace("/", "\1/\1");
-	format_msg.Replace("\\", "\1\\\1");
+
+	format_msg = DeQtf(format_msg);
+
 	format_msg.Replace("\n", "&");
 	format_msg.Replace("\t", "-|");
+	format_msg << "&&";
 	
 	if(error)
 		format_msg = String("[@R ") + format_msg + "]";
@@ -305,6 +290,10 @@ void MobiView2::reload(bool recompile_only) {
 	}
 	//TODO: decide what to do about changed parameters. (are they saved first?)
 	
+	if(!recompile_only && params.changed_since_last_save) {
+		int close = PromptYesNo("Parameters have been edited since the last save. If you reload now, you will lose the changes. Continue anyway?");
+		if(!close) return;
+	}
 	
 	// We serialize the selected setup by names since all the ids could have changed when we
 	// recompile.
@@ -387,7 +376,7 @@ void MobiView2::reload(bool recompile_only) {
 void MobiView2::load() {
 	
 	if(params.changed_since_last_save) {
-		int close = PromptYesNo("Parameters have been edited since the last save. If you load a new dataset now, you will lose them. Continue anyway?");
+		int close = PromptYesNo("Parameters have been edited since the last save. If you load a new dataset now, you will lose the changes. Continue anyway?");
 		if(!close) return;
 	}
 
@@ -408,7 +397,7 @@ void MobiView2::load() {
 	
 	FileSel model_sel;
 
-	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them1
+	model_sel.Type("Model files", "*.txt");     //TODO: Decide on what we want to call them!
 		
 	if(!previous_model.IsEmpty()) {
 		if(FileExists(previous_model))

@@ -34,7 +34,7 @@ void ModelInfoWindow::refresh_text() {
 	else if(model_name.StartsWith("MAGIC"))
 		buf << "@@iml:2476*1328`LogoImg:MAGICLogo`&&";
 	
-	buf << "[3 The model [* " << model_name << "] contains the following modules:\n";
+	buf << "[3 The model [* " << model_name << "] contains the following modules:&&";
 	
 	MarkdownConverter mdc;
 	
@@ -44,15 +44,13 @@ void ModelInfoWindow::refresh_text() {
 		auto mod = parent->app->model->modules[module_id];
 		auto temp = parent->app->model->module_templates[mod->template_id];
 		
-		buf += Format("\n[* %s (v. %d.%d.%d)]\n", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
+		buf += Format("[* %s (v. %d.%d.%d)]&", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
 		if(!temp->doc_string.empty())
 			buf += mdc.ToQtf(temp->doc_string.data());
 		else
-			buf +=  "(no description provided by model creator)";
-		buf += "\n";
+			buf +=  mdc.ToQtf("(no description provided by model creator)"); // Just to get the same formatting.
 	}
 	buf += "]";
-	buf.Replace("\n", "&");
 	
 	info_box.SetQTF(buf);
 }
