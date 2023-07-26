@@ -173,6 +173,8 @@ private :
 					max = std::max(max, yy);
 			}
 		}
+		//TODO: This is not that good. Needs to be more robust.
+		if(max == 0.0) max = 1.0;
 	}
 	
 	bool copied_y;

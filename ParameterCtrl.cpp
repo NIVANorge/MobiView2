@@ -103,7 +103,7 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		++idx;
 		
 		if(idx == MAX_INDEX_SETS) {
-			parent->log("Model has more index sets than are supported by MobiView2!", true);
+			parent->log("The model has more index sets than are supported by MobiView2!", true);
 			break;
 		}
 	}

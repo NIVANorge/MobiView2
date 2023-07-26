@@ -23,7 +23,7 @@ normalized_autocorr_1d(const std::vector<double> &chain, std::vector<double> &ac
 	double mean = std::accumulate(series.begin(), series.end(), 0.0) / (double)series.size();
 	for(double &d : series) d -= mean;
 	
-	series.resize(2*next_pow_2(series.size())); //NOTE: To avoid autocorrelation between the beginning and end.
+	series.resize(2*next_pow_2(series.size())); //NOTE: To avoid auto-correlation between the beginning and end.
 	std::vector<std::complex<double>> transformed;
 	fft.fwd(transformed, series);
 

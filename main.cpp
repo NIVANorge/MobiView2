@@ -13,6 +13,12 @@
 std::stringstream global_error_stream;
 std::stringstream global_log_stream;
 
+#ifdef _DEBUG
+	#define CATCH_ERRORS 0
+#else
+	#define CATCH_ERRORS 1
+#endif
+
 using namespace Upp;
 
 MobiView2::MobiView2() :
@@ -203,12 +209,6 @@ void MobiView2::delete_model() {
 	baseline = nullptr;
 }
 
-#ifdef _DEBUG
-	#define CATCH_ERRORS 0
-#else
-	#define CATCH_ERRORS 1
-#endif
-
 bool MobiView2::do_the_load() {
 	//NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new load.
 	if(model_is_loaded())	{
@@ -280,6 +280,7 @@ void MobiView2::reload(bool recompile_only) {
 		if(data_file.empty() || model_file.empty())
 			log("Not able to reload when there is nothing loaded to begin with.", true);
 		else
+			log("Attempting to reload the model.");
 			// This branch could happen if there was a previous attempt at loading which gave
 			// an error. There is still a valid file name for the model and data file,
 			// but the model is not loaded.
@@ -289,6 +290,8 @@ void MobiView2::reload(bool recompile_only) {
 		return;
 	}
 	//TODO: decide what to do about changed parameters. (are they saved first?)
+	
+	log(Format("Reloading the model \"%s\"", app->model->model_name));
 	
 	if(!recompile_only && params.changed_since_last_save) {
 		int close = PromptYesNo("Parameters have been edited since the last save. If you reload now, you will lose the changes. Continue anyway?");
@@ -357,17 +360,13 @@ void MobiView2::reload(bool recompile_only) {
 	plotter.main_plot.was_auto_resized = resized; // A bit hacky, but should cause it to not re-size x axis if it is already set.
 	plotter.set_plot_setup(setup);
 	
-	// TODO: doesn't work for top level parameter groups. Factor out stuff from search window
-	// instead.
-	bool breakout = false;
-	//warning_print("Trying to find par group ", selected_group, "\n");
-	Entity_Id group_id = invalid_entity_id;
-	if(selected_group != "")
-		group_id = model->deserialize(selected_group, Reg_Type::par_group);
-	if(is_valid(group_id))	
-		select_par_group(group_id);
+	if(selected_group != "") {
+		auto group_id = model->deserialize(selected_group, Reg_Type::par_group);
+		if(is_valid(group_id))	
+			select_par_group(group_id);
+	}
 	
-	log(Format("Reloaded model \"%s\"", app->model->model_name));
+	log("The model was reloaded.");
 	
 	if(!recompile_only)
 		run_model();
@@ -456,15 +455,19 @@ void MobiView2::save_parameters() {
 		return;
 	}
 	
+#if CATCH_ERRORS
 	try {
+#endif
 		app->save_to_data_set();
 		data_set->write_to_file(data_file);
 		
 		log(Format("Parameters saved to %s", data_file.data()));
 		params.changed_since_last_save = false;
+#if CATCH_ERRORS
 	} catch(int) {
 		log("Data file saving may have been unsuccessful.", true);
 	}
+#endif
 	log_warnings_and_errors();
 }
 

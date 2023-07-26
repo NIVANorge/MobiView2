@@ -148,7 +148,7 @@ make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Re
 
 void
 add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Model_Application *app, Var_Id var_id,
-	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool by_quantity = false) {
+	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool by_quantity = false, int n_comp = 0) {
 
 	bool is_input = (var_id.type != Var_Id::Type::state_var);
 	auto var = app->vars[var_id];
@@ -156,22 +156,28 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	//TODO: allow regular aggregate
 	if(
 		    var->type == State_Var::Type::regular_aggregate
+		||  var->type == State_Var::Type::special_computation
 		|| !var->is_valid())
 		return;
 	
 	// Just the phases we add nodes in not to have them jumbled. Also, we add quantities first
 	// to organize other things by them.
+	bool is_property = false;
+	
 	if(!is_input) {
 		if(pass_type == 0) {
 			// Do all declared quantities
 			if(var->type != State_Var::Type::declared) return;
 			if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) return;
+			
 		} else if (pass_type == 1) {
 			// Do all declared properties, or things that are generated (but not fluxes)
 			//TODO: Concentrations should go in their own pass between here.
 			if(var->is_flux()) return;
-			if(var->type == State_Var::Type::declared &&
-				as<State_Var::Type::declared>(var)->decl_type != Decl_Type::property) return;
+			if(var->type == State_Var::Type::declared) {
+				if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::property) return;
+				is_property = true;
+			}
 		} else if (pass_type == 2) {
 			// Do all fluxes (declared and generated)
 			if(!var->is_flux()) return;
@@ -217,6 +223,11 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	if(!is_located(loc) && !is_input) {
 		window->log(Format("Unable to identify why a variable \"%s\" was not located.", var->name.data()), true);
 		return;
+	}
+	
+	if(n_comp > 0) {
+		if((!is_property && (loc.n_components != n_comp)) || (is_property && (loc.n_components-1 != n_comp)))
+			return;
 	}
 	
 	int at = root;
@@ -275,9 +286,11 @@ SeriesSelecter::build(Model_Application *app) {
 	
 	try {
 		if(type == Var_Id::Type::state_var) {
-			for(int pass = 0; pass < 3; ++pass) {
-				for(Var_Id var_id : app->vars.all_state_vars())
-					add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass);
+			for(int n_comp = 2; n_comp < max_var_loc_components; ++n_comp) {
+				for(int pass = 0; pass < 3; ++pass) {
+					for(Var_Id var_id : app->vars.all_state_vars())
+						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, false, n_comp);
+				}
 			}
 			
 			loc_to_node.clear();
