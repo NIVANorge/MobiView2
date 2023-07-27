@@ -276,7 +276,7 @@ void OptimizationWindow::add_parameter_clicked() {
 }
 
 void OptimizationWindow::add_virtual_clicked() {
-	Indexed_Parameter par = {};
+	Indexed_Parameter par(parent->model);
 	par.virt = true;
 	add_single_parameter(par);
 }
@@ -432,7 +432,7 @@ void OptimizationWindow::add_target_clicked() {
 		}
 	}
 
-	Optimization_Target target;
+	Optimization_Target target(parent->model);
 	target.sim_id = setup.selected_results[0];
 	target.obs_id = setup.selected_series.empty() ? invalid_var : setup.selected_series[0];
 	get_single_indexes(target.indexes, setup);
@@ -469,8 +469,8 @@ target_to_plot_setup(Optimization_Target &target, Model_Application *app) {
 		setup.selected_series.push_back(target.obs_id);
 
 	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		if(is_valid(target.indexes[idx]))
-			setup.selected_indexes[idx].push_back(target.indexes[idx]);
+		if(is_valid(target.indexes.indexes[idx]))
+			setup.selected_indexes[idx].push_back(target.indexes.indexes[idx]);
 	}
 	
 	// TODO: not that clean to have this as a function on the Plot_Ctrl...
@@ -713,11 +713,15 @@ OptimizationWindow::run_mcmc_from_window(MCMC_Sampler method, double *sampler_pa
 	//TODO: We should check the sampler_params for correctness somehow!
 	
 	bool finished = false;
+#if CATCH_ERRORS
 	try {
+#endif
 		finished =
 			run_mcmc(method, sampler_params, scales.data(), mcmc_ll_eval, &run_data, mc_data, mcmc_callback, &callback_data, callback_interval, init_step);
+#if CATCH_ERRORS
 	} catch(int) {
 	}
+#endif
 	parent->log_warnings_and_errors();
 	
 	// Clean up copied data.
@@ -958,13 +962,17 @@ void OptimizationWindow::run_clicked(int run_type)
 	}
 	
 	bool error = false;
+#if CATCH_ERRORS
 	try {
+#endif
 		// NOTE: Must set the expr_pars before we call err_sym_fixup() !
 		expr_pars.set(app, sorted_params);
+#if CATCH_ERRORS
 	} catch (int) {
 		set_error("There was an error. See the main log window.");
 		error = true;
 	}
+#endif
 	parent->log_warnings_and_errors();
 	if(error) return;
 	
@@ -1041,8 +1049,10 @@ void OptimizationWindow::run_clicked(int run_type)
 			}
 		};
 	}
-	
+
+#if CATCH_ERRORS
 	try {
+#endif
 		Timer timer;
 		Dlib_Optimization_Model opt_model(data, expr_pars, targets, &initial_pars, callback, ms_timeout);
 		s64 ms = timer.get_milliseconds(); //NOTE: this is roughly how long it took to evaluate initial values.
@@ -1161,48 +1171,16 @@ void OptimizationWindow::run_clicked(int run_type)
 		sensitivity_setup.push_run.Enable();
 		run_setup.progress_label.SetText("");
 		set_error("");
+#if CATCH_ERRORS
 	} catch(int) {}
+#endif
 	parent->log_warnings_and_errors(); //TODO: we should ideally print the errors in a log in this window instead!
 
 	delete data; // Delete the copy that we ran the optimization on.
 	
-	TopMost(true, false); //NOTE: otherwise the window gets hidden behind the main window some times.
-/*
-	}
-	else if(RunType == 3)
-	{
-		int NSamples = SensitivitySetup.EditSampleSize.GetData();
-		int Method   = SensitivitySetup.SelectMethod.GetData();
-		
-		int NPars = OptimizationModel.FreeParCount;
-		std::vector<double> MinVals(NPars);
-		std::vector<double> MaxVals(NPars);
-		
-		for(int Idx = 0; Idx < NPars; ++Idx)
-		{
-			MinVals[Idx]     = MinBound(Idx);
-			MaxVals[Idx]     = MaxBound(Idx);
-		}
-		
-		auto NCores = std::thread::hardware_concurrency();
-		double ExpectedDuration1 = Ms*1e-3*(double)NSamples*(2.0 + (double)NPars) / (double)NCores;
-		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
-		
-		ParentWindow->Log(Format("Running variance based sensitiviy sampling. Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.", ExpectedDuration1, ExpectedDuration2, (int)NCores));
-		
-		auto BeginTime = std::chrono::system_clock::now();
-		
-		RunVarianceBasedSensitivity(NSamples, Method, &OptimizationModel, MinVals.data(), MaxVals.data());
-		
-		auto EndTime = std::chrono::system_clock::now();
-		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
-		ParentWindow->Log(Format("Variance based sensitivity sampling finished after %g seconds.", Duration));
-		
-		END_CLEANUP();
-	}
-	
-	#undef END_CLEANUP
-	*/
+	//NOTE: We have to do this, otherwise the window gets hidden behind the main window some times.
+	//   The only problem is that the Sta
+	TopMost(true, false);
 }
 
 void OptimizationWindow::tab_change() {
@@ -1270,9 +1248,11 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 		for(int row = 0; row < count; ++row) {
 			Value par_json = par_arr[row];
 			
-			Indexed_Parameter par = {};
+			Indexed_Parameter par(parent->model);
 			par.id = invalid_entity_id;
-
+			
+			par.locks.resize(par.indexes.indexes.size(), false);
+			
 			// TODO: In the end it may not be sufficient to store parameters by name, they may
 			// have to be scoped to par group + module!
 			Value name = par_json["Name"];
@@ -1305,8 +1285,9 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				bool locked = false;
 				if(!IsNull(locked_val)) locked = (bool)locked_val;
 				
-				par.indexes.push_back(index);
-				par.locks.push_back(locked);
+				if(is_valid(index))
+					par.indexes.add_index(index);
+				par.locks[index_set.id] = locked;
 			}
 			
 			Value sym_val  = par_json["Sym"];
@@ -1382,7 +1363,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 		for(int row = 0; row < count; ++row) {
 			Value target_json = target_arr[row];
 			
-			Optimization_Target target = {};
+			Optimization_Target target(parent->model);
 			
 			String result_name = target_json["ResultName"];
 			if(!IsNull(result_name))
@@ -1423,18 +1404,14 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			ValueArray index_arr = target_json["Indexes"];
 			bool found = !IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count());
 			int row2 = 0;
-			target.indexes.resize(MAX_INDEX_SETS, invalid_index);
 			
 			for(Entity_Id index_set : model->index_sets) {
 				String index_name = Null;
 				if(found) index_name = index_arr[row2];
-				Index_T index;
-				if(!IsNull(index_name) && index_name != "")
-					index = app->get_index(index_set, index_name.ToStd());
-				else
-					index = { index_set, -1 };
-				//target.indexes.push_back(index);
-				target.indexes[row2] = index;
+				if(!IsNull(index_name) && index_name != "") {
+					auto index = app->get_index(index_set, index_name.ToStd());
+					target.indexes.add_index(index);
+				}
 				++row2;
 			}
 			
@@ -1510,7 +1487,7 @@ String OptimizationWindow::write_to_json_string() {
 		
 		JsonArray index_arr;
 		int idx2 = 0;
-		for(Index_T index : par.indexes) {
+		for(Index_T index : par.indexes.indexes) {
 			Json index_json;
 			if(is_valid(index)) {
 				index_json("Name", app->get_index_name(index).data());
@@ -1567,8 +1544,9 @@ String OptimizationWindow::write_to_json_string() {
 		target_json("ResultName", app->serialize(target.sim_id).data());
 		target_json("InputName", app->serialize(target.obs_id).data());
 		
+		// TODO: Why are these not stored in (index set, index) pairs like for the parameters??
 		JsonArray index_arr;
-		for(Index_T index : target.indexes) {
+		for(Index_T index : target.indexes.indexes) {
 			if(is_valid(index))
 				index_arr << app->get_index_name(index).data();
 			else

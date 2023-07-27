@@ -10,14 +10,15 @@
 #include <map>
 #include <vector>
 
+#ifdef _DEBUG
+	#define CATCH_ERRORS 0
+#else
+	#define CATCH_ERRORS 1
+#endif
+
+
 #include "StarOption.h"
 #include "MyRichView.h"
-
-
-//#include "MCMC.h"
-
-//class MobiView2;
-
 #include "SeriesSelecter.h"
 #include "ParameterCtrl.h"
 #include "PlotCtrl.h"
@@ -29,65 +30,9 @@
 #include "OptimizationWindow.h"
 #include "StructureView.h"
 #include "ModelChartView.h"
-
-/*
-class ChangeIndexesWindow;
-
-class VisualizeBranches : public ParentCtrl
-{
-public :
-	VisualizeBranches();
-	
-	MobiView *ParentWindow;
-	ChangeIndexesWindow *OtherParent;
-	
-	virtual void Paint(Draw &W);
-};
-
-class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow>
-{
-public:
-	typedef ChangeIndexesWindow CLASSNAME;
-	
-	ChangeIndexesWindow();
-	
-	MobiView *ParentWindow;
-	
-	VisualizeBranches Branches;
-	
-	Label     *IndexSetName[MAX_INDEX_SETS];
-	LineEdit  *IndexList[MAX_INDEX_SETS];
-	ArrayCtrl *BranchList[MAX_INDEX_SETS];
-	
-	Array<Array<Ctrl>> BranchControls;
-	Array<Array<Ctrl>> NameControls;
-	
-	bool ParseIntList(String &ListStr, std::vector<int> &Result, int Row);
-	
-	void RefreshData();
-	void DoIndexUpdate();
-	void AddIndexPushed();
-	void DeleteSelectedPushed();
-	
-	void SelectedBranchListUpdate();
-	
-	void BuildConnectionEditFromDataset();
-};
-
-
-class VarianceSensitivityWindow : public WithVarSensitivityResultLayout<TopWindow>
-{
-public :
-	typedef VarianceSensitivityWindow CLASSNAME;
-	
-	VarianceSensitivityWindow();
-};
-*/
-
-
-#include "model_application.h" //TODO: may not need to include this entire file..
-
 #include "Util.h"
+
+#include "model_application.h"
 
 
 class MobiView2 : public Upp::TopWindow
@@ -158,8 +103,6 @@ public:
 	
 	void save_baseline();
 	void revert_baseline();
-	
-	//void SaveInputsAsDat();
 	
 	void clean_interface();
 	void build_interface();

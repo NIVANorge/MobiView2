@@ -40,21 +40,33 @@ parse_percent_list(String &list_str, std::vector<double> &result) {
 
 template<typename Handle_T>
 inline Upp::String
-make_index_string(Storage_Structure<Handle_T> *structure, std::vector<Index_T> indexes, Handle_T handle, bool indexes_are_alternately_ordered = false) {
+make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Handle_T handle) {
 
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
 	if(index_sets.empty()) return "";
 	
+	/*
+	std::vector<Index_T> use_indexes;
+	if(indexes_are_alternately_ordered) {
+		use_indexes = indexes; // TODO: could we avoid copying when it is not necessary.
+	} else {
+		use_indexes.resize(index_sets.size());
+		for(int idx = 0; idx < index_sets.size(); ++idx) {
+			use_indexes[idx] = indexes[index_sets[idx].id];
+		}
+	}
+	*/
+	
+	//PromptOK(Format("Indexes size %d", (int)use_indexes.size()));
+	
+	std::vector<std::string> names;
+	structure->parent->get_index_names_with_edge_naming(indexes, names, true);
+	
 	Upp::String result = "[";
 	int idx = 0;
-	for(const Entity_Id &index_set : index_sets) {
+	for(auto &name : names) {
 		if(idx != 0) result << " ";
-		if(indexes_are_alternately_ordered) {
-			result << structure->parent->get_possibly_quoted_index_name(indexes[idx]).data();
-		} else {
-			ASSERT(indexes[index_set.id].index_set == index_set);
-			result << structure->parent->get_possibly_quoted_index_name(indexes[index_set.id]).data();
-		}
+		result << name.data();
 		++idx;
 	}
 	result << "]";
@@ -67,24 +79,39 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(par->id);
 	if(index_sets.empty()) return "";
 	
+	// Would be nice to have a way not to have to build the second vector
+	/*
+	std::vector<Index_T> indexes(index_sets.size());
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
+		indexes[idx] = par->indexes[index_sets[idx].id];
+	}
+	*/
+	std::vector<std::string> names;
+	structure->parent->get_index_names_with_edge_naming(par->indexes, names, true);
+		
 	Upp::String result = "[";
 	int idx = 0;
-	bool once = false;
+	//bool once = false;
 	for(const Entity_Id &index_set : index_sets) {
-		if(idx++ != 0) result << " ";
+		if(idx != 0) result << " ";
 		//ASSERT(par->indexes[index_set.id].index_set == index_set);
 		
-		auto index = par->indexes[index_set.id];
-		if(is_valid(par->mat_col)) {
+		/*
+		auto index = indexes[idx];
+		
+		if(is_valid(par->mat_col) && index_set == par->mat_col.index_set) {
 			if(once)
 				index = par->mat_col;
 			once = true;
 		}
+		*/
 		
 		if(par->locks[idx])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << structure->parent->get_possibly_quoted_index_name(index);
+			result << names[idx];
+		
+		++idx;
 	}
 	result << "]";
 	return result;

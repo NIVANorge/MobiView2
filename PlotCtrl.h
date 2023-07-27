@@ -504,13 +504,13 @@ void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app);
 
 //void get_storage_and_var(Model_Data *md, Var_Id var_id, Data_Storage<double, Var_Id> **data, State_Var **var);
 
-bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, Indexes &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Upp::Color &color, bool stacked = false,
-	const Upp::String &legend_prefix = Upp::Null, bool always_copy_y = false, bool indexes_are_alternately_ordered = false);
+	const Upp::String &legend_prefix = Upp::Null, bool always_copy_y = false);
 	
 int add_histogram(MyPlot *plot, Upp::DataSource *data, double min, double max, s64 count, const Upp::String &legend, const Upp::String &unit, const Upp::Color &color);
 	
-void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup);
+void get_single_indexes(Indexes &indexes, Plot_Setup &setup);
 
 void get_gof_offsets(Upp::Time &start_setting, Upp::Time &end_setting, Date_Time input_start, s64 input_ts, Date_Time result_start, s64 result_ts, Date_Time &gof_start, Date_Time &gof_end,
 	s64 &input_gof_offset, s64 &result_gof_offset, s64 &gof_ts, Time_Step_Size ts_size, bool has_results);

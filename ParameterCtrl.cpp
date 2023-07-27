@@ -239,19 +239,19 @@ void ParameterCtrl::refresh(bool values_only) {
 		}
 	}
 	
-	Indexed_Parameter par_data;
+	Indexed_Parameter par_data(parent->model);
 	if(!values_only) {
 		
-		par_data.indexes.resize(MAX_INDEX_SETS, invalid_index);
-		for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+		//par_data.indexes.resize(MAX_INDEX_SETS, invalid_index);
+		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			if(!is_valid(index_sets[idx])) break;
 			std::string idx_name = index_list[idx]->Get().ToStd();
-			par_data.indexes[idx] = parent->app->get_index(index_sets[idx], idx_name);
+			par_data.indexes.add_index(parent->app->get_index(index_sets[idx], idx_name));
 		}
 		//NOTE: We don't store info about it being locked here, since that has to be
 			//overridden later anyway (the lock status can have changed since the table was
 			//constructed.
-		par_data.locks.resize(MAX_INDEX_SETS, false);
+		par_data.locks.resize(par_data.indexes.indexes.size(), false);
 	}
 	
 	if(!values_only)
@@ -278,7 +278,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			if(!values_only) {
 				par_data.id    = par_id;
 				if(is_valid(expanded_set))
-					par_data.indexes[expanded_set.id] = exp_idx;
+					par_data.indexes.indexes[expanded_set.id] = exp_idx;
 				
 				// TODO: This is a very inefficient fix...
 				//  It is needed because of the inbounds check below, but could just be done
@@ -286,7 +286,7 @@ void ParameterCtrl::refresh(bool values_only) {
 				//  It also works only because all parameters within the view are going to be
 				//  indexed the same.
 				auto &par_index_sets = parent->app->parameter_structure.get_index_sets(par_data.id);
-				for(auto &index : par_data.indexes) {
+				for(auto &index : par_data.indexes.indexes) {
 					if(std::find(par_index_sets.begin(), par_index_sets.end(), index.index_set) == par_index_sets.end())
 						index.index = -1;
 				}
@@ -320,7 +320,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			}
 			
 			if(!values_only)
-				listed_pars[row].resize(exp_count_2.index);
+				listed_pars[row].resize(exp_count_2.index, Indexed_Parameter(parent->model));
 			
 			int col = 0;
 			for(Index_T exp_idx_2 = {expanded_set, 0}; exp_idx_2 < exp_count_2; ++exp_idx_2) {
@@ -330,7 +330,7 @@ void ParameterCtrl::refresh(bool values_only) {
 				if(column_expand) {
 					value_column = Id(parent->app->get_index_name(exp_idx_2).data());
 					if(!values_only)
-						par_data.mat_col = exp_idx_2;
+						par_data.indexes.mat_col = exp_idx_2;
 				}
 				
 				if(!values_only)
@@ -338,14 +338,8 @@ void ParameterCtrl::refresh(bool values_only) {
 				else
 					par_data = listed_pars[row][col];
 				
-				
-				// TODO: use the second index in the lookup!!
-				s64 offset;
-				if(!column_expand)
-					offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes);
-				else
-					offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes, par_data.mat_col);
-					
+
+				s64 offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes);		
 				Parameter_Value val = *parent->app->data.parameters.get_value(offset);
 				
 				if(par->decl_type == Decl_Type::par_real) {
@@ -489,7 +483,7 @@ ParameterCtrl::set_locks(Indexed_Parameter &par) {
 
 Indexed_Parameter
 ParameterCtrl::get_selected_parameter() {
-	Indexed_Parameter result;
+	Indexed_Parameter result(parent->model);
 	result.id = invalid_entity_id;
 	
 	int row = parameter_view.GetCursor();

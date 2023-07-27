@@ -99,11 +99,11 @@ void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color
 	}
 }
 
-bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes,
+bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, Indexes &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
-	const String &legend_prefix, bool always_copy_y, bool indexes_are_alternately_ordered) {
+	const String &legend_prefix, bool always_copy_y) {
 	
-	if(!indexes_are_alternately_ordered && !app->is_in_bounds(indexes)) return true;
+	if(!app->is_in_bounds(indexes)) return true;
 	
 	if(draw->GetCount() == 100) {
 		draw->SetTitle("Warning: only displaying the 100 first selected series");
@@ -112,18 +112,14 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	
 	auto *data = &md->get_storage(var_id.type);
 	auto var = app->vars[var_id];
-	s64 offset;
-	if(indexes_are_alternately_ordered)
-		offset = data->structure->get_offset_alternate(var_id, indexes);
-	else
-		offset = data->structure->get_offset(var_id, indexes);
+	s64 offset = data->structure->get_offset(var_id, indexes);
 	
 	auto unit = var->unit;
 	if(draw->setup.aggregation_type == Aggregation_Type::sum)
 		unit = unit_of_sum(var->unit, app->time_step_unit, draw->setup.aggregation_period);
 	
 	String unit_str = unit.to_utf8();
-	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id, indexes_are_alternately_ordered) + "[" + unit_str + "]";
+	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit_str + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
@@ -145,30 +141,30 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	return true;
 }
 
-bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std::vector<Index_T> &indexes, int level,
+bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Indexes &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode) {
-	if(level == draw->setup.selected_indexes.size()) {
+	if(level == indexes.indexes.size()) {
 
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
 		
 		int sz = index_sets.size();
 		if(sz >= 2 && index_sets[sz-1] == index_sets[sz-2]) {
 			// If it is matrix indexed, we also loop over the final index set one more time.
-			// TODO: it is not awfully clean to have this here. :(
+			// TODO: Could this code be made a bit cleaner?
 			auto set = index_sets[sz-1];
-			std::vector<Index_T> indexes2(sz);
-			for(int idx = 0; idx < sz; ++idx)
-				indexes2[idx] = indexes[index_sets[idx].id];
+			
+			indexes.mat_col.index_set = set;
 			int count = app->get_index_count(set, indexes).index;
 			for(int idx = 0; idx < count; ++idx) {
-				if(indexes2[sz-2].index == idx) continue; // Skip for when the two last indexes are the same (the corresponding series is not computed).
+				if(indexes.indexes[sz-2].index == idx) continue; // Skip for when the two last indexes are the same (the corresponding series is not computed).
+				indexes.mat_col.index = idx;
 				
-				indexes2[sz-1].index = idx;
 				Color &graph_color = draw->colors.next();
-				bool success = add_single_plot(draw, &app->data, app, var_id, indexes2, time_steps,
-					ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked, "", false, true);
+				bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps,
+					ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked, "", false);
 				if(!success) return false;		
 			}
+			
 		} else {
 			
 			// This is the vast majority of cases.
@@ -185,11 +181,11 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, std
 			loop = find != index_sets.end();
 		}
 		if(!loop) {
-			indexes[level] = invalid_index;
+			indexes.indexes[level] = invalid_index;
 			return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
-				indexes[level] = index;
+				indexes.indexes[level] = index;
 				bool success = add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
 				if(!success) return false;
 			}
@@ -678,13 +674,16 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 
-void get_single_indexes(std::vector<Index_T> &indexes, Plot_Setup &setup) {
-	indexes.resize(MAX_INDEX_SETS);
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		if(setup.selected_indexes[idx].empty())
-			indexes[idx] = invalid_index;
-		else
-			indexes[idx] = setup.selected_indexes[idx][0];
+void get_single_indexes(Indexes &indexes, Plot_Setup &setup) {
+	
+	if(indexes.lookup_ordered)
+		fatal_error(Mobius_Error::internal, "Can't use get_single_indexes with lookup ordered indexes");
+	
+	//indexes.clear(); // Probably unnecessary since we only use it for newly constructed ones
+	
+	for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
+		if(!setup.selected_indexes[idx].empty())
+			indexes.add_index(setup.selected_indexes[idx][0]);
 	}
 }
 
@@ -830,7 +829,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Var_Id id_obs = setup.selected_series[0];
 			Data_Storage<double, Var_Id> *data_sim = &app->data.results;
 			Data_Storage<double, Var_Id> *data_obs = id_obs.type == Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
-			std::vector<Index_T> indexes;
+			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			offset_sim = data_sim->structure->get_offset(id_sim, indexes);
 			offset_obs = data_obs->structure->get_offset(id_obs, indexes);
@@ -848,7 +847,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				data_stacked.set_share(is_share);
 			}
 			
-			std::vector<Index_T> indexes(MAX_INDEX_SETS);
+			Indexes indexes(parent->model);
 			for(auto var_id : setup.selected_results) {
 				const std::vector<Entity_Id> &index_sets = app->result_structure.get_index_sets(var_id);
 				add_plot_recursive(this, app, var_id, indexes, 0, input_start, result_start, result_ts, x_data.data(), index_sets, result_gof_offset, gof_ts, mode);
@@ -865,7 +864,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				return;
 			}
 			
-			std::vector<Index_T> indexes;
+			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			
 			s64 gof_offset;
@@ -905,7 +904,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				return;
 			}
 			
-			std::vector<Index_T> indexes;
+			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			
 			Var_Id var_id_sim = setup.selected_results[0];
@@ -1042,24 +1041,36 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			
-			std::vector<Index_T> indexes;
+			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			
+			std::vector<std::string> index_names;
+			app->get_index_names_with_edge_naming(indexes, index_names, false);
+			
+			for(auto &name : index_names)
+				labels << String(name);
+			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
-				indexes[profile_set_idx] = index;
+				indexes.indexes[profile_set_idx] = index;
 				if(!profile2D_is_timed) {
 					if(!app->is_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
 					s64 offset = data->structure->get_offset(var_id, indexes);
 					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
-					labels << String(app->get_index_name(index));
+					//labels << String(app->get_index_name(index));
 				} else {
+					std::vector<std::string> index_names2;
+					app->get_index_names_with_edge_naming(indexes, index_names2, false);
+					
+					for(auto &name : index_names2)
+						labels2 << String(name);
+					
 					for(Index_T &index2 : setup.selected_indexes[profile_set_idx2]) {
-						indexes[profile_set_idx2] = index2;
+						indexes.indexes[profile_set_idx2] = index2;
 						s64 offset = data->structure->get_offset(var_id, indexes);
 						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
-						labels2 << String(app->get_index_name(index2));
+						//labels2 << String(app->get_index_name(index2));
 					}
-					labels << String(app->get_index_name(index));
+					//labels << String(app->get_index_name(index));
 				}
 			}
 			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)
@@ -1135,7 +1146,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			s64 baseline_ts = baseline->results.time_steps;
 			Date_Time baseline_start = baseline->results.start_date;
 			
-			std::vector<Index_T> indexes;
+			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			
 			//NOTE: to get same color for main series and comparison series as when in regular

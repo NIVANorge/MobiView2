@@ -10,7 +10,7 @@ StatPlotCtrl::StatPlotCtrl() {
 	CtrlLayout(*this);
 }
 
-SensitivityViewWindow::SensitivityViewWindow(MobiView2 *parent) : parent(parent) {
+SensitivityViewWindow::SensitivityViewWindow(MobiView2 *parent) : parent(parent), par(nullptr) {
 	CtrlLayout(*this, "MobiView2 perturbation view");
 	Sizeable().Zoomable();
 	
@@ -198,7 +198,7 @@ SensitivityViewWindow::run() {
 	stat_plot.plot.SetLabelX(" ");
 	stat_plot.plot.SetLabelY(" ");
 	
-	std::vector<Index_T> indexes;
+	Indexes indexes(parent->model);
 	get_single_indexes(indexes, plot.setup);
 	
 	Var_Id var_id = plot.setup.selected_results[0];

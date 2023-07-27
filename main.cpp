@@ -13,11 +13,6 @@
 std::stringstream global_error_stream;
 std::stringstream global_log_stream;
 
-#ifdef _DEBUG
-	#define CATCH_ERRORS 0
-#else
-	#define CATCH_ERRORS 1
-#endif
 
 using namespace Upp;
 
