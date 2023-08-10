@@ -45,28 +45,23 @@ make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Hand
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
 	if(index_sets.empty()) return "";
 	
-	/*
-	std::vector<Index_T> use_indexes;
-	if(indexes_are_alternately_ordered) {
-		use_indexes = indexes; // TODO: could we avoid copying when it is not necessary.
-	} else {
-		use_indexes.resize(index_sets.size());
-		for(int idx = 0; idx < index_sets.size(); ++idx) {
-			use_indexes[idx] = indexes[index_sets[idx].id];
-		}
-	}
-	*/
-	
-	//PromptOK(Format("Indexes size %d", (int)use_indexes.size()));
-	
 	std::vector<std::string> names;
 	structure->parent->get_index_names_with_edge_naming(indexes, names, true);
 	
 	Upp::String result = "[";
 	int idx = 0;
-	for(auto &name : names) {
+	bool once = false;
+	for(const Entity_Id &index_set : index_sets) {
 		if(idx != 0) result << " ";
-		result << name.data();
+		
+		int lookup_idx = index_set.id;
+		if(index_set == indexes.mat_col.index_set) {
+			if(once)
+				lookup_idx = names.size() - 1;
+			once = true;
+		}
+		result << names[lookup_idx];
+		
 		++idx;
 	}
 	result << "]";
@@ -78,38 +73,28 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(par->id);
 	if(index_sets.empty()) return "";
-	
-	// Would be nice to have a way not to have to build the second vector
-	/*
-	std::vector<Index_T> indexes(index_sets.size());
-	for(int idx = 0; idx < index_sets.size(); ++idx) {
-		indexes[idx] = par->indexes[index_sets[idx].id];
-	}
-	*/
+
 	std::vector<std::string> names;
 	structure->parent->get_index_names_with_edge_naming(par->indexes, names, true);
 		
 	Upp::String result = "[";
 	int idx = 0;
-	//bool once = false;
+	bool once = false;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx != 0) result << " ";
-		//ASSERT(par->indexes[index_set.id].index_set == index_set);
 		
-		/*
-		auto index = indexes[idx];
+		int lookup_idx = index_set.id;
 		
-		if(is_valid(par->mat_col) && index_set == par->mat_col.index_set) {
+		if(index_set == par->indexes.mat_col.index_set) {
 			if(once)
-				index = par->mat_col;
+				lookup_idx = names.size() - 1;
 			once = true;
 		}
-		*/
 		
-		if(par->locks[idx])
+		if(par->locks[index_set.id])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << names[idx];
+			result << names[lookup_idx];
 		
 		++idx;
 	}

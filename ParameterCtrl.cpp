@@ -242,11 +242,10 @@ void ParameterCtrl::refresh(bool values_only) {
 	Indexed_Parameter par_data(parent->model);
 	if(!values_only) {
 		
-		//par_data.indexes.resize(MAX_INDEX_SETS, invalid_index);
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			if(!is_valid(index_sets[idx])) break;
 			std::string idx_name = index_list[idx]->Get().ToStd();
-			par_data.indexes.add_index(parent->app->get_index(index_sets[idx], idx_name));
+			par_data.indexes.set_index(parent->app->get_index(index_sets[idx], idx_name));
 		}
 		//NOTE: We don't store info about it being locked here, since that has to be
 			//overridden later anyway (the lock status can have changed since the table was
@@ -453,8 +452,9 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	}
 	
 	// Fetch the lock status of the lock controls.
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
-		par_data.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
+	set_locks(par_data);
+	//for(int idx = 0; idx < par_data.locks.size(); ++idx)
+	//	par_data.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
 	
 	try {
 		set_parameter_value(par_data, &app->data, val);
@@ -477,7 +477,7 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 
 void
 ParameterCtrl::set_locks(Indexed_Parameter &par) {
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
+	for(int idx = 0; idx < par.locks.size(); ++idx)
 		par.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
 }
 

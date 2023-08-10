@@ -683,7 +683,7 @@ void get_single_indexes(Indexes &indexes, Plot_Setup &setup) {
 	
 	for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
 		if(!setup.selected_indexes[idx].empty())
-			indexes.add_index(setup.selected_indexes[idx][0]);
+			indexes.set_index(setup.selected_indexes[idx][0]);
 	}
 }
 
@@ -1044,33 +1044,22 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Indexes indexes(parent->model);
 			get_single_indexes(indexes, setup);
 			
-			std::vector<std::string> index_names;
-			app->get_index_names_with_edge_naming(indexes, index_names, false);
-			
-			for(auto &name : index_names)
-				labels << String(name);
-			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
-				indexes.indexes[profile_set_idx] = index;
+				indexes.set_index(index, true);
+				labels << String(app->get_index_name(index));
+				
 				if(!profile2D_is_timed) {
 					if(!app->is_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
 					s64 offset = data->structure->get_offset(var_id, indexes);
 					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
-					//labels << String(app->get_index_name(index));
 				} else {
-					std::vector<std::string> index_names2;
-					app->get_index_names_with_edge_naming(indexes, index_names2, false);
-					
-					for(auto &name : index_names2)
-						labels2 << String(name);
-					
+
 					for(Index_T &index2 : setup.selected_indexes[profile_set_idx2]) {
-						indexes.indexes[profile_set_idx2] = index2;
+						indexes.set_index(index2, true);
 						s64 offset = data->structure->get_offset(var_id, indexes);
 						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
-						//labels2 << String(app->get_index_name(index2));
+						labels2 << String(app->get_index_name(index2));
 					}
-					//labels << String(app->get_index_name(index));
 				}
 			}
 			if(mode == Plot_Mode::profile2D && !profile2D_is_timed)

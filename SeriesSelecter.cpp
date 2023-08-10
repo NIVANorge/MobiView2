@@ -286,7 +286,7 @@ SeriesSelecter::build(Model_Application *app) {
 	
 	try {
 		if(type == Var_Id::Type::state_var) {
-			for(int n_comp = 2; n_comp < max_var_loc_components; ++n_comp) {
+			for(int n_comp = 1; n_comp < max_var_loc_components; ++n_comp) {
 				for(int pass = 0; pass < 3; ++pass) {
 					for(Var_Id var_id : app->vars.all_state_vars())
 						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, false, n_comp);

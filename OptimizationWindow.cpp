@@ -1286,7 +1286,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				if(!IsNull(locked_val)) locked = (bool)locked_val;
 				
 				if(is_valid(index))
-					par.indexes.add_index(index);
+					par.indexes.set_index(index);
 				par.locks[index_set.id] = locked;
 			}
 			
@@ -1410,7 +1410,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				if(found) index_name = index_arr[row2];
 				if(!IsNull(index_name) && index_name != "") {
 					auto index = app->get_index(index_set, index_name.ToStd());
-					target.indexes.add_index(index);
+					target.indexes.set_index(index);
 				}
 				++row2;
 			}
