@@ -21,7 +21,7 @@ MobiView2::MobiView2() :
 	sensitivity_window(this), info_window(this), additional_plots(this),
 	optimization_window(this), mcmc_window(this), structure_window(this),
 	model_chart_window(this),
-	result_selecter(this, "Result time series", Var_Id::Type::state_var), input_selecter(this, "Input time series", Var_Id::Type::series) {
+	result_selecter(this, "Model result series", Var_Id::Type::state_var), input_selecter(this, "Input data series", Var_Id::Type::series) {
 	
 	Title("MobiView 2").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
