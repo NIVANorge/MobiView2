@@ -92,8 +92,8 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		
 		// NOTE: For now we just display the maximal number of indexes here.
 		// TODO: make it dynamic based on the rest of the selection somehow? But tricky.
-		for(Index_T index = {index_set_id, 0}; index < app->get_max_index_count(index_set_id); ++index)
-			index_list[idx]->Add(app->get_index_name(index));
+		for(Index_T index = {index_set_id, 0}; index < app->index_data.get_max_count(index_set_id); ++index)
+			index_list[idx]->Add(app->index_data.get_index_name_base(index, invalid_index));
 		
 		index_list[idx]->GoBegin();
 		index_list[idx]->Show();
@@ -198,7 +198,7 @@ void ParameterCtrl::refresh(bool values_only) {
 	// be sub-indexed. TODO: should be fixed eventually maybe.
 	Index_T exp_count = {expanded_set, 1};
 	if(is_valid(expanded_set))
-		exp_count = parent->app->get_max_index_count(expanded_set);
+		exp_count = parent->app->index_data.get_max_count(expanded_set);
 	
 	if(!values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
@@ -212,7 +212,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			parameter_view.AddColumn(Id("__value"), "Value");
 		else {
 			for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
-				auto &name = parent->app->get_index_name(exp_idx);
+				auto &name = parent->app->index_data.get_index_name_base(exp_idx, invalid_index);
 				//TODO: This breaks if somebody calls one of the indexes e.g. "__name".
 				parameter_view.AddColumn(Id(name.data()), name.data());
 			}
@@ -244,8 +244,10 @@ void ParameterCtrl::refresh(bool values_only) {
 		
 		for(int idx = 0; idx < index_sets.size(); ++idx) {
 			if(!is_valid(index_sets[idx])) break;
-			std::string idx_name = index_list[idx]->Get().ToStd();
-			par_data.indexes.set_index(parent->app->get_index(index_sets[idx], idx_name));
+			
+			int sel = index_list[idx]->GetIndex();
+			//PromptOK(Format("Index set is %s Sel is %d", parent->model->index_sets[index_sets[idx]]->name.data(), sel));
+			par_data.indexes.set_index(Index_T { index_sets[idx], sel });
 		}
 		//NOTE: We don't store info about it being locked here, since that has to be
 			//overridden later anyway (the lock status can have changed since the table was
@@ -277,7 +279,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			if(!values_only) {
 				par_data.id    = par_id;
 				if(is_valid(expanded_set))
-					par_data.indexes.indexes[expanded_set.id] = exp_idx;
+					par_data.indexes.set_index(exp_idx, true);
 				
 				// TODO: This is a very inefficient fix...
 				//  It is needed because of the inbounds check below, but could just be done
@@ -287,13 +289,13 @@ void ParameterCtrl::refresh(bool values_only) {
 				auto &par_index_sets = parent->app->parameter_structure.get_index_sets(par_data.id);
 				for(auto &index : par_data.indexes.indexes) {
 					if(std::find(par_index_sets.begin(), par_index_sets.end(), index.index_set) == par_index_sets.end())
-						index.index = -1;
+						index = invalid_index;
 				}
 			}
 			
 			// NOTE: This can happen if we got an index from a sub-indexed index set that is
 			// out of bounds given the index of the parent index set.
-			if(!parent->app->is_in_bounds(par_data.indexes))
+			if(!parent->app->index_data.are_in_bounds(par_data.indexes))
 				continue;
 			
 			if(!values_only)
@@ -302,7 +304,7 @@ void ParameterCtrl::refresh(bool values_only) {
 			ValueMap row_data;
 			
 			if(is_valid(expanded_set))
-				row_data.Set("__index", parent->app->get_index_name(exp_idx).data()); //TODO: should be an api for this in model_application
+				row_data.Set("__index", parent->app->index_data.get_index_name_base(exp_idx, invalid_index).data()); //TODO: Don't use get_index_name_base
 			
 			bool show_additional = exp_idx.index == 0;
 			
@@ -327,7 +329,7 @@ void ParameterCtrl::refresh(bool values_only) {
 				Id value_column = "__value";
 				
 				if(column_expand) {
-					value_column = Id(parent->app->get_index_name(exp_idx_2).data());
+					value_column = Id(parent->app->index_data.get_index_name_base(exp_idx_2, invalid_index).data()); // TODO: Don't use get_index_name_base
 					if(!values_only)
 						par_data.indexes.mat_col = exp_idx_2;
 				}

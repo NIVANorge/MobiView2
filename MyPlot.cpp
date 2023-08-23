@@ -103,7 +103,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
 	const String &legend_prefix, bool always_copy_y) {
 	
-	if(!app->is_in_bounds(indexes)) return true;
+	if(!app->index_data.are_in_bounds(indexes)) return true;
 	
 	if(draw->GetCount() == 100) {
 		draw->SetTitle("Warning: only displaying the 100 first selected series");
@@ -142,8 +142,14 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 }
 
 bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Indexes &indexes, int level,
-	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode) {
-	if(level == indexes.indexes.size()) {
+	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode, int found_count = 0) {
+	
+	if(level >= MAX_INDEX_SETS) {
+		PromptOK("Error due to needing an index that is not selectable.");
+		return false;
+	}
+	
+	if(level == indexes.indexes.size() || found_count == index_sets.size()) {
 
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
 		
@@ -154,7 +160,7 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Ind
 			auto set = index_sets[sz-1];
 			
 			indexes.mat_col.index_set = set;
-			int count = app->get_index_count(set, indexes).index;
+			int count = app->index_data.get_index_count(set, indexes).index;
 			for(int idx = 0; idx < count; ++idx) {
 				if(indexes.indexes[sz-2].index == idx) continue; // Skip for when the two last indexes are the same (the corresponding series is not computed).
 				indexes.mat_col.index = idx;
@@ -177,16 +183,15 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Ind
 		bool loop = false;
 		if(!draw->setup.selected_indexes[level].empty()) {
 			auto index_set = draw->setup.selected_indexes[level][0].index_set;
-			auto find = std::find(index_sets.begin(), index_sets.end(), index_set);
-			loop = find != index_sets.end();
+			loop = std::find(index_sets.begin(), index_sets.end(), index_set) != index_sets.end();
 		}
 		if(!loop) {
 			indexes.indexes[level] = invalid_index;
-			return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+			return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode, found_count);
 		} else {
 			for(Index_T index : draw->setup.selected_indexes[level]) {
 				indexes.indexes[level] = index;
-				bool success = add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode);
+				bool success = add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode, found_count+1);
 				if(!success) return false;
 			}
 		}
@@ -194,7 +199,8 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Ind
 	return true;
 }
 
-void set_round_grid_line_positions(ScatterDraw *plot, int axis) {
+void
+set_round_grid_line_positions(ScatterDraw *plot, int axis) {
 	//TODO: This should take Y axis mode into account (if axis is 1)
 	
 	double min;
@@ -1046,10 +1052,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
 				indexes.set_index(index, true);
-				labels << String(app->get_index_name(index));
+				labels << String(app->index_data.get_index_name(indexes, index));
 				
 				if(!profile2D_is_timed) {
-					if(!app->is_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
+					if(!app->index_data.are_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
 					s64 offset = data->structure->get_offset(var_id, indexes);
 					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
 				} else {
@@ -1058,7 +1064,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 						indexes.set_index(index2, true);
 						s64 offset = data->structure->get_offset(var_id, indexes);
 						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
-						labels2 << String(app->get_index_name(index2));
+						labels2 << String(app->index_data.get_index_name(indexes, index2));
 					}
 				}
 			}
@@ -1225,7 +1231,7 @@ serialize_plot_setup(Model_Application *app, Json &json_data, Plot_Setup &setup)
 		JsonArray indexes;
 		for(Index_T index : setup.selected_indexes[idx]) {
 			if(!is_valid(index)) continue;
-			indexes << app->get_index_name(index).data();
+			indexes << app->index_data.get_index_name_base(index, invalid_index).data(); // TODO: Don't use get_index_name_base
 		}
 		index_sets(model->serialize(index_set).data(), indexes);
 	}
@@ -1302,6 +1308,8 @@ deserialize_plot_setup(Model_Application *app, Value &setup_json) {
 	setup.selected_indexes.resize(MAX_INDEX_SETS);
 	setup.index_set_is_active.resize(MAX_INDEX_SETS);
 	
+	PromptOK("Error: serialization not up to date with new index data system");
+	/*
 	ValueMap index_sets = setup_json["index_sets"];
 	if(!IsNull(index_sets)) {
 		int count = index_sets.GetCount();
@@ -1313,14 +1321,14 @@ deserialize_plot_setup(Model_Application *app, Value &setup_json) {
 				int count2 = indexes.GetCount();
 				for(int idx2 = 0; idx2 < count2; ++idx2) {
 					Value index_name = indexes[idx2];
-					Index_T index = app->get_index(index_set_id, index_name.ToStd());
+					Index_T index = app->index_data.find_index(index_set_id, index_name.ToStd());
 					if(is_valid(index))
 						setup.selected_indexes[index_set_id.id].push_back(index);
 				}
 			}
 		}
 	}
-	
+	*/
 	
 	register_if_index_set_is_active(setup, app);
 	

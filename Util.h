@@ -46,7 +46,7 @@ make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Hand
 	if(index_sets.empty()) return "";
 	
 	std::vector<std::string> names;
-	structure->parent->get_index_names_with_edge_naming(indexes, names, true);
+	structure->parent->index_data.get_index_names_with_edge_naming(structure->parent, indexes, names, true);
 	
 	Upp::String result = "[";
 	int idx = 0;
@@ -75,7 +75,7 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	if(index_sets.empty()) return "";
 
 	std::vector<std::string> names;
-	structure->parent->get_index_names_with_edge_naming(par->indexes, names, true);
+	structure->parent->index_data.get_index_names_with_edge_naming(structure->parent, par->indexes, names, true);
 		
 	Upp::String result = "[";
 	int idx = 0;

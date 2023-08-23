@@ -1270,6 +1270,9 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				Entity_Id index_set;
 				
 				// TODO: May need better error handling here:
+					
+				PromptOK("Error: serialization not up to date with the new index data system!");
+					/*
 				Value idx_set_name_val = idx_val["IndexSetName"];
 				if(!IsNull(idx_set_name_val)) index_set = model->deserialize(idx_set_name_val.ToStd(), Reg_Type::index_set);
 				Value name_val = idx_val["Name"];
@@ -1281,6 +1284,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 						return;
 					}
 				}
+				*/
 				Value locked_val = idx_val["Locked"];
 				bool locked = false;
 				if(!IsNull(locked_val)) locked = (bool)locked_val;
@@ -1405,6 +1409,8 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			bool found = !IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count());
 			int row2 = 0;
 			
+			PromptOK("Error: serialization not up to date with the new index data system!");
+			/*
 			for(Entity_Id index_set : model->index_sets) {
 				String index_name = Null;
 				if(found) index_name = index_arr[row2];
@@ -1414,6 +1420,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				}
 				++row2;
 			}
+			*/
 			
 			target.set_offsets(&parent->app->data);
 			add_optimization_target(target);
@@ -1490,7 +1497,7 @@ String OptimizationWindow::write_to_json_string() {
 		for(Index_T index : par.indexes.indexes) {
 			Json index_json;
 			if(is_valid(index)) {
-				index_json("Name", app->get_index_name(index).data());
+				index_json("Name", app->index_data.get_index_name(par.indexes, index).data());
 				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
 				index_json("Locked", (bool)par.locks[idx2]);
 				index_arr << index_json;
@@ -1548,7 +1555,7 @@ String OptimizationWindow::write_to_json_string() {
 		JsonArray index_arr;
 		for(Index_T index : target.indexes.indexes) {
 			if(is_valid(index))
-				index_arr << app->get_index_name(index).data();
+				index_arr << app->index_data.get_index_name(target.indexes, index).data();
 			else
 				index_arr << "";
 		}
