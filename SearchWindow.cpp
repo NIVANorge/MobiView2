@@ -63,9 +63,10 @@ SearchWindow::select_item() {
 	bool success = parent->select_par_group(sel_group);
 	
 	if(success) {
+		auto pars = parent->params.get_row_parameters();
 		int row = 0;
-		for(auto &par_data : parent->params.listed_pars) {
-			if(sel_par == par_data[0].id) break;             // NOTE: the 0 is the column. All values of the same column is the same parameter
+		for(auto &par : pars) {
+			if(sel_par == par) break;
 			++row;
 		}
 		ArrayCtrl &par_view = parent->params.parameter_view;

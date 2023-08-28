@@ -26,29 +26,38 @@ public:
 	
 	bool changed_since_last_save = false;
 	
-	Upp::Label        *index_set_name[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
-	Upp::DropList     *index_list[MAX_INDEX_SETS];
-	Upp::ButtonOption *index_lock[MAX_INDEX_SETS];
-	Upp::ButtonOption *index_expand[MAX_INDEX_SETS];
+	Upp::Array<Upp::Label>        index_set_names;
+	Upp::Array<Upp::DropList>     index_lists;
+	Upp::Array<Upp::ButtonOption> index_locks;
+	Upp::Array<Upp::ButtonOption> index_expands;
 	
-	Upp::Array<Upp::Ctrl> parameter_controls;
-	
-	std::vector<Entity_Id> index_sets;
-	std::vector<std::vector<Indexed_Parameter>> listed_pars;
+	Upp::Array<Upp::Array<Upp::Ctrl>> parameter_controls;
 	
 	MobiView2 *parent;
 	
-	void refresh(bool values_only = false);
+	void par_group_change();
+	void refresh_parameter_view(bool values_only = false);
 	void clean();
 	void build_index_set_selecters(Model_Application *app);
-	void expand_index_set_clicked(int idx);
+	void expand_index_set_clicked(Entity_Id id);
+	void list_change(Entity_Id id);
 	
 	void parameter_edit(Indexed_Parameter par_data, Model_Application *app, Parameter_Value val);
 	Indexed_Parameter get_selected_parameter();
 	std::vector<Indexed_Parameter> get_all_parameters();
+	std::vector<Entity_Id> get_row_parameters();
 	
 private :
 	void set_locks(Indexed_Parameter &par);
+	
+	void switch_expanded(Entity_Id id, bool on, bool force=false);
+	
+	Entity_Id par_group_id = invalid_entity_id;
+	std::vector<Entity_Id> index_sets;
+	std::vector<std::vector<Indexed_Parameter>> listed_pars;
+	
+	Entity_Id expanded_row = invalid_entity_id;
+	Entity_Id expanded_col = invalid_entity_id;
 };
 
 #endif

@@ -18,133 +18,81 @@ ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
 	parameter_view.AddColumn("Description");
 	
 	parameter_view.ColumnWidths("20 12 10 10 10 38");
-	
-	index_set_name[0] = &index_set_name1;
-	index_set_name[1] = &index_set_name2;
-	index_set_name[2] = &index_set_name3;
-	index_set_name[3] = &index_set_name4;
-	index_set_name[4] = &index_set_name5;
-	index_set_name[5] = &index_set_name6;
-	
-	index_list[0]    = &index_list1;
-	index_list[1]    = &index_list2;
-	index_list[2]    = &index_list3;
-	index_list[3]    = &index_list4;
-	index_list[4]    = &index_list5;
-	index_list[5]    = &index_list6;
-	
-	index_lock[0]    = &index_lock1;
-	index_lock[1]    = &index_lock2;
-	index_lock[2]    = &index_lock3;
-	index_lock[3]    = &index_lock4;
-	index_lock[4]    = &index_lock5;
-	index_lock[5]    = &index_lock6;
-	
-	index_expand[0]    = &index_expand1;
-	index_expand[1]    = &index_expand2;
-	index_expand[2]    = &index_expand3;
-	index_expand[3]    = &index_expand4;
-	index_expand[4]    = &index_expand5;
-	index_expand[5]    = &index_expand6;
-	
-	for(size_t idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_set_name[idx]->Hide();
-		index_list[idx]->Hide();
-		index_list[idx]->Disable();
-		index_list[idx]->WhenAction << [this](){ refresh(false); };
-		
-		index_lock[idx]->Hide();
-		index_lock[idx]->SetImage(IconImg8::LockOpen(), IconImg8::Lock());
-		//index_lock[idx]->WhenAction << SensitivityWindowUpdate;
-		index_expand[idx]->Hide();
-		index_expand[idx]->SetImage(IconImg8::Add(), IconImg8::Remove());
-		index_expand[idx]->WhenAction << [this, idx](){ expand_index_set_clicked(idx); };
-	}
 }
 
 void ParameterCtrl::clean() {
 	parameter_view.Clear();
 	
-	for(size_t idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_list[idx]->Clear();
-		index_list[idx]->Hide();
-		index_lock[idx]->Hide();
-		index_expand[idx]->Hide();
-		index_set_name[idx]->Hide();
-	}
+	index_set_names.Clear();
+	index_lists.Clear();
+	index_locks.Clear();
+	index_expands.Clear();
+
 	index_sets.clear();
+	
+	par_group_id = invalid_entity_id;
+	expanded_row = invalid_entity_id;
+	expanded_col = invalid_entity_id;
 }
+
 
 void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 	if(!app) return;
 	auto model = app->model;
 	
-	//NOTE: this relies on all the index sets being registered in the "global module":
-	index_sets.resize(MAX_INDEX_SETS, invalid_entity_id);
-	int idx = 0;
+	Indexes indexes(model);
 	for(auto index_set_id : model->index_sets) {
 		auto index_set = model->index_sets[index_set_id];
-		index_lock[idx]->Show();
-		index_expand[idx]->Show();
-
-		index_set_name[idx]->SetText(index_set->name.data());
-		index_set_name[idx]->Show();
 		
-		// NOTE: For now we just display the maximal number of indexes here.
-		// TODO: make it dynamic based on the rest of the selection somehow? But tricky.
-		for(Index_T index = {index_set_id, 0}; index < app->index_data.get_max_count(index_set_id); ++index)
-			index_list[idx]->Add(app->index_data.get_index_name_base(index, invalid_index));
+		auto &index_set_name = index_set_names.Create<Label>();
+		index_set_name.SetText(index_set->name.data());
+		index_set_name.Hide();
 		
-		index_list[idx]->GoBegin();
-		index_list[idx]->Show();
+		auto &lock = index_locks.Create<ButtonOption>();
+		lock.Hide();
+		lock.SetImage(IconImg8::LockOpen(), IconImg8::Lock());
 		
-		index_sets[idx] = index_set_id;
+		auto &expand = index_expands.Create<ButtonOption>();
+		expand.Hide();
+		expand.SetImage(IconImg8::Add(), IconImg8::Remove());
+		expand.WhenAction << [this, index_set_id](){ expand_index_set_clicked(index_set_id); };
 		
-		++idx;
-		
-		if(idx == MAX_INDEX_SETS) {
-			parent->log("The model has more index sets than are supported by MobiView2!", true);
-			break;
-		}
-	}
-}
-
-void ParameterCtrl::expand_index_set_clicked(int idx) {
-	bool checked = index_expand[idx]->Get();
-	if(checked) {
-		index_lock[idx]->Disable();
-		index_list[idx]->Disable();
-		for(int idx2 = 0; idx2 < MAX_INDEX_SETS; ++idx2) {
-			if(idx != idx2) {
-				index_expand[idx2]->Set(0);
-				index_lock[idx2]->Enable();
-				index_list[idx2]->Enable();
+		auto &list = index_lists.Create<Upp::DropList>();
+		// If the list is not dependent on other factors, just generate it once and for all
+		if(!is_valid(index_set->sub_indexed_to)) {
+			auto count = app->index_data.get_index_count(index_set_id, indexes);
+			for(Index_T index = {index_set_id, 0}; index < count; ++index) {
+				indexes.set_index(index, true);
+				list.Add(app->index_data.get_index_name(indexes, index));
 			}
+			list.GoBegin();
 		}
-	} else {
-		index_lock[idx]->Enable();
-		index_list[idx]->Enable();
+		
+		list.Hide();
+		list.WhenAction << [this, index_set_id](){ list_change(index_set_id); };
+		
+		Add(index_set_name.TopPosZ(4, 19));
+		Add(list.TopPosZ(24, 19));
+		Add(lock.TopPosZ(48, 18));
+		Add(expand.TopPosZ(48, 18));
 	}
-	refresh();
 }
 
-//TODO: If we column expand, the "Expand" checkbox should be inactivated.
-
-void ParameterCtrl::refresh(bool values_only) {
-	if(!values_only) {
-		parameter_view.Clear();
-		parameter_view.Reset();
-		parameter_view.NoVertGrid();
-		
-		parameter_controls.Clear();
+void ParameterCtrl::par_group_change() {
+	
+	for(int idx = 0; idx < index_set_names.size(); ++idx) {
+		index_set_names[idx].Hide();
+		index_lists[idx].Hide();
+		index_locks[idx].Hide();
+		index_expands[idx].Hide();
 	}
+	
+	par_group_id = invalid_entity_id;
+	
+	auto app = parent->app;
+	auto model = app->model;
 	
 	if(!parent->model_is_loaded()) return; // Should not be possible, but safety stopgap.
-	
-	Entity_Id expanded_set = invalid_entity_id;
-	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx)
-		if(index_expand[idx]->Get()) expanded_set = index_sets[idx];
 	
 	Vector<int> selected_groups = parent->par_group_selecter.GetSel();
 	if(selected_groups.empty()) return;
@@ -154,191 +102,387 @@ void ParameterCtrl::refresh(bool values_only) {
 	Upp::Ctrl *ctrl = ~parent->par_group_selecter.GetNode(selected_groups[0]).ctrl;
 	if(!ctrl) return;
 	
-	Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-	auto par_group = parent->model->par_groups[par_group_id];
-	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_expand[idx]->Enable();
-		index_list[idx]->Disable();
-		
-		if(expanded_set != index_sets[idx]) index_lock[idx]->Enable();
-	}
-	
-	bool expanded_active = false;
-	bool column_expand   = false;
+	par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
 	
 	auto par_range = parent->model->by_scope<Reg_Type::parameter>(par_group_id);
 	s64  par_count = par_range.size();
 	
-	if(par_count) {
-		const std::vector<Entity_Id> &grp_index_sets = parent->app->parameter_structure.get_index_sets(*par_range.begin());
+	if(!par_count) return;
+	
+	index_sets = parent->app->parameter_structure.get_index_sets(*par_range.begin());
+	
+	// TODO: There may be a problem if two sub-index sets of the same parent are selected and
+	// we now select another group where the parent is also present.
+	for(int idx = 0; idx < index_sets.size(); ++idx) {
+		index_expands[idx].Enable();
 		
-		int sz = (int)grp_index_sets.size()-1;
-		if(sz >= 1 && grp_index_sets[sz] == grp_index_sets[sz-1]) {    // Two last index set dependencies are the same -> matrix parameter
-			expanded_set = grp_index_sets[sz];
-			column_expand = true;
-			expanded_active = true;
-		} else {
-			for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-				auto index_set = index_sets[idx];
-				if(!is_valid(index_set)) break;
-				// See if this item on the list of index set controls corresponds to one of the
-				// group index sets. In that case, enable the index set control.
-				if(std::find(grp_index_sets.begin(), grp_index_sets.end(), index_set) != grp_index_sets.end()) {
-					index_list[idx]->Enable();
-					if(index_set == expanded_set) expanded_active = true;
+		for(int idx2 = idx+1; idx2 < index_sets.size(); ++idx2) {
+			if(!index_expands[index_sets[idx2].id].GetData()) {
+				if(app->index_data.can_be_sub_indexed_to(index_sets[idx], index_sets[idx2])) {
+					index_expands[idx].Disable();
 				}
 			}
 		}
 	}
-	if(!expanded_active)
-		expanded_set = invalid_entity_id;
 	
-	// NOTE: For now it is ok to get the max count here since a matrix indexed set can't also
-	// be sub-indexed. TODO: should be fixed eventually maybe.
-	Index_T exp_count = {expanded_set, 1};
-	if(is_valid(expanded_set))
-		exp_count = parent->app->index_data.get_max_count(expanded_set);
+	if(index_sets.size() > MAX_INDEX_SETS)
+		parent->log(Format("Warning: displaying more than %d index sets at the same time may make the display strange.", MAX_INDEX_SETS));
+	
+	Indexes indexes(model);
+	int pos = 0;
+	for(auto id : index_sets) {
+		auto index_set = model->index_sets[id];
+		
+		index_set_names[id.id].LeftPosZ(4 + 108*pos, 100);
+		index_set_names[id.id].Show();
+		
+		auto &list = index_lists[id.id];
+		list.LeftPosZ(4 + 108*pos, 104);
+		
+		int count = app->index_data.get_index_count(id, indexes).index;
+		
+		int existing_sel = list.GetIndex();
+		if(existing_sel < 0) existing_sel = 0;
+		else if(existing_sel >= count) existing_sel = count-1; // TODO: Is this good behaviour?
+		
+		if(is_valid(index_set->sub_indexed_to)) {
+			// NOTE: The list depends on the configuration of other indexes.
+			list.Clear();
+			for(Index_T index = {id, 0}; index.index < count; ++index) {
+				indexes.set_index(index, true);
+				list.Add(app->index_data.get_index_name(indexes, index));
+			}
+			if(list.GetCount())
+				list.SetIndex(std::max(0, existing_sel));
+
+		}
+		
+		Index_T index = Index_T { id, existing_sel };
+		indexes.set_index(index, true);
+		
+		list.Show();
+		
+		index_locks[id.id].LeftPosZ(4 + 108*pos, 18);
+		index_locks[id.id].Show();
+		
+		index_expands[id.id].LeftPosZ(24 + 108*pos, 18);
+		index_expands[id.id].Show();
+		
+		++pos;
+	}
+	
+	Refresh();
+	
+	refresh_parameter_view(false);
+}
+
+void ParameterCtrl::list_change(Entity_Id id) {
+	
+	auto app = parent->app;
+	
+	Indexes indexes(parent->model);
+	for(auto id2 : index_sets) {
+		
+		// TODO: Some of this could be factored out (see exact same code above).
+		
+		auto &list = index_lists[id2.id];
+		
+		int count = app->index_data.get_index_count(id2, indexes).index;
+		int existing_sel = list.GetIndex();
+		if(existing_sel < 0) existing_sel = 0;
+		else if(existing_sel >= count) existing_sel = count-1;
+		if(!list.GetCount()) existing_sel = -1; 
+		
+		auto index_set = parent->model->index_sets[id2];
+		if(id != id2 && is_valid(index_set->sub_indexed_to) && app->index_data.can_be_sub_indexed_to(id, index_set->sub_indexed_to)) {
+			list.Clear();
+			for(Index_T index = {id, 0}; index.index < count; ++index) {
+				indexes.set_index(index, true);
+				list.Add(app->index_data.get_index_name(indexes, index));
+			}
+			if(list.GetCount())
+				list.SetIndex(std::max(0, existing_sel));
+		}
+		
+		Index_T index = { id2, existing_sel };
+		indexes.set_index(index);
+	}
+	
+	refresh_parameter_view(false);
+}
+
+void
+ParameterCtrl::switch_expanded(Entity_Id id, bool on, bool force) {
+	
+	if(!is_valid(id)) return;
+	
+	if(on) {
+		index_locks[id.id].Disable();
+		index_lists[id.id].Disable();
+		
+		if(is_valid(expanded_row)) {
+			switch_expanded(expanded_col, false, true);
+			if(expanded_row < id)
+				expanded_col = id;
+			else {
+				expanded_col = expanded_row;
+				expanded_row = id;
+			}
+		} else {
+			expanded_row = id;
+		}
+		
+		if(force)
+			index_expands[id.id].SetData(true);
+	} else {
+		index_locks[id.id].Enable();
+		index_lists[id.id].Enable();
+		
+		if(expanded_row == id) {
+			if(is_valid(expanded_col)) {
+				expanded_row = expanded_col;
+				expanded_col = invalid_entity_id;
+			} else
+				expanded_row = invalid_entity_id;
+		} else if(expanded_col == id)
+			expanded_col = invalid_entity_id;
+		
+		if(force)
+			index_expands[id.id].SetData(false);
+	}
+	
+}
+
+void ParameterCtrl::expand_index_set_clicked(Entity_Id id) {
+	
+	bool is_on = index_expands[id.id].Get();
+	
+	// Special logic: If a sub-indexed index set is selected, it should select a parent
+	// index set of it also if one is among the selectable.
+	auto parent_id = invalid_entity_id;
+	if(is_valid(parent->model->index_sets[id]->sub_indexed_to)) {
+		for(auto id2 : index_sets) {
+			if(id2 == id) break;
+			if(parent->app->index_data.can_be_sub_indexed_to(id2, id)) {
+				parent_id = id2;
+				break;
+			}
+		}
+	}
+	if(is_valid(parent_id)) {
+		if(is_on)
+			index_expands[parent_id.id].Enable();
+		else {
+			switch_expanded(parent_id, false, true);
+			index_expands[parent_id.id].Disable();
+		}
+	}
+
+	switch_expanded(id, is_on);
+		
+	refresh_parameter_view(false);
+}
+
+void ParameterCtrl::refresh_parameter_view(bool values_only) {
+	
+	if(!values_only) {
+		parameter_view.Clear();
+		parameter_view.Reset();
+		parameter_view.NoVertGrid();
+		
+		parameter_controls.Clear();
+	}
+	
+	if(!parent->model_is_loaded()) return; // Should not be possible, but safety stopgap.
+	if(!is_valid(par_group_id)) return;
+	
+	auto app = parent->app;
+	auto model = app->model;
+	
+	
+	Entity_Id exp_row = invalid_entity_id;
+	Entity_Id exp_col = invalid_entity_id;
+	bool special_subindexing = false;
+	
+	{
+		bool row_is_valid = is_valid(expanded_row) && (std::find(index_sets.begin(), index_sets.end(), expanded_row) != index_sets.end());
+		bool col_is_valid = is_valid(expanded_col) && (std::find(index_sets.begin(), index_sets.end(), expanded_col) != index_sets.end());
+		
+		special_subindexing = (row_is_valid && col_is_valid && app->index_data.can_be_sub_indexed_to(expanded_row, expanded_col));
+		
+		if(!special_subindexing) {
+			if(!is_valid(expanded_row) || !index_expands[expanded_row.id].IsEnabled()) row_is_valid = false;
+			if(!is_valid(expanded_col) || !index_expands[expanded_col.id].IsEnabled()) col_is_valid = false;
+		}
+		
+		if(row_is_valid) {
+			exp_row = expanded_row;
+			if(col_is_valid)
+				exp_col = expanded_col;
+		} else if(col_is_valid)
+			exp_row = expanded_col;
+
+	}
+	
+	auto par_range = model->by_scope<Reg_Type::parameter>(par_group_id);
+	s64  par_count = par_range.size();
+	
+	bool empty = false;
+	
+	//NOTE: We don't store info about the parameter being locked now, since that has to be
+	//overridden later anyway (the lock status when the look-up happens can have changed since the table was
+	//constructed.
+	Indexed_Parameter par_data(parent->model);	
+	for(auto id : index_sets) {
+		int sel = index_lists[id.id].GetIndex();
+		if(sel < 0 || !index_lists[id.id].GetCount())
+			empty = true;
+		par_data.indexes.set_index(Index_T { id, sel });
+	}
+	
 	
 	if(!values_only) {
 		parameter_view.AddColumn(Id("__name"), "Name");
 		
-		if(is_valid(expanded_set)) {
-			auto &name = parent->app->model->index_sets[expanded_set]->name;
+		if(is_valid(exp_row)) {
+			std::string name = model->index_sets[exp_row]->name;
+			if(is_valid(exp_col))
+				name += " \\ " + model->index_sets[exp_col]->name;
 			parameter_view.AddColumn(Id("__index"), name.data());
 		}
 		
-		if(!column_expand)
-			parameter_view.AddColumn(Id("__value"), "Value");
-		else {
-			for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
-				auto &name = parent->app->index_data.get_index_name_base(exp_idx, invalid_index);
-				//TODO: This breaks if somebody calls one of the indexes e.g. "__name".
-				parameter_view.AddColumn(Id(name.data()), name.data());
+		parameter_view.HeaderObject().Proportional();
+		parameter_view.AutoHideHorzSb(true);
+		
+		s32 col_max_count = 1;
+		if(is_valid(exp_col)) {
+			col_max_count = app->index_data.get_max_count(exp_col).index;
+			
+			if(col_max_count > 5) {
+				parameter_view.HeaderObject().Absolute();
+				parameter_view.AutoHideHorzSb(false);
 			}
-		}
+			
+			if(special_subindexing) {
+				for(int col = 0; col < col_max_count; ++col) {
+					std::string name = std::to_string(col);
+					parameter_view.AddColumn(Id(name.data()), name.data());
+				}
+			} else {
+				//Note: This breaks if somebody calls one of the indexes e.g. "__name". Do we
+				//need a better solution?
+				for(Index_T col_idx = {exp_col, 0}; col_idx.index < col_max_count; ++col_idx) {
+					auto &name = parent->app->index_data.get_index_name(par_data.indexes, col_idx);
+					parameter_view.AddColumn(Id(name.data()), name.data());
+				}
+			}
+			
+		} else
+			parameter_view.AddColumn(Id("__value"), "Value");
 		
 		parameter_view.AddColumn(Id("__min"), "Min");
 		parameter_view.AddColumn(Id("__max"), "Max");
 		parameter_view.AddColumn(Id("__unit"), "Unit");
 		parameter_view.AddColumn(Id("__description"), "Description");
 		
-		if(!column_expand) {
-			if(is_valid(expanded_set))
-				parameter_view.ColumnWidths("30 10 8 8 8 12 32");
-			else
-				parameter_view.ColumnWidths("30 10 8 8 12 40");
-		} else {
+		if(is_valid(exp_col)) {
 			//NOTE Hide the min, max, unit fields. We still have to add them since we use the
 			//info stored in them some other places.
-			int tab_base = 2 + exp_count.index;
+			int tab_base = 2 + col_max_count;
 			parameter_view.HeaderObject().HideTab(tab_base + 0);
 			parameter_view.HeaderObject().HideTab(tab_base + 1);
 			parameter_view.HeaderObject().HideTab(tab_base + 2);
 			parameter_view.HeaderObject().HideTab(tab_base + 3);
+			
+			std::stringstream ss;
+			ss << "90 110";
+			for(int idx = 0; idx < col_max_count; ++idx)
+				ss << " 80";
+			parameter_view.ColumnWidths(ss.str().data());
+		} else {
+			if(is_valid(exp_row))
+				parameter_view.ColumnWidths("30 10 8 8 8 12 32");
+			else
+				parameter_view.ColumnWidths("30 10 8 8 12 40");
 		}
 	}
 	
-	Indexed_Parameter par_data(parent->model);
-	if(!values_only) {
-		
-		for(int idx = 0; idx < index_sets.size(); ++idx) {
-			if(!is_valid(index_sets[idx])) break;
-			
-			int sel = index_list[idx]->GetIndex();
-			//PromptOK(Format("Index set is %s Sel is %d", parent->model->index_sets[index_sets[idx]]->name.data(), sel));
-			par_data.indexes.set_index(Index_T { index_sets[idx], sel });
-		}
-		//NOTE: We don't store info about it being locked here, since that has to be
-			//overridden later anyway (the lock status can have changed since the table was
-			//constructed.
-		par_data.locks.resize(par_data.indexes.indexes.size(), false);
-	}
+	if(empty) return;
 	
 	if(!values_only)
 		listed_pars.clear();
 	
-	int row = 0;
-	int ctrl_idx = 0;
 	int par_idx = 0;
 	
 	Color row_colors[2] = {{255, 255, 255}, {240, 240, 255}};
 	
-	Index_T exp_count_2 = exp_count;
-	if(!column_expand)
-		exp_count_2 = Index_T {expanded_set, 1};
+	s32 row_count = 1;
+	if(is_valid(exp_row))
+		row_count = app->index_data.get_index_count(exp_row, par_data.indexes).index;
 	
 	if(!values_only)
-		listed_pars.resize(par_count*exp_count.index);
+		listed_pars.resize(par_count*row_count);
 	
+	int row = 0;
 	for(Entity_Id par_id : par_range) {
-		auto par = parent->model->parameters[par_id];
 		
-		for(Index_T exp_idx = {expanded_set, 0}; exp_idx < exp_count; ++exp_idx) {
-			
+		par_data.id = par_id;
+		auto par = model->parameters[par_id];
+		
+		for(s32 idx_row = 0; idx_row < row_count; ++idx_row) {
+		
 			if(!values_only) {
-				par_data.id    = par_id;
-				if(is_valid(expanded_set))
-					par_data.indexes.set_index(exp_idx, true);
-				
-				// TODO: This is a very inefficient fix...
-				//  It is needed because of the inbounds check below, but could just be done
-				//  once, not per par_id and iteration.
-				//  It also works only because all parameters within the view are going to be
-				//  indexed the same.
-				auto &par_index_sets = parent->app->parameter_structure.get_index_sets(par_data.id);
-				for(auto &index : par_data.indexes.indexes) {
-					if(std::find(par_index_sets.begin(), par_index_sets.end(), index.index_set) == par_index_sets.end())
-						index = invalid_index;
-				}
-			}
-			
-			// NOTE: This can happen if we got an index from a sub-indexed index set that is
-			// out of bounds given the index of the parent index set.
-			if(!parent->app->index_data.are_in_bounds(par_data.indexes))
-				continue;
-			
-			if(!values_only)
 				parameter_view.Add();
+				
+				parameter_controls.Create<Array<Ctrl>>();
+			}
 			
 			ValueMap row_data;
 			
-			if(is_valid(expanded_set))
-				row_data.Set("__index", parent->app->index_data.get_index_name_base(exp_idx, invalid_index).data()); //TODO: Don't use get_index_name_base
+			Index_T row_idx = invalid_index;
+			if(is_valid(exp_row)) {
+				row_idx = Index_T { exp_row, idx_row };
+				par_data.indexes.set_index(row_idx, true);
+				row_data.Set("__index", app->index_data.get_index_name(par_data.indexes, row_idx).data());
+			}
 			
-			bool show_additional = exp_idx.index == 0;
+			bool show_additional = (idx_row == 0);
 			
-			// For expanded index sets, only show name, description, etc for the first row of
-			// each parameter
+			// For expanded row, only show name, description, etc for the first row of each parameter
 			if(show_additional) {
 				row_data.Set("__name", par->name.data());
 				if(is_valid(par->unit)) {
-					auto unit = parent->app->model->units[par->unit];
+					auto unit = model->units[par->unit];
 					std::string unit_str = unit->data.to_utf8();
 					row_data.Set("__unit", unit_str.data());
 				}
 				if(!par->description.empty()) row_data.Set("__description", par->description.data());
 			}
 			
-			if(!values_only)
-				listed_pars[row].resize(exp_count_2.index, Indexed_Parameter(parent->model));
+			s32 col_count = 1;
+			if(is_valid(exp_col))
+				col_count = app->index_data.get_index_count(exp_col, par_data.indexes).index;
 			
-			int col = 0;
-			for(Index_T exp_idx_2 = {expanded_set, 0}; exp_idx_2 < exp_count_2; ++exp_idx_2) {
+			if(!values_only)
+				listed_pars[row].resize(col_count, Indexed_Parameter(model));
+			
+			for(int col = 0; col < col_count; ++col) {
 				
 				Id value_column = "__value";
-				
-				if(column_expand) {
-					value_column = Id(parent->app->index_data.get_index_name_base(exp_idx_2, invalid_index).data()); // TODO: Don't use get_index_name_base
-					if(!values_only)
-						par_data.indexes.mat_col = exp_idx_2;
+				if(is_valid(exp_col)) {
+					
+					Index_T col_idx = Index_T { exp_col, col };
+					par_data.indexes.set_index(col_idx, true);
+					
+					if(special_subindexing) {
+						std::string name = std::to_string(col);
+						value_column = Id(name.data());
+					} else
+						value_column = Id(app->index_data.get_index_name(par_data.indexes, col_idx).data());
 				}
 				
 				if(!values_only)
 					listed_pars[row][col] = par_data;
-				else
-					par_data = listed_pars[row][col];
-				
 
 				s64 offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes);		
 				Parameter_Value val = *parent->app->data.parameters.get_value(offset);
@@ -351,9 +495,9 @@ void ParameterCtrl::refresh(bool values_only) {
 					}
 					
 					if(!values_only) {
-						parameter_controls.Create<EditDoubleNotNull>();
-						parameter_controls[ctrl_idx].WhenAction = [row, col, ctrl_idx, this]() {
-							EditDoubleNotNull *value_field = (EditDoubleNotNull *)&parameter_controls[ctrl_idx];
+						parameter_controls[row].Create<EditDoubleNotNull>();
+						parameter_controls[row][col].WhenAction = [row, col, this]() {
+							EditDoubleNotNull *value_field = (EditDoubleNotNull *)&parameter_controls[row][col];
 							if(IsNull(*value_field)) return;
 							Parameter_Value val;
 							val.val_real = (double)*value_field;
@@ -368,9 +512,9 @@ void ParameterCtrl::refresh(bool values_only) {
 					}
 					
 					if(!values_only) {
-						parameter_controls.Create<EditInt64NotNullSpin>();
-						parameter_controls[ctrl_idx].WhenAction = [row, col, ctrl_idx, this]() {
-							EditInt64NotNullSpin *value_field = (EditInt64NotNullSpin *)&parameter_controls[ctrl_idx];
+						parameter_controls[row].Create<EditInt64NotNullSpin>();
+						parameter_controls[row][col].WhenAction = [row, col, this]() {
+							EditInt64NotNullSpin *value_field = (EditInt64NotNullSpin *)&parameter_controls[row][col];
 							if(IsNull(*value_field)) return;
 							Parameter_Value val;
 							val.val_integer = (int64)*value_field;
@@ -381,9 +525,9 @@ void ParameterCtrl::refresh(bool values_only) {
 					row_data.Set(value_column, (int)val.val_boolean);
 
 					if(!values_only) {
-						parameter_controls.Create<Option>();
-						parameter_controls[ctrl_idx].WhenAction = [row, col, ctrl_idx, this]() {
-							Option *value_field = (Option *)&parameter_controls[ctrl_idx];
+						parameter_controls[row].Create<Option>();
+						parameter_controls[row][col].WhenAction = [row, col, this]() {
+							Option *value_field = (Option *)&parameter_controls[row][col];
 							Parameter_Value val;
 							val.val_boolean = (bool)value_field->Get();
 							parameter_edit(listed_pars[row][col], parent->app, val);
@@ -394,9 +538,9 @@ void ParameterCtrl::refresh(bool values_only) {
 					row_data.Set(value_column, tm);
 					
 					if(!values_only) {
-						parameter_controls.Create<EditTimeNotNull>();
-						parameter_controls[ctrl_idx].WhenAction = [row, col, ctrl_idx, this]() {
-							EditTimeNotNull *value_field = (EditTimeNotNull *)&parameter_controls[ctrl_idx];
+						parameter_controls[row].Create<EditTimeNotNull>();
+						parameter_controls[row][col].WhenAction = [row, col, this]() {
+							EditTimeNotNull *value_field = (EditTimeNotNull *)&parameter_controls[row][col];
 							Time tm = value_field->GetData();
 							if(IsNull(tm)) return;
 							Parameter_Value val;
@@ -408,16 +552,16 @@ void ParameterCtrl::refresh(bool values_only) {
 					row_data.Set(value_column, val.val_integer);
 					
 					if(!values_only) {
-						parameter_controls.Create<DropList>();
-						DropList *enum_list = (DropList *)&parameter_controls[ctrl_idx];
+						parameter_controls[row].Create<DropList>();
+						DropList *enum_list = (DropList *)&parameter_controls[row][col];
 						
 						int64 key = 0;
 						for(auto &name : par->enum_values)
 							enum_list->Add(key++, name.data());
 						enum_list->GoBegin();
 						
-						parameter_controls[ctrl_idx].WhenAction = [row, col, ctrl_idx, this]() {
-							DropList *value_field = (DropList *)&parameter_controls[ctrl_idx];
+						parameter_controls[row][col].WhenAction = [row, col, this]() {
+							DropList *value_field = (DropList *)&parameter_controls[row][col];
 							Parameter_Value val;
 							val.val_integer = (int64)value_field->GetKey(value_field->GetIndex());
 							parameter_edit(listed_pars[row][col], parent->app, val);
@@ -426,19 +570,16 @@ void ParameterCtrl::refresh(bool values_only) {
 				}
 				
 				if(!values_only)
-					parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), parameter_controls[ctrl_idx]);
-				
-				++ctrl_idx;
-				
-				++col;
+					parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), parameter_controls[row][col]);
 			}
 			
 			parameter_view.SetMap(row, row_data);
 			// Alternating row colors for expanded indexes
-			if(is_valid(expanded_set)) {
+			if(is_valid(exp_row)) {
 				Color &row_color = row_colors[par_idx % 2];
 				parameter_view.SetLineColor(row, row_color);
 			}
+			
 			++row;
 		}
 		++par_idx;
@@ -455,8 +596,6 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	
 	// Fetch the lock status of the lock controls.
 	set_locks(par_data);
-	//for(int idx = 0; idx < par_data.locks.size(); ++idx)
-	//	par_data.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
 	
 	try {
 		set_parameter_value(par_data, &app->data, val);
@@ -479,12 +618,14 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 
 void
 ParameterCtrl::set_locks(Indexed_Parameter &par) {
+	
 	for(int idx = 0; idx < par.locks.size(); ++idx)
-		par.locks[idx] = (u8)(index_lock[idx]->IsEnabled() && (bool)index_lock[idx]->Get());
+		par.locks[idx] = (u8)(index_locks[idx].IsEnabled() && (bool)index_locks[idx].Get());
 }
 
 Indexed_Parameter
 ParameterCtrl::get_selected_parameter() {
+	
 	Indexed_Parameter result(parent->model);
 	result.id = invalid_entity_id;
 	
@@ -495,12 +636,13 @@ ParameterCtrl::get_selected_parameter() {
 	// Also doesn't work for OptimizationWindow right now, because the event then happens after
 	// the ctrl loses focus.
 	int col_count = listed_pars[0].size();
-	int col = 0;
-	for(int idx = 0; idx < col_count; ++idx)
-		if(parameter_controls[row*col_count + idx].HasFocus()) col = idx;
-	
-	result = listed_pars[row][col];
-	set_locks(result);
+	for(int col = 0; col < col_count; ++col) {
+		if(parameter_controls[row][col].HasFocus() || col_count == 1) {
+			result = listed_pars[row][col];
+			set_locks(result);
+			break;
+		}
+	}
 	
 	return std::move(result);
 }
@@ -514,6 +656,20 @@ ParameterCtrl::get_all_parameters() {
 	
 	for(auto &par : result)
 		set_locks(par);
+	
+	return std::move(result);
+}
+
+std::vector<Entity_Id>
+ParameterCtrl::get_row_parameters() {
+	std::vector<Entity_Id> result;
+	
+	for(int row = 0; row < listed_pars.size(); ++row) {
+		if(listed_pars[row].empty())
+			result.push_back(invalid_entity_id);
+		else
+			result.push_back(listed_pars[row][0].id);  // All parameters of a row are the same id.
+	}
 	
 	return std::move(result);
 }

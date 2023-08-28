@@ -153,32 +153,11 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Ind
 
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
 		
-		int sz = index_sets.size();
-		if(sz >= 2 && index_sets[sz-1] == index_sets[sz-2]) {
-			// If it is matrix indexed, we also loop over the final index set one more time.
-			// TODO: Could this code be made a bit cleaner?
-			auto set = index_sets[sz-1];
-			
-			indexes.mat_col.index_set = set;
-			int count = app->index_data.get_index_count(set, indexes).index;
-			for(int idx = 0; idx < count; ++idx) {
-				if(indexes.indexes[sz-2].index == idx) continue; // Skip for when the two last indexes are the same (the corresponding series is not computed).
-				indexes.mat_col.index = idx;
-				
-				Color &graph_color = draw->colors.next();
-				bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps,
-					ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked, "", false);
-				if(!success) return false;		
-			}
-			
-		} else {
-			
-			// This is the vast majority of cases.
-			Color &graph_color = draw->colors.next();
-			bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps,
-				ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
-			return success;
-		}
+		Color &graph_color = draw->colors.next();
+		bool success = add_single_plot(draw, &app->data, app, var_id, indexes, time_steps,
+			ref_x_start, start, x_data, gof_offset, gof_ts, graph_color, stacked);
+		return success;
+
 	} else {
 		bool loop = false;
 		if(!draw->setup.selected_indexes[level].empty()) {

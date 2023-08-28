@@ -46,22 +46,14 @@ make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Hand
 	if(index_sets.empty()) return "";
 	
 	std::vector<std::string> names;
-	structure->parent->index_data.get_index_names_with_edge_naming(structure->parent, indexes, names, true);
+	structure->parent->index_data.get_index_names(indexes, names, true);
 	
 	Upp::String result = "[";
 	int idx = 0;
 	bool once = false;
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx != 0) result << " ";
-		
-		int lookup_idx = index_set.id;
-		if(index_set == indexes.mat_col.index_set) {
-			if(once)
-				lookup_idx = names.size() - 1;
-			once = true;
-		}
-		result << names[lookup_idx];
-		
+		result << names[index_set.id];
 		++idx;
 	}
 	result << "]";
@@ -75,7 +67,7 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	if(index_sets.empty()) return "";
 
 	std::vector<std::string> names;
-	structure->parent->index_data.get_index_names_with_edge_naming(structure->parent, par->indexes, names, true);
+	structure->parent->index_data.get_index_names(par->indexes, names, true);
 		
 	Upp::String result = "[";
 	int idx = 0;
@@ -83,18 +75,10 @@ make_parameter_index_string(Storage_Structure<Entity_Id> *structure, Indexed_Par
 	for(const Entity_Id &index_set : index_sets) {
 		if(idx != 0) result << " ";
 		
-		int lookup_idx = index_set.id;
-		
-		if(index_set == par->indexes.mat_col.index_set) {
-			if(once)
-				lookup_idx = names.size() - 1;
-			once = true;
-		}
-		
 		if(par->locks[index_set.id])
 			result << "locked(\"" << structure->parent->model->index_sets[index_set]->name << "\")";
 		else
-			result << names[lookup_idx];
+			result << names[index_set.id];
 		
 		++idx;
 	}

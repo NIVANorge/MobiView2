@@ -84,7 +84,7 @@ MobiView2::MobiView2() :
 	// work.
 	params.parameter_view.WhenSel << sensitivity_window_update;
 	
-	par_group_selecter.WhenSel << [this](){ params.refresh(false); };
+	par_group_selecter.WhenSel << [this](){ params.par_group_change(); };
 	par_group_selecter.WhenSel << sensitivity_window_update;
 	
 	
@@ -646,6 +646,8 @@ void MobiView2::build_interface() {
 		return;
 	}
 	
+	try {
+	
 	par_group_selecter.Set(0, model->model_name.data());
 	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 	
@@ -688,6 +690,10 @@ void MobiView2::build_interface() {
 		structure_window.refresh_text();
 	if(info_window.IsOpen())
 		info_window.refresh_text();
+	
+	} catch(int) {
+	}
+	log_warnings_and_errors();
 }
 
 void MobiView2::closing_checks() {
@@ -726,7 +732,7 @@ void MobiView2::revert_baseline() {
 	app->data.parameters.copy_from(&baseline->parameters);
 	app->data.results.copy_from(&baseline->results);
 	plot_rebuild();
-	params.refresh(true);
+	params.refresh_parameter_view(true);
 	log("Reverted to baseline.");
 }
 

@@ -1095,7 +1095,7 @@ void OptimizationWindow::run_clicked(int run_type)
 			if(was_improvement) {
 				app->data.parameters.copy_from(&data->parameters);
 				app->data.results.copy_from(&data->results);
-				parent->params.refresh(true);
+				parent->params.refresh_parameter_view(true);
 				parent->plot_rebuild();
 				parent->log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
 					(double)ms*1e-3, opt_model.best_score, opt_model.initial_score));
