@@ -13,42 +13,7 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	
 	main_plot.parent = parent;
 	main_plot.plot_info = &parent->plot_info;
-	
-	index_list[0] = &index_list1;
-	index_list[1] = &index_list2;
-	index_list[2] = &index_list3;
-	index_list[3] = &index_list4;
-	index_list[4] = &index_list5;
-	index_list[5] = &index_list6;
-	
-	push_sel_all[0] = &push_sel_all1;
-	push_sel_all[1] = &push_sel_all2;
-	push_sel_all[2] = &push_sel_all3;
-	push_sel_all[3] = &push_sel_all4;
-	push_sel_all[4] = &push_sel_all5;
-	push_sel_all[5] = &push_sel_all6;
-	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_list[idx]->Hide();
-		index_list[idx]->Disable();
-		index_list[idx]->WhenSel << [this]() { re_plot(); };
-		index_list[idx]->MultiSelect();
-		index_list[idx]->AddColumn("(no name)");
-		
-		push_sel_all[idx]->Hide();
-		push_sel_all[idx]->Disable();
-		push_sel_all[idx]->SetImage(IconImg9::Add(), IconImg9::Remove());
-		push_sel_all[idx]->WhenAction << [this, idx]() {
-			int rows = index_list[idx]->GetCount();
-			int count = index_list[idx]->GetSelectCount();
-			if(rows == count) {
-				index_list[idx]->Select(0, rows, false);
-				index_list[idx]->Select(0);
-			} else
-				index_list[idx]->Select(0, rows);
-		};
-	}
-	
+
 	time_step_slider.Range(10); //To be overwritten later.
 	time_step_slider.SetData(0);
 	time_step_slider.Hide();
@@ -107,6 +72,233 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	pivot_month.GoBegin();
 	pivot_month.WhenAction << THISBACK(plot_change);
 	pivot_month.Disable();
+}
+
+void
+PlotCtrl::build_index_set_selecters(Model_Application *app) {
+	if(!app) return;
+	auto model = app->model;
+	
+	Indexes indexes(model);
+	
+	for(auto index_set_id : model->index_sets) {
+		auto index_set = model->index_sets[index_set_id];
+		
+		auto &index_list = index_lists.Create<ArrayCtrl>();
+		index_list.AddColumn(index_set->name.data());
+		index_list.MultiSelect();
+		index_list.Hide();
+		index_list.WhenSel << [this, index_set_id](){ index_selection_change(index_set_id, true); };
+		
+		auto &push_sel_all = push_sel_alls.Create<ButtonOption>();
+		push_sel_all.Hide();
+		push_sel_all.SetImage(IconImg9::Add(), IconImg9::Remove());
+		push_sel_all.WhenAction << [this, index_set_id]() {
+			
+			index_callback_lock = true;
+			
+			auto &list = index_lists[index_set_id.id];
+			int rows = list.GetCount();
+			int count = list.GetSelectCount();
+			if(rows == count) {
+				list.Select(0, rows, false);
+				list.Select(0);
+			} else
+				list.Select(0, rows);
+			index_callback_lock = false;
+			
+			index_selection_change(index_set_id, true);
+		};
+		
+		index_list.BottomPosZ(28, 104);
+		push_sel_all.BottomPosZ(4, 20);
+		
+		Add(index_list);
+		Add(push_sel_all);
+		
+		for(Index_T index = {index_set_id, 0}; index < app->index_data.get_index_count(index_set_id, indexes); ++index)
+			index_list.Add(app->index_data.get_index_name(indexes, index));
+		
+		indexes.set_index(Index_T {index_set_id, 0 });
+	}
+	
+	index_callback_lock = true;
+	for(auto &list : index_lists)
+		list.GoBegin();
+	index_callback_lock = false;
+	
+	plot_major_mode.Enable();
+}
+
+void
+PlotCtrl::index_selection_change(Entity_Id id, bool replot) {
+	if(index_callback_lock) return;
+	
+	// TODO: This becomes a bit bonkers if we could have multiple active parent sets of the
+	// same index sets. This happens if we select two series and a third set is sub-indexed to
+	// a union of sets that the two series depend on.
+	// In this case we should probably show the union only and not the two separate members,
+	// but it is tricky, because we would then have to re-direct the plot itself to only look
+	// up the union (if it is active).
+	
+	get_plot_setup(main_plot.setup);
+	
+	if(main_plot.setup.selected_indexes[id.id].empty()) return;
+	
+	Indexes indexes(parent->model);
+	indexes.set_index(main_plot.setup.selected_indexes[id.id][0]);
+	
+	for(auto other_id : parent->model->index_sets) {
+		if(id == other_id) continue;
+		bool active = main_plot.setup.index_set_is_active[id.id];
+		if(!active) continue;
+		
+		// Re-build the index list of a sub-indexed index set.
+		if(parent->app->index_data.can_be_sub_indexed_to(id, other_id)) {
+			index_callback_lock = true;
+			
+			auto count = parent->app->index_data.get_index_count(other_id, indexes);
+			
+			auto &list = index_lists[other_id.id];
+			list.ClearSelection();
+			for(auto index : main_plot.setup.selected_indexes[other_id.id]) {
+				if(index < count)
+					list.Add(parent->app->index_data.get_index_name(indexes, index));
+			}
+			
+			index_callback_lock = false;
+			break;
+		}
+	}
+	
+	if(replot)
+		re_plot(false);
+}
+
+void
+PlotCtrl::plot_change() {
+	if(!parent->model_is_loaded()) return;
+	
+	if(is_playing) {
+		is_playing = false;
+		KillTimeCallback();
+		push_play.SetImage(IconImg9::Play());
+	}
+	
+	get_plot_setup(main_plot.setup);
+	
+	Plot_Mode mode = main_plot.setup.mode;
+	
+	scatter_inputs.Disable();
+	y_axis_mode.Disable();
+	time_intervals.Disable();
+	time_step_edit.Hide();
+	time_step_slider.Hide();
+	time_step_slider.Disable();
+	push_play.Hide();
+	push_rewind.Hide();
+	pivot_month.Disable();
+	
+	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
+		scatter_inputs.Enable();
+		y_axis_mode.Enable();
+		time_intervals.Enable();
+	} else if (mode == Plot_Mode::residuals) {
+		scatter_inputs.Enable();
+		time_intervals.Enable();
+	} else if (mode == Plot_Mode::profile) {
+		time_step_slider.Show();
+		time_step_edit.Show();
+		push_play.Show();
+		push_rewind.Show();
+		time_intervals.Enable();
+	} else if (mode == Plot_Mode::profile2D)
+		time_intervals.Enable();
+	
+	if(time_intervals.IsEnabled()) {
+		if(main_plot.setup.aggregation_period == Aggregation_Period::none)
+			aggregation.Disable();
+		else {
+			aggregation.Enable();
+			y_axis_mode.Disable();
+			time_step_edit.Disable();
+		}
+		if(main_plot.setup.aggregation_period == Aggregation_Period::yearly)
+			pivot_month.Enable();
+	} else
+		aggregation.Disable();
+	
+	// TODO: All this stuff is really only needed if the active index sets changed.
+	int active_idx = 0;
+	for(auto id : parent->model->index_sets) {
+		bool active = main_plot.setup.index_set_is_active[id.id];
+		index_lists[id.id].Show(active);
+		push_sel_alls[id.id].Show(active);
+		
+		if(active) {
+			if(active_idx == MAX_INDEX_SETS) {
+				parent->log("With this many index sets active in the plot, the selecters may not display correctly.", true);
+				break;
+			}
+			
+			auto &list = index_lists[id.id];
+			auto &push = push_sel_alls[id.id];
+			
+			list.LeftPosZ(4 + 92*active_idx, 88);
+			push.LeftPosZ(4 + 92*active_idx, 20);
+			
+			list.MultiSelect();
+			push.Enable();
+			for(auto other_id : parent->model->index_sets) {
+				if(id == other_id) continue;
+				if(!main_plot.setup.index_set_is_active[other_id.id]) continue;
+				
+				if(parent->app->index_data.can_be_sub_indexed_to(id, other_id)) {
+					
+					bool changed = false;
+					index_callback_lock = true;
+					
+					list.ClearSelection();
+					list.MultiSelect(false);
+					push.Disable();
+					
+					// When we turn off multiselect, we could only keep at most one index
+					// selected
+					if(main_plot.setup.selected_indexes[id.id].size() > 1) {
+						changed = true;
+						int row = main_plot.setup.selected_indexes[id.id][0].index;
+						list.Select(row);
+						list.SetCursor(row);
+					}
+					
+					index_callback_lock = false;
+					if(changed)
+						index_selection_change(id, false);
+					
+					//TODO: Update the index list of all the sub-indexed ones.
+					
+					break;
+				}
+			}
+			
+			++active_idx;
+		}
+	}
+	
+	main_plot.build_plot();
+}
+
+void PlotCtrl::re_plot(bool caused_by_run) {
+	
+	if(!parent->model_is_loaded()) return;
+	
+	get_plot_setup(main_plot.setup); // TODO: Is this needed?
+	main_plot.build_plot(caused_by_run);
+	
+	for(auto index_set_id : parent->model->index_sets) {
+		if(index_lists[index_set_id.id].GetSelectCount() != index_lists[index_set_id.id].GetCount())
+			push_sel_alls[index_set_id.id].Set(false);
+	}
 }
 
 void PlotCtrl::time_step_slider_event() {
@@ -177,77 +369,6 @@ void PlotCtrl::play_pushed() {
 	}
 }
 
-void PlotCtrl::plot_change() {
-	if(!parent->model_is_loaded()) return;
-	
-	if(is_playing) {
-		is_playing = false;
-		KillTimeCallback();
-		push_play.SetImage(IconImg9::Play());
-	}
-	
-	get_plot_setup(main_plot.setup);
-	
-	Plot_Mode mode = main_plot.setup.mode;
-	
-	scatter_inputs.Disable();
-	y_axis_mode.Disable();
-	time_intervals.Disable();
-	time_step_edit.Hide();
-	time_step_slider.Hide();
-	time_step_slider.Disable();
-	push_play.Hide();
-	push_rewind.Hide();
-	pivot_month.Disable();
-	
-	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
-		scatter_inputs.Enable();
-		y_axis_mode.Enable();
-		time_intervals.Enable();
-	} else if (mode == Plot_Mode::residuals) {
-		scatter_inputs.Enable();
-		time_intervals.Enable();
-	} else if (mode == Plot_Mode::profile) {
-		time_step_slider.Show();
-		time_step_edit.Show();
-		push_play.Show();
-		push_rewind.Show();
-		time_intervals.Enable();
-	} else if (mode == Plot_Mode::profile2D)
-		time_intervals.Enable();
-	
-	if(time_intervals.IsEnabled()) {
-		if(main_plot.setup.aggregation_period == Aggregation_Period::none)
-			aggregation.Disable();
-		else {
-			aggregation.Enable();
-			y_axis_mode.Disable();
-			time_step_edit.Disable();
-		}
-		if(main_plot.setup.aggregation_period == Aggregation_Period::yearly)
-			pivot_month.Enable();
-	} else
-		aggregation.Disable();
-	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		bool active = main_plot.setup.index_set_is_active[idx];
-		index_list[idx]->Enable(active);
-		push_sel_all[idx]->Enable(active);
-	}
-	
-	main_plot.build_plot();
-}
-
-void PlotCtrl::re_plot(bool caused_by_run) {
-	get_plot_setup(main_plot.setup);
-	main_plot.build_plot(caused_by_run);
-	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		if(index_list[idx]->GetSelectCount() != index_list[idx]->GetCount())
-			push_sel_all[idx]->Set(false);
-	}
-}
-
 void PlotCtrl::build_time_intervals_ctrl() {
 	
 	time_intervals.Reset();
@@ -273,48 +394,10 @@ void PlotCtrl::build_time_intervals_ctrl() {
 }
 
 void PlotCtrl::clean() {
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_list[idx]->Clear();
-		index_list[idx]->Hide();
-		push_sel_all[idx]->Disable();
-		push_sel_all[idx]->Hide();
-	}
-	index_sets.clear();
 	main_plot.clean();
-}
-
-void PlotCtrl::build_index_set_selecters(Model_Application *app) {
-	if(!app) return;
-	auto model = app->model;
 	
-	//NOTE: this relies on all the index sets being registered in the "global module":
-	index_sets.resize(MAX_INDEX_SETS, invalid_entity_id);
-	int idx = 0;
-	for(auto index_set_id : model->index_sets) {
-		auto index_set = model->index_sets[index_set_id];
-		
-		index_list[idx]->HeaderTab(0).SetText(index_set->name.data());
-		
-		// NOTE: For now, display the maximum number of index sets for this index.
-		// TODO: Could make it somehow dynamic based on other selections, but it is tricky.
-		for(Index_T index = {index_set_id, 0}; index < app->index_data.get_max_count(index_set_id); ++index)
-			index_list[idx]->Add(app->index_data.get_index_name_base(index, invalid_index)); // TODO: Don't use get_index_name_base
-		
-		index_list[idx]->GoBegin();
-		index_list[idx]->Show();
-		push_sel_all[idx]->Show();
-		
-		index_sets[idx] = index_set_id;
-		
-		++idx;
-		
-		if(idx == MAX_INDEX_SETS) {
-			parent->log("The model has more index sets than are supported by MobiView2!", true);
-			break;
-		}
-	}
-	
-	plot_major_mode.Enable();
+	index_lists.Clear();
+	push_sel_alls.Clear();
 }
 
 void
@@ -342,29 +425,24 @@ register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app) {
 	
 void
 PlotCtrl::get_plot_setup(Plot_Setup &ps) {
+	
+	auto count = parent->model->index_sets.count();
 	ps.selected_results.clear();
 	ps.selected_series.clear();
 	ps.selected_indexes.clear();
-	ps.selected_indexes.resize(MAX_INDEX_SETS);
+	ps.selected_indexes.resize(count);
 	ps.index_set_is_active.clear();
-	ps.index_set_is_active.resize(MAX_INDEX_SETS, false);
+	ps.index_set_is_active.resize(count, false);
 	
-	//if(time_intervals.IsEnabled()) {
-		ps.aggregation_period = (Aggregation_Period)(int)time_intervals.GetData();
-		ps.aggregation_type   = (Aggregation_Type)(int)aggregation.GetData();
-	//} else
-	//	ps.aggregation_period = Aggregation_Period::none;
+	ps.aggregation_period = (Aggregation_Period)(int)time_intervals.GetData();
+	ps.aggregation_type   = (Aggregation_Type)(int)aggregation.GetData();
 	
 	ps.pivot_month = pivot_month.GetData();
 	
 	ps.mode = (Plot_Mode)(int)plot_major_mode.GetData();
 	
-	//if(y_axis_mode.IsEnabled())
-		ps.y_axis_mode = (Y_Axis_Mode)(int)y_axis_mode.GetData();
-	//else
-	//	ps.y_axis_mode = Y_Axis_Mode::regular;
+	ps.y_axis_mode = (Y_Axis_Mode)(int)y_axis_mode.GetData();
 	
-	//ps.scatter_inputs = (scatter_inputs.IsEnabled() && (bool)scatter_inputs.Get());
 	ps.scatter_inputs = (bool)scatter_inputs.Get();
 	
 	if(!parent->model_is_loaded()) return;
@@ -372,12 +450,16 @@ PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	parent->input_selecter.get_selected(ps.selected_series);
 	parent->result_selecter.get_selected(ps.selected_results);
 	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		if(!index_list[idx]->IsVisible()) continue;
-		int row_count = index_list[idx]->GetCount();
+	for(auto id : parent->model->index_sets) {
+		auto &list = index_lists[id.id];
+
+		int row_count = list.GetCount();
+		int cursor = list.GetCursor();
 		for(int row = 0; row < row_count; ++row) {
-			if(!index_list[idx]->IsSelected(row)) continue;
-			ps.selected_indexes[idx].push_back(Index_T { index_sets[idx], row });
+			bool selected = list.IsSelected(row);
+			if(!list.IsMultiSelect()) selected = (row == cursor); // TODO: Not sure why IsSelected doesn't work in this case.
+			if(selected)
+				ps.selected_indexes[id.id].push_back(Index_T { id, row });
 		}
 	}
 	
@@ -407,14 +489,18 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 	aggregation.SetData((int)ps.aggregation_type);
 	time_step_slider.SetData((int)ps.profile_time_step);
 	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		index_list[idx]->ClearSelection(false);
-		int row_count = index_list[idx]->GetCount();
+	for(auto id : parent->model->index_sets) {
+		index_lists[id.id].ClearSelection(false);
+		int row_count = index_lists[id.id].GetCount();
+		/*
 		for(int row = 0; row < row_count; ++row) {
-			Index_T index = { index_sets[idx], row };
-			if(std::find(ps.selected_indexes[idx].begin(), ps.selected_indexes[idx].end(), index) != ps.selected_indexes[idx].end())
-				index_list[idx]->Select(row);
+			Index_T index = { id, row };
+			if(std::find(ps.selected_indexes[id.id].begin(), ps.selected_indexes[id.id].end(), index) != ps.selected_indexes[id.id].end())
+				index_list[id.id]->Select(row);
 		}
+		*/
+		for(auto index : ps.selected_indexes[id.id])
+			index_lists[id.id].Select(index.index);
 	}
 	if(ps.pivot_month >= 1 && ps.pivot_month <= 12)
 		pivot_month.SetData(ps.pivot_month);

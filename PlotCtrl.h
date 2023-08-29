@@ -474,6 +474,7 @@ public:
 	
 	PlotCtrl(MobiView2 *parent);
 	
+	void index_selection_change(Entity_Id id = invalid_entity_id, bool replot = true);
 	void plot_change();
 	void re_plot(bool caused_by_run = false);
 	
@@ -491,13 +492,16 @@ public:
 	void clean();
 	void build_index_set_selecters(Model_Application *app);
 	
-	std::vector<Entity_Id> index_sets;
-	Upp::ArrayCtrl        *index_list[MAX_INDEX_SETS];
-	Upp::ButtonOption     *push_sel_all[MAX_INDEX_SETS];
+	
+	Upp::Array<Upp::ArrayCtrl>    index_lists;
+	Upp::Array<Upp::ButtonOption> push_sel_alls;
 	
 	Date_Time profile_base_time;
 	
 	MobiView2 *parent;
+	
+private :
+	bool index_callback_lock = false;
 };
 
 void register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app);

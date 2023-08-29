@@ -766,12 +766,15 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	}
 	
 	bool multi_index = false;
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
-		if(setup.selected_indexes[idx].empty() && setup.index_set_is_active[idx]) {
+	for(auto id : app->model->index_sets) {
+		if(!setup.index_set_is_active[id.id]) continue;
+
+		if(setup.selected_indexes[id.id].empty()) {
+			parent->log(Format("The index set %s has %d selected indexes.", parent->model->index_sets[id]->name.data(), (int)setup.selected_indexes[id.id].size()));
 			SetTitle("At least one index has to be selected for each of the active index sets.");
 			return;
 		}
-		if(setup.selected_indexes[idx].size() > 1 && setup.index_set_is_active[idx])
+		if(setup.selected_indexes[id.id].size() > 1)
 			multi_index = true;
 	}
 	
@@ -1202,15 +1205,15 @@ serialize_plot_setup(Model_Application *app, Json &json_data, Plot_Setup &setup)
 	json_data("sel_series", sel_series);
 	
 	Json index_sets;
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+	for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
 		Entity_Id index_set = {Reg_Type::index_set, idx};
 		
-		if(idx > model->index_sets.count() || idx >= setup.selected_indexes.size() || setup.selected_indexes[idx].empty()) continue;
+		if(setup.selected_indexes[idx].empty()) continue;
 		
 		JsonArray indexes;
 		for(Index_T index : setup.selected_indexes[idx]) {
 			if(!is_valid(index)) continue;
-			indexes << app->index_data.get_index_name_base(index, invalid_index).data(); // TODO: Don't use get_index_name_base
+			indexes << index.index;
 		}
 		index_sets(model->serialize(index_set).data(), indexes);
 	}
@@ -1284,11 +1287,9 @@ deserialize_plot_setup(Model_Application *app, Value &setup_json) {
 		}
 	}
 	
-	setup.selected_indexes.resize(MAX_INDEX_SETS);
-	setup.index_set_is_active.resize(MAX_INDEX_SETS);
+	setup.selected_indexes.resize(app->model->index_sets.count());
+	setup.index_set_is_active.resize(app->model->index_sets.count());
 	
-	PromptOK("Error: serialization not up to date with new index data system");
-	/*
 	ValueMap index_sets = setup_json["index_sets"];
 	if(!IsNull(index_sets)) {
 		int count = index_sets.GetCount();
@@ -1299,15 +1300,14 @@ deserialize_plot_setup(Model_Application *app, Value &setup_json) {
 			if(!IsNull(indexes)) {
 				int count2 = indexes.GetCount();
 				for(int idx2 = 0; idx2 < count2; ++idx2) {
-					Value index_name = indexes[idx2];
-					Index_T index = app->index_data.find_index(index_set_id, index_name.ToStd());
+					int index_value = indexes[idx2];
+					Index_T index = Index_T { index_set_id, index_value };
 					if(is_valid(index))
 						setup.selected_indexes[index_set_id.id].push_back(index);
 				}
 			}
 		}
 	}
-	*/
 	
 	register_if_index_set_is_active(setup, app);
 	
