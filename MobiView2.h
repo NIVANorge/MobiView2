@@ -122,6 +122,7 @@ public:
 	void open_view_chart();
 	
 	bool select_par_group(Entity_Id group_id);
+	Entity_Id get_selected_par_group();
 	
 private :
 	void delete_model();

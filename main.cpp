@@ -270,6 +270,18 @@ MobiView2::select_par_group(Entity_Id group_id) {
 	return select_group_recursive(par_group_selecter, 0, group_id);
 }
 
+Entity_Id
+MobiView2::get_selected_par_group() {
+	Entity_Id par_group_id = invalid_entity_id;
+	Vector<int> selected_groups = par_group_selecter.GetSel();
+	if(!selected_groups.empty()) {
+		Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
+		if(ctrl)
+			par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
+	}
+	return par_group_id;
+}
+
 void MobiView2::reload(bool recompile_only) {
 	if(!model_is_loaded()) {
 		if(data_file.empty() || model_file.empty())
@@ -304,14 +316,9 @@ void MobiView2::reload(bool recompile_only) {
 	try {   // Note this should really not give an error, but could if we messed up the serialization code.
 		
 		// Selected parameter group.
-		Vector<int> selected_groups = par_group_selecter.GetSel();
-		if(!selected_groups.empty()) {
-			Ctrl *ctrl = ~par_group_selecter.GetNode(selected_groups[0]).ctrl;
-			if(ctrl) {
-				Entity_Id par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
-				selected_group = model->serialize(par_group_id);
-			}
-		}
+		auto par_group_id = get_selected_par_group();
+		if(is_valid(par_group_id))
+			selected_group = model->serialize(par_group_id);
 		
 		// TODO: Also the additional plot view.
 		plot_setup_data = serialize_plot_setup(app, plotter.main_plot.setup);

@@ -116,7 +116,8 @@ PlotCtrl::build_index_set_selecters(Model_Application *app) {
 		Add(index_list);
 		Add(push_sel_all);
 		
-		for(Index_T index = {index_set_id, 0}; index < app->index_data.get_index_count(index_set_id, indexes); ++index)
+		auto count = app->index_data.get_index_count(indexes, index_set_id);
+		for(Index_T index = {index_set_id, 0}; index < count; ++index)
 			index_list.Add(app->index_data.get_index_name(indexes, index));
 		
 		indexes.set_index(Index_T {index_set_id, 0 });
@@ -157,7 +158,7 @@ PlotCtrl::index_selection_change(Entity_Id id, bool replot) {
 		if(parent->app->index_data.can_be_sub_indexed_to(id, other_id)) {
 			index_callback_lock = true;
 			
-			auto count = parent->app->index_data.get_index_count(other_id, indexes);
+			auto count = parent->app->index_data.get_index_count(indexes, other_id);
 			
 			auto &list = index_lists[other_id.id];
 			list.ClearSelection();

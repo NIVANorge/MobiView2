@@ -60,7 +60,7 @@ void ParameterCtrl::build_index_set_selecters(Model_Application *app) {
 		auto &list = index_lists.Create<Upp::DropList>();
 		// If the list is not dependent on other factors, just generate it once and for all
 		if(!is_valid(index_set->sub_indexed_to)) {
-			auto count = app->index_data.get_index_count(index_set_id, indexes);
+			auto count = app->index_data.get_index_count(indexes, index_set_id);
 			for(Index_T index = {index_set_id, 0}; index < count; ++index) {
 				indexes.set_index(index, true);
 				list.Add(app->index_data.get_index_name(indexes, index));
@@ -94,15 +94,9 @@ void ParameterCtrl::par_group_change() {
 	
 	if(!parent->model_is_loaded()) return; // Should not be possible, but safety stopgap.
 	
-	Vector<int> selected_groups = parent->par_group_selecter.GetSel();
-	if(selected_groups.empty()) return;
-	
-	// Note: multiselect is off on the par_group_selecter, so we should get at most one
-	// selected.
-	Upp::Ctrl *ctrl = ~parent->par_group_selecter.GetNode(selected_groups[0]).ctrl;
-	if(!ctrl) return;
-	
-	par_group_id = reinterpret_cast<Entity_Node *>(ctrl)->entity_id;
+	par_group_id = parent->get_selected_par_group();
+	if(!is_valid(par_group_id))
+		return;
 	
 	auto par_range = parent->model->by_scope<Reg_Type::parameter>(par_group_id);
 	s64  par_count = par_range.size();
@@ -139,7 +133,7 @@ void ParameterCtrl::par_group_change() {
 		auto &list = index_lists[id.id];
 		list.LeftPosZ(4 + 108*pos, 104);
 		
-		int count = app->index_data.get_index_count(id, indexes).index;
+		int count = app->index_data.get_index_count(indexes, id).index;
 		
 		int existing_sel = list.GetIndex();
 		if(existing_sel < 0) existing_sel = 0;
@@ -187,7 +181,7 @@ void ParameterCtrl::list_change(Entity_Id id) {
 		
 		auto &list = index_lists[id2.id];
 		
-		int count = app->index_data.get_index_count(id2, indexes).index;
+		int count = app->index_data.get_index_count(indexes, id2).index;
 		int existing_sel = list.GetIndex();
 		if(existing_sel < 0) existing_sel = 0;
 		else if(existing_sel >= count) existing_sel = count-1;
@@ -418,7 +412,7 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 	
 	s32 row_count = 1;
 	if(is_valid(exp_row))
-		row_count = app->index_data.get_index_count(exp_row, par_data.indexes).index;
+		row_count = app->index_data.get_index_count(par_data.indexes, exp_row).index;
 	
 	if(!values_only)
 		listed_pars.resize(par_count*row_count);
@@ -461,7 +455,7 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 			
 			s32 col_count = 1;
 			if(is_valid(exp_col))
-				col_count = app->index_data.get_index_count(exp_col, par_data.indexes).index;
+				col_count = app->index_data.get_index_count(par_data.indexes, exp_col).index;
 			
 			if(!values_only)
 				listed_pars[row].resize(col_count, Indexed_Parameter(model));
