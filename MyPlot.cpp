@@ -144,11 +144,6 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Indexes &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode, int found_count = 0) {
 	
-	if(level >= MAX_INDEX_SETS) {
-		PromptOK("Error due to needing an index that is not selectable.");
-		return false;
-	}
-	
 	if(level == indexes.indexes.size() || found_count == index_sets.size()) {
 
 		bool stacked = var_id.type == Var_Id::Type::state_var && (mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share);
@@ -478,13 +473,16 @@ inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_s
 		str = Format("%02d-%02d-%02d", y, mn, d);
 }
 
-void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size) {
+void
+format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_start, Time_Step_Size ts_size) {
 	plot->SetGridLinesX.Clear();
 	
 	plot->cbModifFormatXGridUnits.Clear();
 	plot->cbModifFormatX.Clear();
 	plot->cbModifFormatY.Clear();
 	plot->cbModifFormatYGridUnits.Clear();
+	
+	plot->SetMinUnits(0, 0);
 	
 	if(plot->GetCount() > 0
 		|| (mode == Plot_Mode::profile2D &&
@@ -585,7 +583,24 @@ void format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time i
 			
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
 			if(mode == Plot_Mode::profile2D) {
-				plot->ZoomToFitZ();
+				//plot->ZoomToFitZ();
+				
+				TableData *data = plot->profile2D_is_timed ? static_cast<TableData *>(&plot->profile2Dt) : static_cast<TableData *>(&plot->profile2D);
+				double minz = data->MinZ();
+				double maxz = data->MaxZ();
+				
+				if(maxz < 0.0)
+					maxz = 0.0;
+				else if (minz > 0.0)
+					minz = 0.0;
+				else {  // maxz > 0.0 && minz < 0.0*/
+					double absmax = std::max(std::abs(maxz), std::abs(minz));
+					maxz = absmax;
+					minz = std::max(-0.5*absmax, minz);
+				}
+				plot->SetSurfMinZ(minz);
+				plot->SetSurfMaxZ(maxz);
+				
 				int count = plot->profile2D.count();
 				int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 				int units = std::max(1, count / preferred_max_grid);
@@ -770,7 +785,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		if(!setup.index_set_is_active[id.id]) continue;
 
 		if(setup.selected_indexes[id.id].empty()) {
-			parent->log(Format("The index set %s has %d selected indexes.", parent->model->index_sets[id]->name.data(), (int)setup.selected_indexes[id.id].size()));
+			//parent->log(Format("The index set %s has %d selected indexes.", parent->model->index_sets[id]->name.data(), (int)setup.selected_indexes[id.id].size()));
 			SetTitle("At least one index has to be selected for each of the active index sets.");
 			return;
 		}
@@ -987,7 +1002,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			int profile_set_idx;
 			int profile_set_idx2;
 			int n_multi_index = 0;
-			for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+			for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
 				int count = setup.selected_indexes[idx].size();
 				if(count > 1 && setup.index_set_is_active[idx]) {
 					if(n_multi_index == 0)

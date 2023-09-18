@@ -78,7 +78,7 @@ public:
 	StructureViewWindow   structure_window;
 	ModelChartView        model_chart_window;
 	
-	
+	Mobius_Config      mobius_config;
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;

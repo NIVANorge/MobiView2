@@ -295,6 +295,10 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 		plot.SetTitleFont(plot.GetTitleFont().Height(14));
 		plot.SetReticleFont(plot.GetReticleFont().Height(8));
 		
+		plot.cbModifFormatYGridUnits << [](String &s, int i, double d) {
+			s = FormatDouble(d, 2);
+		};
+		
 		for(int walker = 0; walker < data.n_walkers; ++walker)
 			plot.AddSeries(&data(walker, par, 0), data.n_steps, 0.0, 1.0).ShowLegend(false).NoMark().Stroke(1.0, chain_color).Dash("").Opacity(0.4);
 		
@@ -609,6 +613,8 @@ MCMCResultWindow::map_to_main_pushed() {
 		pars[par] = (*data)(best_w, par, best_s);
 	
 	set_parameters(&parent->app->data, expr_pars, pars);
+	parent->params.changed_since_last_save = true;
+	
 	parent->log("Wrote MCMC MAP parameters to main dataset.");
 	parent->run_model();
 }
@@ -630,6 +636,8 @@ MCMCResultWindow::median_to_main_pushed() {
 		pars[par] = median_of_sorted(par_values[par].data(), par_values[par].size());
 	
 	set_parameters(&parent->app->data, expr_pars, pars);
+	parent->params.changed_since_last_save = true;
+	
 	parent->log("Wrote MCMC median parameters to main dataset.");
 	parent->run_model();
 }

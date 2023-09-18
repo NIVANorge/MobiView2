@@ -50,13 +50,9 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	par_setup.parameter_view.AddColumn(Id("__expr"), "Expression");
 	par_setup.parameter_view.AddColumn(Id("__idx"), "Index");
 	
-	par_setup.parameter_view.Moving(true);
-	
-	par_setup.option_use_expr.Set((int)false);
-	par_setup.option_use_expr.WhenAction     = THISBACK(enable_expressions_clicked);
-	par_setup.parameter_view.HeaderObject().HideTab(5);
-	par_setup.parameter_view.HeaderObject().HideTab(6);
 	par_setup.parameter_view.HeaderObject().HideTab(7);
+	
+	par_setup.parameter_view.Moving(true);
 	
 	target_setup.target_view.AddColumn(Id("__resultname"), "Result name");
 	target_setup.target_view.AddColumn(Id("__resultindexes"), "Result idxs.");
@@ -81,8 +77,6 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	par_setup.push_remove_parameter.SetImage(IconImg4::Remove());
 	par_setup.push_clear_parameters.SetImage(IconImg4::RemoveGroup());
 	par_setup.push_add_virtual.SetImage(IconImg4::Add());
-	par_setup.push_add_virtual.Disable();
-	par_setup.push_add_virtual.Hide();
 	
 	target_setup.push_add_target.WhenPush    = THISBACK(add_target_clicked);
 	target_setup.push_remove_target.WhenPush = THISBACK(remove_target_clicked);
@@ -169,22 +163,6 @@ void OptimizationWindow::set_error(const String &err_str) {
 void OptimizationWindow::sub_bar(Bar &bar) {
 	bar.Add(IconImg4::Open(), THISBACK(read_from_json)).Tip("Load setup from file");
 	bar.Add(IconImg4::Save(), THISBACK(write_to_json)).Tip("Save setup to file");
-}
-
-void OptimizationWindow::enable_expressions_clicked() {
-	bool val = (bool)par_setup.option_use_expr.Get();
-	
-	if(val) {
-		par_setup.parameter_view.HeaderObject().ShowTab(5);
-		par_setup.parameter_view.HeaderObject().ShowTab(6);
-		par_setup.push_add_virtual.Enable();
-		par_setup.push_add_virtual.Show();
-	} else {
-		par_setup.parameter_view.HeaderObject().HideTab(5);
-		par_setup.parameter_view.HeaderObject().HideTab(6);
-		par_setup.push_add_virtual.Disable();
-		par_setup.push_add_virtual.Hide();
-	}
 }
 
 bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool lookup_default) {
@@ -457,8 +435,8 @@ void OptimizationWindow::add_target_clicked() {
 Plot_Setup
 target_to_plot_setup(Optimization_Target &target, Model_Application *app) {
 	Plot_Setup setup = {};
-	setup.selected_indexes.resize(MAX_INDEX_SETS);
-	setup.index_set_is_active.resize(MAX_INDEX_SETS);
+	setup.selected_indexes.resize(app->model->index_sets.count());
+	setup.index_set_is_active.resize(app->model->index_sets.count());
 	
 	setup.mode = Plot_Mode::regular;
 	setup.aggregation_period = Aggregation_Period::none;
@@ -468,7 +446,7 @@ target_to_plot_setup(Optimization_Target &target, Model_Application *app) {
 	if(is_valid(target.obs_id))
 		setup.selected_series.push_back(target.obs_id);
 
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+	for(int idx = 0; idx < app->model->index_sets.count(); ++idx) {
 		if(is_valid(target.indexes.indexes[idx]))
 			setup.selected_indexes[idx].push_back(target.indexes.indexes[idx]);
 	}
@@ -1267,24 +1245,14 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			for(int idx = 0; idx < idxs_val.GetCount(); ++idx) {
 				Value idx_val = idxs_val[idx];
 				Index_T   index = invalid_index;
-				Entity_Id index_set;
+				Entity_Id index_set = invalid_entity_id;
 				
-				// TODO: May need better error handling here:
-					
-				PromptOK("Error: serialization not up to date with the new index data system!");
-					/*
 				Value idx_set_name_val = idx_val["IndexSetName"];
 				if(!IsNull(idx_set_name_val)) index_set = model->deserialize(idx_set_name_val.ToStd(), Reg_Type::index_set);
-				Value name_val = idx_val["Name"];
-				if(!IsNull(name_val) && name_val != "") {
-					index = parent->app->get_index(index_set, name_val.ToStd());
-					if(!is_valid(index)) {
-						set_error("The stored optimization setup was incompatible with the currently loaded model and data set.");
-						parent->log("The stored optimization setup was incompatible with the currently loaded model and data set.", true);
-						return;
-					}
-				}
-				*/
+				Value val = idx_val["Index"];
+				if(!IsNull(val))
+					index = Index_T { index_set, (s32)val };
+				
 				Value locked_val = idx_val["Locked"];
 				bool locked = false;
 				if(!IsNull(locked_val)) locked = (bool)locked_val;
@@ -1292,6 +1260,12 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				if(is_valid(index))
 					par.indexes.set_index(index);
 				par.locks[index_set.id] = locked;
+			}
+			
+			if(!parent->app->index_data.are_in_bounds(par.indexes)) {
+				set_error("The stored optimization setup was incompatible with the currently loaded model and data set.");
+				parent->log("The stored optimization setup was incompatible with the currently loaded model and data set.", true);
+				return;
 			}
 			
 			Value sym_val  = par_json["Sym"];
@@ -1310,10 +1284,6 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			}
 		}
 	}
-	
-	Value enable_expr = setup_json["EnableExpr"];
-	if(!IsNull(enable_expr))
-		par_setup.option_use_expr.Set((int)enable_expr);
 	
 	Value show_progress = setup_json["ShowProgress"];
 	if(!IsNull(show_progress))
@@ -1406,21 +1376,29 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			}
 			
 			ValueArray index_arr = target_json["Indexes"];
-			bool found = !IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count());
-			int row2 = 0;
+			if(!IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count())) {
 			
-			PromptOK("Error: serialization not up to date with the new index data system!");
-			/*
-			for(Entity_Id index_set : model->index_sets) {
-				String index_name = Null;
-				if(found) index_name = index_arr[row2];
-				if(!IsNull(index_name) && index_name != "") {
-					auto index = app->get_index(index_set, index_name.ToStd());
-					target.indexes.set_index(index);
+				for(int idx = 0; idx < index_arr.GetCount(); ++idx) {
+					Value idx_val = index_arr[idx];
+					Index_T   index = invalid_index;
+					Entity_Id index_set = invalid_entity_id;
+					
+					Value idx_set_name_val = idx_val["IndexSetName"];
+					if(!IsNull(idx_set_name_val)) index_set = model->deserialize(idx_set_name_val.ToStd(), Reg_Type::index_set);
+					Value val = idx_val["Index"];
+					if(!IsNull(val))
+						index = Index_T { index_set, (s32)val };
+					
+					if(is_valid(index))
+						target.indexes.set_index(index);
 				}
-				++row2;
 			}
-			*/
+			
+			if(!parent->app->index_data.are_in_bounds(target.indexes)) {
+				set_error("The stored optimization setup was incompatible with the currently loaded model and data set.");
+				parent->log("The stored optimization setup was incompatible with the currently loaded model and data set.", true);
+				return;
+			}
 			
 			target.set_offsets(&parent->app->data);
 			add_optimization_target(target);
@@ -1431,8 +1409,6 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 				target_setup.target_view.Set(row, Id("__errparam"), err_par);
 		}
 	}
-	
-	enable_expressions_clicked();
 }
 
 void OptimizationWindow::read_from_json() {
@@ -1496,21 +1472,17 @@ String OptimizationWindow::write_to_json_string() {
 		int idx2 = 0;
 		for(Index_T index : par.indexes.indexes) {
 			Json index_json;
-			if(is_valid(index)) {
-				index_json("Name", app->index_data.get_index_name(par.indexes, index).data());
-				index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
-				index_json("Locked", (bool)par.locks[idx2]);
-				index_arr << index_json;
-			}
+			if(!is_valid(index)) continue;
+			index_json("Index", index.index);
+			index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
+			index_json("Locked", (bool)par.locks[idx2]);
+			index_arr << index_json;
 			++idx2;
 		}
 		par_json("Indexes", index_arr);
 		parameter_arr << par_json;
 	}
 	main_file("Parameters", parameter_arr);
-	
-	bool enable_expr = (bool)par_setup.option_use_expr.Get();
-	main_file("EnableExpr", enable_expr);
 	
 	bool show_progress = (bool)run_setup.option_show_progress.Get();
 	main_file("ShowProgress", show_progress);
@@ -1551,13 +1523,13 @@ String OptimizationWindow::write_to_json_string() {
 		target_json("ResultName", app->serialize(target.sim_id).data());
 		target_json("InputName", app->serialize(target.obs_id).data());
 		
-		// TODO: Why are these not stored in (index set, index) pairs like for the parameters??
 		JsonArray index_arr;
 		for(Index_T index : target.indexes.indexes) {
-			if(is_valid(index))
-				index_arr << app->index_data.get_index_name(target.indexes, index).data();
-			else
-				index_arr << "";
+			Json index_json;
+			if(!is_valid(index)) continue;
+			index_json("Index", index.index);
+			index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
+			index_arr << index_json;
 		}
 		
 		target_json("Indexes", index_arr);

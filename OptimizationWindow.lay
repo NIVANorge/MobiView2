@@ -6,7 +6,6 @@ LAYOUT(OptimizationLayout, 688, 256)
 	ITEM(Upp::Button, push_remove_parameter, SetLabel(t_("Remove sel.")).LeftPosZ(228, 104).BottomPosZ(4, 20))
 	ITEM(Upp::Button, push_add_virtual, SetLabel(t_("Add virtual")).LeftPosZ(448, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Label, warning_label, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 16))
-	ITEM(Upp::Option, option_use_expr, NotNull(true).SetLabel(t_("Enable expressions")).RightPosZ(4, 108).BottomPosZ(4, 20))
 END_LAYOUT
 
 LAYOUT(OptimizationTargetLayout, 688, 428)

@@ -1,7 +1,7 @@
 #ifndef _MobiView2_ParameterCtrl_h_
 #define _MobiView2_ParameterCtrl_h_
 
-constexpr int MAX_INDEX_SETS = 6;    //NOTE: This has to match the number of (currently) hard coded index set displays in the main window.
+constexpr int MAX_INDEX_SETS = 6;    //NOTE: This now just a guideline for when the UI may start to look weird if more than this is displayed.
 
 #include <CtrlLib/CtrlLib.h>
 

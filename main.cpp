@@ -221,7 +221,7 @@ bool MobiView2::do_the_load() {
 #if CATCH_ERRORS
 	try {
 #endif
-		model = load_model(model_file.data());
+		model = load_model(model_file.data(), &mobius_config);
 		app = new Model_Application(model);
 			
 		data_set = new Data_Set;
@@ -389,8 +389,8 @@ void MobiView2::load() {
 	
 	std::string mobius_base_path;
 	try {
-		Mobius_Config config = load_config();
-		mobius_base_path = config.mobius_base_path;
+		mobius_config = load_config();
+		mobius_base_path = mobius_config.mobius_base_path;
 	} catch(int) {
 		log_warnings_and_errors();
 		return;
@@ -489,7 +489,9 @@ void MobiView2::save_parameters_as() {
 	std::string new_file = sel.Get().ToStd();
 	if(new_file.size() == 0) return;
 	
+#if CATCH_ERRORS
 	try {
+#endif
 		app->save_to_data_set();
 		data_set->write_to_file(new_file);
 		
@@ -498,9 +500,13 @@ void MobiView2::save_parameters_as() {
 		data_file = new_file;
 		
 		store_settings(); // NOTE: so that it records the new file as the data file.
+#if CATCH_ERRORS
 	} catch(int) {
+#endif
 		log("Data file saving may have been unsuccessful.", true);
+#if CATCH_ERRORS
 	}
+#endif
 	log_warnings_and_errors();
 }
 

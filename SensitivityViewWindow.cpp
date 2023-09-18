@@ -140,7 +140,7 @@ SensitivityViewWindow::run() {
 		return;
 	}
 	
-	for(int idx = 0; idx < MAX_INDEX_SETS; ++idx) {
+	for(int idx = 0; idx < plot.setup.selected_indexes.size(); ++idx) {
 		if(plot.setup.selected_indexes[idx].size() != 1 && plot.setup.index_set_is_active[idx]) {
 			error_label.SetText("This currently only works with a single selected index per index set for the time series");
 			return;

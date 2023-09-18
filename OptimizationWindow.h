@@ -54,7 +54,6 @@ public:
 	void remove_parameter_clicked();
 	void clear_parameters_clicked();
 	void add_virtual_clicked();
-	void enable_expressions_clicked();
 	void add_target_clicked();
 	void remove_target_clicked();
 	void clear_targets_clicked();
