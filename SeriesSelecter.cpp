@@ -13,16 +13,14 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	// TODO: We should intercept the selection and set it to all the trees (where applicable)
 	// Also tab change should give plot change.
 	
-	var_tree.WhenSel << [=,this]() { parent->plotter.plot_change(); };
+	var_tree.WhenSel << [=, this]() { parent->plotter.plot_change(); };
 	var_tree.MultiSelect();
-	//var_tree.Set(0, root); // For some reason this works, while SetRoot gets overwritten by the SetNode call.
 	var_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false).Set(root));
 	var_tree.HighlightCtrl(true);
 	
-	quant_tree.WhenSel << [=,this]() { parent->plotter.plot_change(); };
+	quant_tree.WhenSel << [=, this]() { parent->plotter.plot_change(); };
 	quant_tree.MultiSelect();
-	//quant_tree.Set(0, root);
-	quant_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false).Set(root));  // For some reason this overwrites the name..
+	quant_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false).Set(root));
 	quant_tree.HighlightCtrl(true);
 	
 	if(type == Var_Id::Type::state_var) {

@@ -1073,6 +1073,7 @@ void OptimizationWindow::run_clicked(int run_type)
 			if(was_improvement) {
 				app->data.parameters.copy_from(&data->parameters);
 				app->data.results.copy_from(&data->results);
+				parent->params.changed_since_last_save = true;
 				parent->params.refresh_parameter_view(true);
 				parent->plot_rebuild();
 				parent->log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
@@ -1157,7 +1158,8 @@ void OptimizationWindow::run_clicked(int run_type)
 	delete data; // Delete the copy that we ran the optimization on.
 	
 	//NOTE: We have to do this, otherwise the window gets hidden behind the main window some times.
-	//   The only problem is that the Sta
+	//   The only problem is that the StayOnTop = false doesn't work, that is it stays fixed on
+	//   top!
 	TopMost(true, false);
 }
 
@@ -1200,10 +1202,6 @@ void OptimizationWindow::tab_change() {
 	
 void OptimizationWindow::read_from_json_string(const String &json) {
 	
-	//TODO: To make this work we need a way for the base Mobius2 framework to serialize
-	//Entity_Id and Var_Id . We can't simply use the name of the entity since it is not
-	//guaranteed to be unique.
-	
 	auto app   = parent->app;
 	auto model = app->model;
 	
@@ -1230,12 +1228,9 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			par.id = invalid_entity_id;
 			
 			par.locks.resize(par.indexes.indexes.size(), false);
-			
-			// TODO: In the end it may not be sufficient to store parameters by name, they may
-			// have to be scoped to par group + module!
+
 			Value name = par_json["Name"];
 			if(!IsNull(name))
-				//par.id = model->parameters.find_by_name(name.ToStd());
 				par.id = model->deserialize(name.ToStd(), Reg_Type::parameter);
 			
 			Value virt_val = par_json["Virtual"];
@@ -1403,7 +1398,6 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			target.set_offsets(&parent->app->data);
 			add_optimization_target(target);
 			
-			// TODO: set these to the array instead
 			String err_par = target_json["ErrPar"];
 			if(!IsNull(err_par))
 				target_setup.target_view.Set(row, Id("__errparam"), err_par);
@@ -1456,12 +1450,11 @@ String OptimizationWindow::write_to_json_string() {
 		
 		Json par_json;
 		
-		if(!par.virt) {
-			//auto par_data = model->parameters[par.id];
+		if(!par.virt)
 			par_json("Name", model->serialize(par.id).data());
-		}
 		
-		par_json("Virtual", par.virt);
+		if(par.virt)
+			par_json("Virtual", par.virt);
 		
 		par_json("Min", (double)par_setup.parameter_view.Get(row, Id("__min")));
 		par_json("Max", (double)par_setup.parameter_view.Get(row, Id("__max")));
@@ -1535,7 +1528,6 @@ String OptimizationWindow::write_to_json_string() {
 		target_json("Indexes", index_arr);
 		
 		std::string statname = stat_name(target.stat_type);
-		//PromptOK(Format("Stat is %d %s", target.stat_type, statname.data()));
 
 		String err_name = target_setup.target_view.Get(row, Id("__errparam"));
 		target_json("Stat", statname.data());

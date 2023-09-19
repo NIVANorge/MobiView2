@@ -621,10 +621,7 @@ MCMCResultWindow::map_to_main_pushed() {
 
 void
 MCMCResultWindow::median_to_main_pushed() {
-	//TODO: Should check that parameter setup in optim. window still correspond to this
-	//parameter data!
-	//TODO: This is unnecessarily redoing a lot of work, but it may not be a problem..
-
+	
 	if(!data) return;
 	
 	std::vector<std::vector<double>> par_values;

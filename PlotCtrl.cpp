@@ -149,28 +149,35 @@ PlotCtrl::index_selection_change(Entity_Id id, bool replot) {
 	Indexes indexes(parent->model);
 	indexes.set_index(main_plot.setup.selected_indexes[id.id][0]);
 	
+	index_callback_lock = true;
+	
 	for(auto other_id : parent->model->index_sets) {
 		if(id == other_id) continue;
 		bool active = main_plot.setup.index_set_is_active[id.id];
 		if(!active) continue;
 		
 		// Re-build the index list of a sub-indexed index set.
-		if(parent->app->index_data.can_be_sub_indexed_to(id, other_id)) {
-			index_callback_lock = true;
-			
-			auto count = parent->app->index_data.get_index_count(indexes, other_id);
-			
-			auto &list = index_lists[other_id.id];
-			list.ClearSelection();
-			for(auto index : main_plot.setup.selected_indexes[other_id.id]) {
-				if(index < count)
-					list.Add(parent->app->index_data.get_index_name(indexes, index));
-			}
-			
-			index_callback_lock = false;
-			break;
+		
+		if(!parent->app->index_data.can_be_sub_indexed_to(id, other_id)) continue;
+		
+		auto count = parent->app->index_data.get_index_count(indexes, other_id);
+		
+		auto &list = index_lists[other_id.id];
+		list.ClearSelection();
+		list.Clear();
+		
+		for(Index_T index = {other_id, 0}; index < count; ++index)
+			list.Add(parent->app->index_data.get_index_name(indexes, index));
+		
+		int c = list.GetCount();
+		for(auto index : main_plot.setup.selected_indexes[other_id.id]) {
+			if(index.index < c)
+				list.Select(index.index);
 		}
+		// TODO: We should maybe also eject it from selected_indexes if it is not within bounds.
 	}
+	
+	index_callback_lock = false;
 	
 	if(replot)
 		re_plot(false);
@@ -236,54 +243,48 @@ PlotCtrl::plot_change() {
 		index_lists[id.id].Show(active);
 		push_sel_alls[id.id].Show(active);
 		
-		if(active) {
-			if(active_idx == MAX_INDEX_SETS) {
-				parent->log("With this many index sets active in the plot, the selecters may not display correctly.", true);
-				break;
-			}
+		if(!active) continue;
+		
+		if(active_idx == MAX_INDEX_SETS)
+			parent->log("With this many index sets active in the plot, the selecters may not display correctly.", true);
+		
+		auto &list = index_lists[id.id];
+		auto &push = push_sel_alls[id.id];
+		
+		list.LeftPosZ(4 + 92*active_idx, 88);
+		push.LeftPosZ(4 + 92*active_idx, 20);
+		
+		list.MultiSelect();
+		push.Enable();
+		for(auto other_id : parent->model->index_sets) {
+			if(id == other_id) continue;
+			if(!main_plot.setup.index_set_is_active[other_id.id]) continue;
 			
-			auto &list = index_lists[id.id];
-			auto &push = push_sel_alls[id.id];
-			
-			list.LeftPosZ(4 + 92*active_idx, 88);
-			push.LeftPosZ(4 + 92*active_idx, 20);
-			
-			list.MultiSelect();
-			push.Enable();
-			for(auto other_id : parent->model->index_sets) {
-				if(id == other_id) continue;
-				if(!main_plot.setup.index_set_is_active[other_id.id]) continue;
+			if(!parent->app->index_data.can_be_sub_indexed_to(id, other_id)) continue;
 				
-				if(parent->app->index_data.can_be_sub_indexed_to(id, other_id)) {
-					
-					bool changed = false;
-					index_callback_lock = true;
-					
-					list.ClearSelection();
-					list.MultiSelect(false);
-					push.Disable();
-					
-					// When we turn off multiselect, we could only keep at most one index
-					// selected
-					if(main_plot.setup.selected_indexes[id.id].size() > 1) {
-						changed = true;
-						int row = main_plot.setup.selected_indexes[id.id][0].index;
-						list.Select(row);
-						list.SetCursor(row);
-					}
-					
-					index_callback_lock = false;
-					if(changed)
-						index_selection_change(id, false);
-					
-					//TODO: Update the index list of all the sub-indexed ones.
-					
-					break;
-				}
+			index_callback_lock = true;
+			
+			list.ClearSelection();
+			list.MultiSelect(false);
+			push.Disable();
+			
+			// When we turn off multiselect, we could only keep at most one index
+			// selected
+			if(main_plot.setup.selected_indexes[id.id].size() > 1) {
+				int row = main_plot.setup.selected_indexes[id.id][0].index;
+				list.Select(row);
+				list.SetCursor(row);
 			}
 			
-			++active_idx;
+			index_callback_lock = false;
+			
+			// TODO: It should not always be necessary to call this:
+			index_selection_change(id, false);
+				
+			break;
 		}
+		
+		++active_idx;
 	}
 	
 	main_plot.build_plot();
