@@ -151,6 +151,8 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	bool is_input = (var_id.type != Var_Id::Type::state_var);
 	auto var = app->vars[var_id];
 	
+	if(!var->store_series) return;
+	
 	//TODO: allow regular aggregate
 	if(
 		    var->type == State_Var::Type::regular_aggregate

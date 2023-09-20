@@ -110,7 +110,7 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	mcmc_setup.edit_steps.Min(10);
 	mcmc_setup.edit_steps.SetData(1000);
 	mcmc_setup.edit_walkers.Min(10);
-	mcmc_setup.edit_walkers.SetData(25);
+	mcmc_setup.edit_walkers.SetData(50);
 	mcmc_setup.initial_type_switch.SetData(0);
 	
 	mcmc_setup.sampler_param_view.AddColumn("Name");
@@ -414,12 +414,16 @@ void OptimizationWindow::add_target_clicked() {
 	target.sim_id = setup.selected_results[0];
 	target.obs_id = setup.selected_series.empty() ? invalid_var : setup.selected_series[0];
 	get_single_indexes(target.indexes, setup);
+	
+	// TODO: We should set index to invalid in target.indexes if this particular target does
+	// not depend on it.
+	
 	target.weight = 1.0;
 	
 	int tab = target_setup.optimizer_type_tab.Get();
 	//NOTE: Defaults.
-	if(tab == 0) target.stat_type = (int)Residual_Type::offset + 2; // +1 would give mean error, which can't be optimized.
-	//else if(tab == 1) target.stat_type = (int)LL_Type + 1;         //TODO: MCMC
+	if(tab == 0) target.stat_type = (int)Residual_Type::offset + 2; // +1 selects "mean error", which can't be optimized.
+	else if(tab == 1) target.stat_type = (int)LL_Type::offset + 1;
 	else if(tab == 2) target.stat_type = (int)Stat_Type::offset + 1;
 	
 	Time start_setting = parent->calib_start.GetData();
@@ -1464,8 +1468,8 @@ String OptimizationWindow::write_to_json_string() {
 		JsonArray index_arr;
 		int idx2 = 0;
 		for(Index_T index : par.indexes.indexes) {
-			Json index_json;
 			if(!is_valid(index)) continue;
+			Json index_json;
 			index_json("Index", index.index);
 			index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
 			index_json("Locked", (bool)par.locks[idx2]);
@@ -1518,8 +1522,8 @@ String OptimizationWindow::write_to_json_string() {
 		
 		JsonArray index_arr;
 		for(Index_T index : target.indexes.indexes) {
-			Json index_json;
 			if(!is_valid(index)) continue;
+			Json index_json;
 			index_json("Index", index.index);
 			index_json("IndexSetName", model->index_sets[index.index_set]->name.data());
 			index_arr << index_json;
