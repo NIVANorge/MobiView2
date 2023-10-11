@@ -250,6 +250,9 @@ SensitivityViewWindow::run() {
 		stat_plot.plot.SetXYMin(min);
 		stat_plot.plot.SetRange(max-min);
 		stat_plot.plot.SetMajorUnitsNum(std::min(n_runs-1, 9));     //TODO: This should be better!
+		stat_plot.plot.SetMinUnits(0.0);
+		//int n_units = std::min(n_runs-1, 9);
+		//stat_plot.plot.SetMajorUnits((max-min)/(double)n_units);
 	} else
 		stat_plot.plot.SetTitle("Select a statistic to display");
 	

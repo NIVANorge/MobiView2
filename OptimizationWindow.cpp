@@ -723,9 +723,6 @@ sensitivity_target_fun(void *state, int worker, const std::vector<double> &value
 	
 	double result = target_state->optim_models[worker].evaluate(values);
 	
-	//if(worker == 0)
-	//	warning_print(result, "\n");
-	
 	return result;
 }
 
@@ -1162,9 +1159,9 @@ void OptimizationWindow::run_clicked(int run_type)
 	delete data; // Delete the copy that we ran the optimization on.
 	
 	//NOTE: We have to do this, otherwise the window gets hidden behind the main window some times.
-	//   The only problem is that the StayOnTop = false doesn't work, that is it stays fixed on
-	//   top!
 	TopMost(true, false);
+	//NOTE: We have to do this since the stay_top argument to TopMost doesn't work correctly:
+	NoTopMost();
 }
 
 void OptimizationWindow::tab_change() {

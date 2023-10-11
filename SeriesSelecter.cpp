@@ -171,14 +171,16 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 			if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::quantity) return;
 			
 		} else if (pass_type == 1) {
-			// Do all declared properties, or things that are generated (but not fluxes)
-			//TODO: Concentrations should go in their own pass between here.
+			if(var->type != State_Var::Type::dissolved_conc) return;
+		} else if (pass_type == 2) {
+			// Do all declared properties, or things that are generated (but not fluxes or concentrations)
 			if(var->is_flux()) return;
+			if(var->type == State_Var::Type::dissolved_conc) return;
 			if(var->type == State_Var::Type::declared) {
 				if(as<State_Var::Type::declared>(var)->decl_type != Decl_Type::property) return;
 				is_property = true;
 			}
-		} else if (pass_type == 2) {
+		} else if (pass_type == 3) {
 			// Do all fluxes (declared and generated)
 			if(!var->is_flux()) return;
 		}
@@ -287,7 +289,7 @@ SeriesSelecter::build(Model_Application *app) {
 	try {
 		if(type == Var_Id::Type::state_var) {
 			for(int n_comp = 1; n_comp < max_var_loc_components; ++n_comp) {
-				for(int pass = 0; pass < 3; ++pass) {
+				for(int pass = 0; pass < 4; ++pass) {
 					for(Var_Id var_id : app->vars.all_state_vars())
 						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, false, n_comp);
 				}
@@ -295,7 +297,7 @@ SeriesSelecter::build(Model_Application *app) {
 			
 			loc_to_node.clear();
 			
-			for(int pass = 0; pass < 3; ++pass) {
+			for(int pass = 0; pass < 4; ++pass) {
 				for(Var_Id var_id : app->vars.all_state_vars())
 					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, true);
 			}
@@ -309,10 +311,10 @@ SeriesSelecter::build(Model_Application *app) {
 			var_tree.SetNode(additional_id, var_tree.GetNode(additional_id).CanSelect(false));
 			
 			for(Var_Id var_id : app->vars.all_series())
-				add_series_node(parent, var_tree, nodes, app, var_id, input_id, loc_to_node, 1);
+				add_series_node(parent, var_tree, nodes, app, var_id, input_id, loc_to_node, 2);
 			
 			for(Var_Id var_id : app->vars.all_additional_series())
-				add_series_node(parent, var_tree, nodes, app, var_id, additional_id, loc_to_node, 1);
+				add_series_node(parent, var_tree, nodes, app, var_id, additional_id, loc_to_node, 2);
 		}
 		
 	} catch (int) {}

@@ -624,11 +624,6 @@ void MobiView2::store_settings(bool store_favorites) {
 	settings_json("Maximize", IsMaximized());
 	
 	stat_settings.write_to_json(settings_json);
-	/*
-	JsonArray IdxEditWindowDim;
-	IdxEditWindowDim << ChangeIndexes.GetSize().cx << ChangeIndexes.GetSize().cy;
-	SettingsJson("Index set editor window dimensions", IdxEditWindowDim);
-	*/
 	
 	JsonArray plot_view_dim;
 	plot_view_dim << additional_plots.GetSize().cx << additional_plots.GetSize().cy;

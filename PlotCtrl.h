@@ -258,6 +258,7 @@ public:
 	Table_Data_Profile2D() {
 		inter = TableInterpolate::NO;
 		areas = true;
+		// TODO: Figure out what to do with Y since we reverse it.
 	}
 	
 	void add(Upp::DataSource *val) {

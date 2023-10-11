@@ -160,11 +160,13 @@ MCMCResultWindow::refresh_plots(s64 cur_step) {
 					}
 					
 					plot.ZoomToFit(true, true);
-					plot.SetMinUnits(0.0, 0.0);
 					plot.SetMajorUnits(max_x - min_x, 1.0);
 					plot.SetMajorUnitsNum(par1 == data->n_pars-1 ? 1 : 0, 0);
 					plot.BarWidth(0.5*stride_x);
 					plot.SetTitle(Format("%s = %.2f", free_syms[par1], median_x));
+					
+					plot.SetMinUnits(0.0, 0.0);
+					
 					plot.Refresh();
 					
 					for(int par2 = par1+1; par2 < data->n_pars; ++par2) {
@@ -207,11 +209,14 @@ MCMCResultWindow::refresh_plots(s64 cur_step) {
 						
 						plot.SetXYMin(min_x, min_y);
 						plot.SetRange(max_x-min_x, max_y-min_y);
-						plot.SetMinUnits(0.0, 0.0);
+						
 						plot.SetMajorUnits(max_x-min_x, max_y-min_y);
 						plot.SetMajorUnitsNum(par2 == data->n_pars-1 ? 1: 0, par1 == 0 ? 1 : 0); //Annoyingly we have to reset this.
 						
 						plot.ZoomToFitZ();
+						
+						plot.SetMinUnits(0.0, 0.0);
+						
 						plot.Refresh();
 						
 						++plot_idx;
@@ -363,8 +368,6 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 			plot.SetXYMin(min_x, 0.0);
 			plot.SetRange(max_x-min_x, 1.0);
 			
-			plot.SetMinUnits(0.0, 0.0).SetMajorUnits(max_x - min_x, 1.0);
-			
 			int h_left          = small_margin_x;
 			int h_right         = small_margin_x;
 			int v_top           = small_margin_y;   //NOTE title height is not included in this number, and is added on top of it.
@@ -383,11 +386,16 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 			plot.SetReticleFont(plot.GetReticleFont().Bold(false).Height(8));
 			plot.SetPlotAreaMargin(h_left, h_right, v_top, v_bottom);
 			
+			plot.ShowVGrid(false);
+			plot.ShowHGrid(false);
+			
 			dim_x = dim+h_left+h_right;
 			dim_y = dim+v_top+v_bottom + 10;  //NOTE: Extra +10 is because of added title, but this is hacky... Check how to compute exact height of title?
 			
 			view_triangle_plots.Add(plot.LeftPos(sum_dim_x, dim_x).TopPos(sum_dim_y, dim_y));
 			plot.SetMouseHandling(false, false);
+			
+			plot.SetMajorUnits(max_x - min_x, 1.0).SetMinUnits(0.0, 0.0);
 			
 			sum_dim_y += dim_y;
 			
@@ -406,7 +414,6 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 				}
 				
 				plot.AddSurf(dat);
-				plot.SetXYMin(min_x, min_y).SetRange(max_x-min_x, max_y-min_y);
 				plot.ShowRainbowPalette(false);
 				
 				String par1_str = Null;
@@ -428,28 +435,32 @@ void MCMCResultWindow::begin_new_plots(MC_Data &data, std::vector<double> &min_b
 				
 				if(par2 == data.n_pars-1) {
 					par1_str = free_syms[par1];
-					major_units_num_x = 1;
+					major_units_num_x = 2;
 					v_bottom          = large_margin;
 				}
 				
-				plot.SetMinUnits(0.0, 0.0).SetMajorUnits(max_x-min_x, max_y-min_y);
-				plot.SetLabels(par1_str, par2_str);
-				plot.SetLabelsFont(plot.GetLabelsFont().Bold(false).Height(8));
-				plot.SetMajorUnitsNum(major_units_num_x, major_units_num_y);
-				
-				plot.SetPlotAreaMargin(h_left, h_right, v_top, v_bottom);
-			
-				Color grid_color(255, 255, 255);
-				plot.SetGridColor(grid_color);
-				
 				dim_x = dim+h_left+h_right;
 				dim_y = dim+v_top+v_bottom;
+				
+				//Color grid_color(255, 255, 255);
+				//plot.SetGridColor(grid_color);
+				plot.ShowVGrid(false);
+				plot.ShowHGrid(false);
 				
 				view_triangle_plots.Add(plot.LeftPos(sum_dim_x, dim_x).TopPos(sum_dim_y, dim_y));
 				plot.SetMouseHandling(false, false);
 				plot.SurfRainbow(WHITE_BLACK);
 				plot.SetReticleFont(plot.GetReticleFont().Bold(false).Height(8));
-			
+				
+				//.SetMajorUnits(max_x-min_x, max_y-min_y);
+				plot.SetPlotAreaMargin(h_left, h_right, v_top, v_bottom);
+				
+				plot.SetLabels(par1_str, par2_str);
+				plot.SetLabelsFont(plot.GetLabelsFont().Bold(false).Height(8));
+				plot.SetXYMin(min_x, min_y).SetRange(max_x-min_x, max_y-min_y);
+				plot.SetMajorUnitsNum(major_units_num_x, major_units_num_y);
+				plot.SetMinUnits(0.0, 0.0);
+				
 				sum_dim_y += dim_y;
 				
 				++plot_idx;

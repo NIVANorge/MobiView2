@@ -324,6 +324,9 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		return;
 	}
 	
+	// TODO: The date algorithms used here are very slow when the year is large. Either improve
+	// datetime.h or do some approximation here in that case.
+	
 	Date_Time first_d;
 	first_d.seconds_since_epoch = first;
 	Date_Time last_d;
@@ -381,17 +384,19 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		}
 	}
 	
+	int yr_step = 0;
 	if(res_type == 5) {
 		int yr_range = ly - fy;
-		int yr_step = yr_range / n_grid_lines + 1;
+		yr_step = yr_range / n_grid_lines + 1;
 		yr_step = round_step_10(yr_step);
 		fy -= (fy % yr_step);
 		fm = 1;
 		mon_step = 12*yr_step;
 	}
 	
-	if(mon_step <= 0)  //NOTE: should not happen. Just so that it doesn't crash if there is a bug.
-		return;
+	if(mon_step <= 0) return;  //NOTE: should not happen. Just so that it doesn't crash if there is a bug.
+		
+	if(yr_step > 1000) return; //TODO: Can remove this if we speed up the datetime algorithms.
 	
 	Expanded_Date_Time iter_date(Date_Time(fy, fm, 1), Time_Step_Size { Time_Step_Size::month, (s32)mon_step} );
 	
@@ -406,9 +411,11 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 		
 }
 
-int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step_Size ts_size) {
-	//NOTE: To compute the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
-	//4=months, 5=years
+int
+compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step_Size ts_size) {
+	//NOTE: To compute the unit that we try to use for spacing the grid lines.
+	// 0=seconds, 1=minutes, 2=hours,
+	// 3=days, 4=months, 5=years
 	if(interval_type == Aggregation_Period::none) {
 		//NOTE: The plot does not display aggregated data, so the unit of the grid line step should be
 		//determined by the model step size.
@@ -416,10 +423,10 @@ int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step
 			if(ts_size.multiplier < 60)         return 0;
 			else if(ts_size.multiplier < 3600)  return 1;
 			else if(ts_size.multiplier < 86400) return 2;
-			else                               return 3;
+			else                                return 3;
 		} else {
 			if(ts_size.multiplier < 12)         return 4;
-			else                               return 5;
+			else                                return 5;
 		}
 	}
 	else if(interval_type == Aggregation_Period::weekly)  return 3;
@@ -428,11 +435,16 @@ int compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step
 	return 0;
 }
 
-inline void grid_time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
+inline void
+grid_time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
 	static const char *month_names[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 	//NOTE: Adding 0.5 helps a bit with avoiding flickering when panning, but is not perfect (TODO)
+	
 	Date_Time d2 = ref_date;
-	d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
+	if(seconds_since_ref >= 0.0)
+		d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
+	else
+		d2.seconds_since_epoch += (s64)(seconds_since_ref); // For negatives it will skip a second if we add the 0.5
 	s32 h, m, s;
 	if(res_type <= 2) {
 		d2.hour_minute_second(&h, &m, &s);
@@ -443,7 +455,7 @@ inline void grid_time_stamp_format(int res_type, Date_Time ref_date, double seco
 	}
 	if(res_type >= 3 || (h==0 && m==0 && s==0)) {
 		s32 y, mn, d;
-		d2.year_month_day(&y, &mn, &d);
+		d2.year_month_day(&y, &mn, &d); // TODO: Slow when the year is large.
 		if(res_type <= 3) {
 			if(res_type <= 2)
 				str << "\n";
@@ -461,7 +473,8 @@ inline void grid_time_stamp_format(int res_type, Date_Time ref_date, double seco
 	}
 }
 
-inline void time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
+inline void
+time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
 	Date_Time d2 = ref_date;
 	d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
 	s32 y, mn, d, h, m, s;
