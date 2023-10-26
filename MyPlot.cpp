@@ -123,6 +123,17 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
+	// Don't plot a nonexisting series. TODO: This is a bit of a stopgap. User may wonder why
+	// the selected series is not displayed in any way.
+	bool found = false;
+	for(s64 t = 0; t < ts; ++t) {
+		if(std::isfinite(*data->get_value(offset, t))) {
+			found = true;
+			break;
+		}
+	}
+	if(!found) return true;
+	
 	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup, always_copy_y);
 	if(stacked) {
 		draw->data_stacked.Add(draw->series_data.Top());

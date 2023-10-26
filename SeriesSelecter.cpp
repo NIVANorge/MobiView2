@@ -102,9 +102,11 @@ reorder(const Var_Location &loc, bool actually_reorder, int len, bool inverse) {
 }
 
 int
-make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Registry *reg,
+make_branch(TreeCtrl &tree, const Var_Location &loc, Model_Application *app, Var_Registry *reg,
 	std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, Array<Entity_Node> &nodes, int root, bool by_quantity, Var_Id::Type type) {
 	int at = root;
+	
+	auto model = app->model;
 	
 	for(int len = 1; len <= loc.n_components; ++len) {
 		Var_Location at_loc = reorder(loc, by_quantity, len, false);
@@ -132,7 +134,7 @@ make_branch(TreeCtrl &tree, const Var_Location &loc, Mobius_Model *model, Var_Re
 				img = &IconImg47::Property();
 			
 			at = tree.Add(at, *img, nodes.Top());
-			if(!is_valid(var_id) || var_id.type != type)
+			if(!is_valid(var_id) || var_id.type != type || !app->vars[var_id]->store_series)
 				tree.SetNode(at, tree.GetNode(at).CanSelect(false));
 			loc_to_node[at_loc] = at;
 		} else {
@@ -148,9 +150,10 @@ void
 add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Model_Application *app, Var_Id var_id,
 	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool by_quantity = false, int n_comp = 0) {
 
-	bool is_input = (var_id.type != Var_Id::Type::state_var);
+	bool is_input = (var_id.type == Var_Id::Type::series) || (var_id.type == Var_Id::Type::additional_series);
 	auto var = app->vars[var_id];
 	
+	// TODO: Make this behaviour configurable: Or maybe escape it in dev mode always?
 	if(!var->store_series) return;
 	
 	//TODO: allow regular aggregate
@@ -234,7 +237,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	
 	int at = root;
 	if(is_located(loc))
-		at = make_branch(tree, loc, app->model, &app->vars, loc_to_node, nodes, root, by_quantity, var_id.type);
+		at = make_branch(tree, loc, app, &app->vars, loc_to_node, nodes, root, by_quantity, var_id.type);
 	
 	// If we are a quantity or a property, the make_branch call took care of adding the node.
 	if(var->type == State_Var::Type::declared && !var->is_flux() && is_located(loc))
@@ -256,7 +259,9 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	} else if(diss_conc) {
 		name = "concentration";
 	} else if(var->is_flux()) {
-		// NOTE: we don't want to use the generated name here, only the name of the base flux
+		// NOTE: we don't want to use the generated name here, only the name of the base flux.
+		// TODO: Should have a get_base_flux function since that is needed in internal Mobius2
+		// code also.
 		auto var2 = var;
 		while(var2->type == State_Var::Type::dissolved_flux)
 			var2 = app->vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
@@ -279,7 +284,9 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	}
 	
 	nodes.Create(var_id, name);
-	tree.Add(at, *img, nodes.Top());
+	int new_node = tree.Add(at, *img, nodes.Top());
+	if(!var->store_series)
+		tree.SetNode(new_node, tree.GetNode(new_node).CanSelect(false));
 }
 
 void
