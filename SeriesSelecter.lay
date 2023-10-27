@@ -1,5 +1,5 @@
-LAYOUT(SeriesSelecterLayout, 112, 96)
-	ITEM(Upp::Option, show_favorites, SetLabel(t_("Favorites only")).LeftPosZ(4, 84).BottomPosZ(4, 16))
+LAYOUT(SeriesSelecterLayout, 128, 96)
 	ITEM(Upp::TabCtrl, tree_tab, HSizePosZ(0, 0).VSizePosZ(0, 20))
+	ITEM(Upp::LineEdit, search_bar, LeftPosZ(0, 124).BottomPosZ(1, 19))
 END_LAYOUT
 

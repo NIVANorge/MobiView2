@@ -8,7 +8,8 @@
 
 SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type) : parent(parent), type(type) {
 	CtrlLayout(*this);
-	show_favorites.Disable();
+	
+	//show_favorites.Disable();
 	
 	// TODO: We should intercept the selection and set it to all the trees (where applicable)
 	// Also tab change should give plot change.
@@ -27,11 +28,15 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 		tree_tab.Add(var_tree.SizePos(), "By compartment");//IconImg47::Compartment(), "Comp.");
 		tree_tab.Add(quant_tree.SizePos(), "By quantity"); //IconImg47::Quantity(), "Quant.");
 		//show_fluxes.SetData(true);
+		search_bar.WhenAction << THISBACK(search_change);
+		tree_tab.WhenSet << THISBACK(search_change);
 	} else {
 		tree_tab.Disable();
 		tree_tab.Hide();
 		Add(var_tree.HSizePosZ(0, 0).VSizePosZ(25, 20));
 		//show_fluxes.Hide();
+		search_bar.Disable();
+		search_bar.Hide();
 	}
 	//show_fluxes.WhenAction << [this]() { show_fluxes_changed(); }
 }
@@ -41,6 +46,29 @@ SeriesSelecter::clean() {
 	var_tree.Clear();
 	quant_tree.Clear();
 	nodes.Clear();
+}
+
+void
+SeriesSelecter::search_change() {
+	std::string match = search_bar.GetData().ToStd();
+
+	std::transform(match.begin(), match.end(), match.begin(), ::tolower); // TODO: Trim bounding whitespaces
+	
+	TreeCtrl *tree = (tree_tab.Get() == 0) ? &var_tree : &quant_tree;
+	
+	// Match vs the name of all the top level nodes.
+	int count = tree->GetChildCount(0);
+	for(int i = 0; i < count; ++i) {
+		int nodeidx = tree->GetChild(0, i);
+		Upp::Ctrl *ctrl = ~tree->GetNode(nodeidx).ctrl;
+		if(!ctrl) continue; // Should not happen though
+		std::string node_name = reinterpret_cast<Label *>(ctrl)->GetText().ToStd();
+		std::transform(node_name.begin(), node_name.end(), node_name.begin(), ::tolower);
+		size_t pos = node_name.find(match);	
+		bool matches = match.empty() || (pos != std::string::npos);
+		//parent->log(Format("%s matches %s : %d", node_name.c_str(), match.c_str(), matches));
+		tree->Open(nodeidx, matches);
+	}
 }
 
 void

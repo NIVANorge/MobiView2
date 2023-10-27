@@ -16,6 +16,55 @@ std::stringstream global_log_stream;
 
 using namespace Upp;
 
+
+void
+MyRichView::append(const Upp::String &to_append) {
+	if(progress_bar_pos >= 0) finish_progress_bar();
+	
+	Upp::String data = GetQTF();
+	data += to_append;
+	SetQTF(data);
+	ScrollEnd();
+}
+	
+void
+MyRichView::add_progress_bar() {
+	// We should probably instead store a std::string representation of the data in the
+	// MyRichView class and operate on that, then just SetQTF with it each time instead of
+	// having to call GetQTF()
+	
+	Upp::String data = GetQTF();
+	data += "Progress: ";
+	progress_bar_pos = strlen((const char *)(data))-2;  // Oops very hacky.
+	data += "`_`_`_`_`_`_`_`_`_`_&&";
+	SetQTF(data);
+	ScrollEnd();
+	prev_progress = 0;
+}
+
+void
+MyRichView::set_progress(double percent) {
+	if(progress_bar_pos < 0) return;
+		
+	Upp::String data = GetQTF();
+	int pos = (int)(percent / 10.0);
+	for(int i = prev_progress; i < pos; ++i) {
+		// Oops, very hacky.
+		((char *)(const char *)(data))[progress_bar_pos + i*2] = '`';
+		((char *)(const char *)(data))[progress_bar_pos + i*2 + 1] = '*';
+	}
+	prev_progress = pos;
+	SetQTF(data);
+	ScrollEnd();
+}
+
+void
+MyRichView::finish_progress_bar() {
+	progress_bar_pos = -1;
+}
+
+
+
 MobiView2::MobiView2() :
 	params(this), plotter(this), stat_settings(this), search_window(this),
 	sensitivity_window(this), info_window(this), additional_plots(this),
@@ -153,7 +202,6 @@ void MobiView2::log(String msg, bool error) {
 		format_msg = String("[@R ") + format_msg + "]";
 	
 	log_box.append(format_msg);
-	log_box.ScrollEnd();
 }
 
 void MobiView2::log_warnings_and_errors() {
@@ -531,6 +579,12 @@ void MobiView2::plot_rebuild() {
 	baseline_was_just_saved = false;
 }
 
+void run_callback(void *callback_data, double percent) {
+	auto mv = (MobiView2 *)callback_data;
+	mv->log_box.set_progress(percent);
+	mv->ProcessEvents();
+}
+
 void MobiView2::run_model() {
 	if(!model_is_loaded()) {
 		log("The model can only be run if it is loaded along with a data file.", true);
@@ -542,12 +596,13 @@ void MobiView2::run_model() {
 		bool check_for_nan = stat_settings.check_for_nan.GetData();
 		
 		log(Format("Starting model run%s.", check_for_nan ? " (with checks for non-finite values turned on)" : ""));
+		log_box.add_progress_bar();
+		
 		ProcessEvents();
-		
 		Timer run_timer;
-		
-		bool finished = ::run_model(app, timeout, check_for_nan);
+		bool finished = ::run_model(app, timeout, check_for_nan, run_callback, this);
 		double ms = run_timer.get_milliseconds();
+		log_box.finish_progress_bar();
 		
 		if(finished) {
 			log(Format("Model run finished.\nDuration: %g ms.", ms ));

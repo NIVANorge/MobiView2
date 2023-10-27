@@ -17,12 +17,6 @@ public:
 	double zoomlevel;
 	bool is_log_window;
 	
-	void append(const Upp::String &to_append) {
-		Upp::String data = GetQTF();
-		data += to_append;
-		SetQTF(data);
-	}
-	
 	virtual void MouseWheel(Upp::Point p, int zdelta, Upp::dword keyflags) {
 		if (keyflags == Upp::K_CTRL) {		// Zooms font
 			zoomlevel += zdelta/240.;
@@ -34,6 +28,15 @@ public:
 		} else				// Scrolls down
 			Upp::RichTextView::MouseWheel(p, zdelta, keyflags);
 	}
+	
+	void append(const Upp::String &to_append);
+	void add_progress_bar();
+	void set_progress(double percent);
+	void finish_progress_bar();
+	
+private :
+	int progress_bar_pos = -1;
+	int prev_progress;
 };
 
 #endif

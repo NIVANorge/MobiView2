@@ -10,7 +10,7 @@ std::vector<Color> Plot_Colors::colors = {{0, 130, 200}, {230, 25, 75}, {245, 13
 
 
 MyPlot::MyPlot() {
-	//this->SetFastViewX(true); Can't be used with scatter plot data since it combines points.
+	//SetFastViewX(true); Can't be used with scatter plot data since it combines points.
 	//SetSequentialXAll(true); // NOTE: with this on, lines that clip the plot area to the left
 	//are culled :(   . Doesn't seem to matter that much to speed though, so just leave it off?
 	
@@ -123,9 +123,11 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
 	
-	// Don't plot a nonexisting series. TODO: This is a bit of a stopgap. User may wonder why
-	// the selected series is not displayed in any way.
-	bool found = false;
+	// Don't plot a nonexisting series. TODO: This didn't work as intended Have to start scan at
+	// between ref start and start?
+	// Also can be annoying for the user if they click a series and nothing happens. Better if
+	// it was just blank, but that is bugged.
+	/*bool found = false;
 	for(s64 t = 0; t < ts; ++t) {
 		if(std::isfinite(*data->get_value(offset, t))) {
 			found = true;
@@ -133,6 +135,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 		}
 	}
 	if(!found) return true;
+	*/
 	
 	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup, always_copy_y);
 	if(stacked) {

@@ -35,7 +35,8 @@ public:
 	void build(Model_Application *app);
 	void get_selected(std::vector<Var_Id> &push_to);
 	void set_selection(const std::vector<Var_Id> &sel);
-
+	void search_change();
+	
 private:
 	MobiView2 *parent;
 	Array<Entity_Node> nodes;
