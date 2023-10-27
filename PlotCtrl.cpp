@@ -43,6 +43,7 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	aggregation.Disable();
 	aggregation.WhenAction << THISBACK(plot_change);
 	
+	scatter_inputs.SetData(true);
 	scatter_inputs.Disable();
 	scatter_inputs.WhenAction << THISBACK(plot_change);
 	

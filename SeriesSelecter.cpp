@@ -188,6 +188,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	if(
 		    var->type == State_Var::Type::regular_aggregate
 		||  var->type == State_Var::Type::external_computation
+		||  var->type == State_Var::Type::step_resolution // These are handled separately.
 		|| !var->is_valid())
 		return;
 	
@@ -328,6 +329,17 @@ SeriesSelecter::build(Model_Application *app) {
 					for(Var_Id var_id : app->vars.all_state_vars())
 						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, false, n_comp);
 				}
+			}
+			for(Var_Id var_id : app->vars.all_state_vars()) {
+				auto var = app->vars[var_id];
+				if(var->type != State_Var::Type::step_resolution) continue;
+				auto var2 = as<State_Var::Type::step_resolution>(var);
+				std::string &name = app->model->solvers[var2->solver_id]->name;
+				nodes.Create(var_id, name);
+				Image *img = &IconImg47::Step();
+				int new_node = var_tree.Add(0, *img, nodes.Top());
+				//tree.SetNode(new_node, tree.GetNode(new_node).CanSelect(false));
+				//log_print("Trallala: ", name, "\n");
 			}
 			
 			loc_to_node.clear();

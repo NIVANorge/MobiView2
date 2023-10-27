@@ -112,6 +112,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	
 	auto *data = &md->get_storage(var_id.type);
 	auto var = app->vars[var_id];
+	
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
 	auto unit = var->unit;
