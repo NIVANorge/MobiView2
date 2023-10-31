@@ -308,7 +308,7 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 		//get_storage_and_var(&app->data, target.obs_id, &obs_data, &var_obs);
 		obs_data = &app->data.get_storage(target.obs_id.type);
 		var_obs = app->vars[target.obs_id];
-		String obs_index_str = make_index_string(obs_data->structure, target.indexes, target.obs_id);
+		obs_index_str = make_index_string(obs_data->structure, target.indexes, target.obs_id);
 		obs_name = var_obs->name.data();
 	}
 	

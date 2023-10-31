@@ -43,6 +43,7 @@ inline Upp::String
 make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Handle_T handle) {
 
 	const std::vector<Entity_Id> &index_sets = structure->get_index_sets(handle);
+	
 	if(index_sets.empty()) return "";
 	
 	std::vector<std::string> names;
@@ -57,6 +58,7 @@ make_index_string(Storage_Structure<Handle_T> *structure, Indexes &indexes, Hand
 		++idx;
 	}
 	result << "]";
+
 	return result;
 }
 
