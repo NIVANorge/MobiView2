@@ -199,7 +199,7 @@ SensitivityViewWindow::run() {
 	stat_plot.plot.SetLabelY(" ");
 	
 	Indexes indexes(parent->model);
-	get_single_indexes(indexes, plot.setup);
+	get_single_indexes(parent->app, indexes, plot.setup);
 	
 	Var_Id var_id = plot.setup.selected_results[0];
 	

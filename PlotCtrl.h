@@ -515,7 +515,7 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	
 int add_histogram(MyPlot *plot, Upp::DataSource *data, double min, double max, s64 count, const Upp::String &legend, const Upp::String &unit, const Upp::Color &color);
 	
-void get_single_indexes(Indexes &indexes, Plot_Setup &setup);
+void get_single_indexes(Model_Application *app, Indexes &indexes, Plot_Setup &setup);
 
 void get_gof_offsets(Upp::Time &start_setting, Upp::Time &end_setting, Date_Time input_start, s64 input_ts, Date_Time result_start, s64 result_ts, Date_Time &gof_start, Date_Time &gof_end,
 	s64 &input_gof_offset, s64 &result_gof_offset, s64 &gof_ts, Time_Step_Size ts_size, bool has_results);

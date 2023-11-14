@@ -156,6 +156,37 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	return true;
 }
 
+std::vector<Index_T> *
+get_selected_indexes(Mobius_Model *model, Plot_Setup *setup, Entity_Id index_set_id) {
+	if(setup->index_set_is_active[index_set_id.id])
+		return &setup->selected_indexes[index_set_id.id];
+	auto index_set = model->index_sets[index_set_id];
+	for(auto other_id : index_set->union_of) {
+		if(setup->index_set_is_active[other_id.id])
+			return &setup->selected_indexes[other_id.id];
+	}
+	return nullptr;
+}
+
+void
+get_single_indexes(Model_Application *app, Indexes &indexes, Plot_Setup &setup) {
+	
+	if(indexes.lookup_ordered)
+		fatal_error(Mobius_Error::internal, "Can't use get_single_indexes with lookup ordered indexes");
+	
+	//indexes.clear(); // Probably unnecessary since we only use it for newly constructed ones
+	
+	for(auto id : app->model->index_sets) {
+		auto selected = get_selected_indexes(app->model, &setup, id);
+		if(selected && !selected->empty()) {
+			auto index = (*selected)[0];
+			if(id != index.index_set)
+				index = app->index_data.raise(index, id);
+			indexes.set_index(index);
+		}
+	}
+}
+
 bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Indexes &indexes, int level,
 	Date_Time ref_x_start, Date_Time start, s64 time_steps, double *x_data, const std::vector<Entity_Id> &index_sets, s64 gof_offset, s64 gof_ts, Plot_Mode mode, int found_count = 0) {
 	
@@ -169,17 +200,23 @@ bool add_plot_recursive(MyPlot *draw, Model_Application *app, Var_Id var_id, Ind
 		return success;
 
 	} else {
+		auto index_set_id = Entity_Id {Reg_Type::index_set, (s16)level };
+		
+		auto selected = get_selected_indexes(app->model, &draw->setup, index_set_id);
 		bool loop = false;
-		if(!draw->setup.selected_indexes[level].empty()) {
-			auto index_set = draw->setup.selected_indexes[level][0].index_set;
-			loop = std::find(index_sets.begin(), index_sets.end(), index_set) != index_sets.end();
-		}
+		if(selected && !selected->empty())
+			loop = std::find(index_sets.begin(), index_sets.end(), index_set_id) != index_sets.end();
+		
 		if(!loop) {
 			indexes.indexes[level] = invalid_index;
 			return add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode, found_count);
 		} else {
-			for(Index_T index : draw->setup.selected_indexes[level]) {
-				indexes.indexes[level] = index;
+			for(Index_T index : *selected) {
+				//log_print("Index set is ", app->model->index_sets[index.index_set]->name, "\n");
+				if(index.index_set != index_set_id)
+					index = app->index_data.raise(index, index_set_id); // Have to make it relative to the union.
+				indexes.set_index(index, true);
+				//log_print("Setting index for ", app->vars[var_id]->name, " ", app->model->index_sets[index.index_set]->name, " ", index.index, "\n");
 				bool success = add_plot_recursive(draw, app, var_id, indexes, level+1, ref_x_start, start, time_steps, x_data, index_sets, gof_offset, gof_ts, mode, found_count+1);
 				if(!success) return false;
 			}
@@ -702,19 +739,6 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 
-void get_single_indexes(Indexes &indexes, Plot_Setup &setup) {
-	
-	if(indexes.lookup_ordered)
-		fatal_error(Mobius_Error::internal, "Can't use get_single_indexes with lookup ordered indexes");
-	
-	//indexes.clear(); // Probably unnecessary since we only use it for newly constructed ones
-	
-	for(int idx = 0; idx < setup.selected_indexes.size(); ++idx) {
-		if(!setup.selected_indexes[idx].empty())
-			indexes.set_index(setup.selected_indexes[idx][0]);
-	}
-}
-
 void add_line(MyPlot *plot, double x0, double y0, double x1, double y1, Color color, const String &legend) {
 	plot->series_data.Create<Data_Source_Line>(x0, y0, x1, y1);
 	if(IsNull(color)) color = plot->colors.next();
@@ -850,8 +874,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	gof_end  .to_string(buf2);
 	
 	plot_info->append(Format("Showing statistics for interval %s to %s&&", buf1, buf2));
-	
+
+#if CATCH_ERRORS
 	try {
+#endif
 		Residual_Stats residual_stats;
 		if(want_gof && setup.selected_results.size() == 1 && setup.selected_series.size() == 1 && !multi_index) {
 			gof_available = true;
@@ -861,7 +887,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Data_Storage<double, Var_Id> *data_sim = &app->data.results;
 			Data_Storage<double, Var_Id> *data_obs = id_obs.type == Var_Id::Type::series ? &app->data.series : &app->data.additional_series;
 			Indexes indexes(parent->model);
-			get_single_indexes(indexes, setup);
+			get_single_indexes(parent->app, indexes, setup);
 			offset_sim = data_sim->structure->get_offset(id_sim, indexes);
 			offset_obs = data_obs->structure->get_offset(id_obs, indexes);
 			compute_residual_stats(&residual_stats, data_sim, offset_sim, result_gof_offset, data_obs, offset_obs, input_gof_offset, gof_ts, compute_rcc);
@@ -896,7 +922,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			}
 			
 			Indexes indexes(parent->model);
-			get_single_indexes(indexes, setup);
+			get_single_indexes(parent->app, indexes, setup);
 			
 			s64 gof_offset;
 			Var_Id var_id;
@@ -936,7 +962,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			}
 			
 			Indexes indexes(parent->model);
-			get_single_indexes(indexes, setup);
+			get_single_indexes(parent->app, indexes, setup);
 			
 			Var_Id var_id_sim = setup.selected_results[0];
 			Var_Id var_id_obs = setup.selected_series[0];
@@ -1073,7 +1099,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
 			
 			Indexes indexes(parent->model);
-			get_single_indexes(indexes, setup);
+			get_single_indexes(parent->app, indexes, setup);
 			
 			for(Index_T &index : setup.selected_indexes[profile_set_idx]) {
 				indexes.set_index(index, true);
@@ -1167,7 +1193,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Date_Time baseline_start = baseline->results.start_date;
 			
 			Indexes indexes(parent->model);
-			get_single_indexes(indexes, setup);
+			get_single_indexes(parent->app, indexes, setup);
 			
 			//NOTE: to get same color for main series and comparison series as when in regular
 			//plot, we extract colors in this order.
@@ -1215,8 +1241,10 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 		}
 		
 		format_axes(this, mode, n_bins_histogram, input_start, app->time_step_size);
-	
+		
+#if CATCH_ERRORS
 	} catch(int) {}
+#endif
 	parent->log_warnings_and_errors();
 	
 	if(mode == Plot_Mode::profile || (mode == Plot_Mode::profile2D && profile2D_is_timed)) {

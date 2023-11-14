@@ -413,7 +413,7 @@ void OptimizationWindow::add_target_clicked() {
 	Optimization_Target target(parent->model);
 	target.sim_id = setup.selected_results[0];
 	target.obs_id = setup.selected_series.empty() ? invalid_var : setup.selected_series[0];
-	get_single_indexes(target.indexes, setup);
+	get_single_indexes(parent->app, target.indexes, setup);
 	
 	// TODO: We should set index to invalid in target.indexes if this particular target does
 	// not depend on it.

@@ -241,6 +241,8 @@ PlotCtrl::plot_change() {
 	int active_idx = 0;
 	for(auto id : parent->model->index_sets) {
 		bool active = main_plot.setup.index_set_is_active[id.id];
+		auto index_set = parent->model->index_sets[id];
+		
 		index_lists[id.id].Show(active);
 		push_sel_alls[id.id].Show(active);
 		
@@ -422,6 +424,22 @@ register_if_index_set_is_active(Plot_Setup &ps, Model_Application *app) {
 			if(std::find(var_index_sets.begin(), var_index_sets.end(), index_set) != var_index_sets.end())
 				ps.index_set_is_active[idx] = true;
 			++idx;
+		}
+	}
+	
+	for(auto id : app->model->index_sets) {
+		// If this is a union index set and exactly one of the union members are active, we
+		// should only activate the member, not the union.
+		bool active = ps.index_set_is_active[id.id];
+		auto index_set = app->model->index_sets[id];
+		if(active && !index_set->union_of.empty()) {
+			int count = 0;
+			for(auto other_id : index_set->union_of) {
+				if(ps.index_set_is_active[other_id.id])
+					count++;
+			}
+			if(count == 1)
+				ps.index_set_is_active[id.id] = false;
 		}
 	}
 }
