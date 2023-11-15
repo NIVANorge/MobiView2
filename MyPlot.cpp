@@ -69,6 +69,7 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 }
 
 void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color, String &legend, String &unit) {
+	
 	draw->Legend(legend).Units(unit);
 	
 	bool scatter = false;
@@ -115,11 +116,16 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	
 	s64 offset = data->structure->get_offset(var_id, indexes);
 	
-	auto unit = var->unit;
-	if(draw->setup.aggregation_type == Aggregation_Type::sum)
-		unit = unit_of_sum(var->unit, app->time_step_unit, draw->setup.aggregation_period);
+	String unit_str;
+	if(draw->setup.y_axis_mode == Y_Axis_Mode::normalized)
+		unit_str = "(normalized)";
+	else {
+		auto unit = var->unit;
+		if(draw->setup.aggregation_type == Aggregation_Type::sum)
+			unit = unit_of_sum(var->unit, app->time_step_unit, draw->setup.aggregation_period);
 	
-	String unit_str = unit.to_utf8();
+		unit_str = unit.to_utf8();
+	}
 	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit_str + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
