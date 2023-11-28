@@ -56,6 +56,9 @@ private :
 	std::vector<Entity_Id> index_sets;
 	std::vector<std::vector<Indexed_Parameter>> listed_pars;
 	
+	int focus_row = -1;
+	int focus_col = -1;
+	
 	Entity_Id expanded_row = invalid_entity_id;
 	Entity_Id expanded_col = invalid_entity_id;
 };

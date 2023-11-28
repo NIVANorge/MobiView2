@@ -170,7 +170,7 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 	
 	auto app = parent->app;
 	
-	Entity_Registration<Reg_Type::parameter> *par;
+	Parameter_Registration *par;
 	if(!parameter.virt) {
 		par = app->model->parameters[parameter.id];
 		if(par->decl_type != Decl_Type::par_real) return false; //TODO: Dlib has provision for allowing integer parameters

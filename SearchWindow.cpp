@@ -33,9 +33,9 @@ void SearchWindow::find() {
 			//if(!mod->has_been_processed) continue;
 			mod_name = mod->name.data();
 		}
-		for(auto group_id : parent->model->by_scope<Reg_Type::par_group>(module_id)) {
+		for(auto group_id : parent->model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
 			auto group = parent->model->par_groups[group_id];
-			for(auto par_id : parent->model->by_scope<Reg_Type::parameter>(group_id)) {
+			for(auto par_id : parent->model->get_scope(group_id)->by_type<Reg_Type::parameter>()) {
 				auto par = parent->model->parameters[par_id];
 				std::string par_name = par->name;
 				std::transform(par_name.begin(), par_name.end(), par_name.begin(), ::tolower);

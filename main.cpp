@@ -294,8 +294,6 @@ bool MobiView2::do_the_load() {
 	return true;
 }
 
-#undef CATCH_ERRORS
-
 bool
 select_group_recursive(TreeCtrl &tree, int node, Entity_Id group_id) {
 	Upp::Ctrl *ctrl = ~tree.GetNode(node).ctrl;
@@ -550,9 +548,7 @@ void MobiView2::save_parameters_as() {
 		store_settings(); // NOTE: so that it records the new file as the data file.
 #if CATCH_ERRORS
 	} catch(int) {
-#endif
 		log("Data file saving may have been unsuccessful.", true);
-#if CATCH_ERRORS
 	}
 #endif
 	log_warnings_and_errors();
@@ -731,7 +727,7 @@ void MobiView2::build_interface() {
 			id = par_group_selecter.Add(0, Null, name, false);
 			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 		}
-		for(auto group_id : model->by_scope<Reg_Type::par_group>(module_id)) {
+		for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
 			auto par_group = model->par_groups[group_id];
 			par_group_nodes.Create(group_id, par_group->name.data());
 			par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
@@ -850,3 +846,5 @@ GUI_APP_MAIN {
 	StdLogSetup(LOG_FILE, "MobiView2.log");
 	MobiView2().Run();
 }
+
+#undef CATCH_ERRORS

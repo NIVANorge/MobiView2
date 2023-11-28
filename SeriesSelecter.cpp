@@ -24,6 +24,11 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	quant_tree.SetNode(0, var_tree.GetNode(0).CanSelect(false).Set(root));
 	quant_tree.HighlightCtrl(true);
 	
+	quick_tree.WhenSel << [=, this]() { parent->plotter.plot_change(); };
+	quick_tree.MultiSelect();
+	quick_tree.SetNode(0, quick_tree.GetNode(0).CanSelect(false).Set("Quick select"));
+	quick_tree.HighlightCtrl(true);
+	
 	if(type == Var_Id::Type::state_var) {
 		tree_tab.Add(var_tree.SizePos(), "By compartment");//IconImg47::Compartment(), "Comp.");
 		tree_tab.Add(quant_tree.SizePos(), "By quantity"); //IconImg47::Quantity(), "Quant.");
@@ -45,7 +50,25 @@ void
 SeriesSelecter::clean() {
 	var_tree.Clear();
 	quant_tree.Clear();
+	quick_tree.Clear();
+	if(tree_tab.GetCount() > 2) // Ugh, bad way to hard code it.
+		tree_tab.Remove(2);
 	nodes.Clear();
+}
+
+TreeCtrl *
+SeriesSelecter::current_tree() {
+	TreeCtrl *tree = &var_tree;
+	
+	int tab = tree_tab.GetData();
+	if(type == Var_Id::Type::state_var) {
+		if(tab == 1)
+			tree = &quant_tree;
+		if(tab == 2)
+			tree = &quick_tree;
+	}
+	
+	return tree;
 }
 
 void
@@ -54,7 +77,7 @@ SeriesSelecter::search_change() {
 
 	std::transform(match.begin(), match.end(), match.begin(), ::tolower); // TODO: Trim bounding whitespaces
 	
-	TreeCtrl *tree = (tree_tab.Get() == 0) ? &var_tree : &quant_tree;
+	TreeCtrl *tree = current_tree();
 	
 	// Match vs the name of all the top level nodes.
 	int count = tree->GetChildCount(0);
@@ -73,19 +96,28 @@ SeriesSelecter::search_change() {
 
 void
 SeriesSelecter::get_selected(std::vector<Var_Id> &push_to) {
-	TreeCtrl *tree = &var_tree;
+	TreeCtrl *tree = current_tree();
 	
 	int tab = tree_tab.GetData();
-	if(type == Var_Id::Type::state_var) {
-		if(tab == 1)
-			tree = &quant_tree;
-	}
 	
 	Vector<int> selected = tree->GetSel();
 	for(int idx : selected) {
 		Upp::Ctrl *ctrl = ~tree->GetNode(idx).ctrl;
 		if(!ctrl) continue;
-		push_to.push_back(reinterpret_cast<Entity_Node *>(ctrl)->var_id);
+		if(tab == 2) { // TODO: Bad way to hard code it. Should be encoded with the node instead
+			auto node = reinterpret_cast<Entity_Node *>(ctrl);
+			
+			auto quick_select = parent->data_set->quick_selects[node->entity_id];
+			auto &select = quick_select->selects[node->select_idx];
+			for(auto &series_name : select.series_names) {
+				auto var_id = parent->app->deserialize(series_name);
+				if(is_valid(var_id))
+					push_to.push_back(var_id);
+				// TODO: Else log warning?
+			}
+		} else {
+			push_to.push_back(reinterpret_cast<Entity_Node *>(ctrl)->var_id);
+		}
 	}
 }
 
@@ -349,6 +381,23 @@ SeriesSelecter::build(Model_Application *app) {
 					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, true);
 			}
 			
+			// TODO: Maybe have a separate tree per quick_select (then they need to be named in
+			// the data_set).
+			bool found = false;
+			for(auto select_id : parent->data_set->quick_selects) {
+				auto quick_select = parent->data_set->quick_selects[select_id];
+				for(int idx = 0; idx < quick_select->selects.size(); ++idx) {
+					found = true;
+					auto &select = quick_select->selects[idx];
+					nodes.Create(select_id, select.name, idx);
+					Image *img = &IconImg47::Property();
+					quick_tree.Add(0, *img, nodes.Top());
+				}
+			}
+			if(found)
+				tree_tab.Add(quick_tree.SizePos(), "Quick select");
+			
+			
 		} else {
 
 			int input_id = var_tree.Add(0, Null, "Model inputs", false);
@@ -369,4 +418,5 @@ SeriesSelecter::build(Model_Application *app) {
 	
 	var_tree.OpenDeep(0, true);
 	quant_tree.OpenDeep(0, true);
+	quick_tree.OpenDeep(0, true);
 }

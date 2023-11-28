@@ -469,7 +469,15 @@ PlotCtrl::get_plot_setup(Plot_Setup &ps) {
 	if(!parent->model_is_loaded()) return;
 	
 	parent->input_selecter.get_selected(ps.selected_series);
-	parent->result_selecter.get_selected(ps.selected_results);
+	//TODO: ooops, this should be redesigned due to how Quick select works.
+	std::vector<Var_Id> sel;
+	parent->result_selecter.get_selected(sel);
+	for(auto var_id : sel) {
+		if(var_id.type == Var_Id::Type::state_var)
+			ps.selected_results.push_back(var_id);
+		else if(var_id.type == Var_Id::Type::series || var_id.type == Var_Id::Type::additional_series)
+			ps.selected_series.push_back(var_id);
+	}
 	
 	for(auto id : parent->model->index_sets) {
 		auto &list = index_lists[id.id];

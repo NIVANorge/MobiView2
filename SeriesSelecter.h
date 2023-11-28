@@ -16,12 +16,12 @@ public:
 	typedef Entity_Node CLASSNAME;
 	
 	Entity_Node(Var_Id var_id, const Upp::String &name) : var_id(var_id) { SetText(name); }
-	Entity_Node(Entity_Id entity_id, const Upp::String &name) : entity_id(entity_id) { SetText(name); }
+	Entity_Node(Entity_Id entity_id, const Upp::String &name, int select_idx = -1) : entity_id(entity_id), select_idx(select_idx) { SetText(name); }
 	
-	union {
-		Var_Id var_id;
-		Entity_Id entity_id;
-	};
+	
+	Var_Id var_id = invalid_var;
+	Entity_Id entity_id = invalid_entity_id;
+	int select_idx = -1; // for quick_select
 };
 
 class SeriesSelecter : public WithSeriesSelecterLayout<Upp::ParentCtrl> {
@@ -42,6 +42,9 @@ private:
 	Array<Entity_Node> nodes;
 	Upp::TreeCtrl    var_tree;
 	Upp::TreeCtrl    quant_tree;
+	Upp::TreeCtrl    quick_tree;
+	
+	Upp::TreeCtrl*   current_tree();
 	
 	Var_Id::Type     type;
 };

@@ -18,6 +18,30 @@ ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
 	parameter_view.AddColumn("Description");
 	
 	parameter_view.ColumnWidths("20 12 10 10 10 38");
+	
+	// TODO: This doesn't fire when only the col and not the row is changed, but there is no
+	// easy solution except changing parameter_view to be a GridCtrl, which would mean we have
+	// to learn that API and rewrite everything in this class :(
+	parameter_view.WhenSel << [this]() {
+		focus_row = -1;
+		focus_col = -1;
+		int row = parameter_view.GetCursor();
+		if(row < 0 || row >= listed_pars.size())
+			return;
+		focus_row = row;
+		
+		int col_count = parameter_controls[row].size();
+		if(col_count == 1)
+			focus_col = 0;
+		else {
+			for(int col = 0; col < col_count; ++col) {
+				if(parameter_controls[row][col].HasFocus()) {
+					focus_col = col;
+					break;
+				}
+			}
+		}
+	};
 }
 
 void ParameterCtrl::clean() {
@@ -33,6 +57,9 @@ void ParameterCtrl::clean() {
 	par_group_id = invalid_entity_id;
 	expanded_row = invalid_entity_id;
 	expanded_col = invalid_entity_id;
+	
+	focus_row = -1;
+	focus_col = -1;
 }
 
 
@@ -87,6 +114,9 @@ void ParameterCtrl::par_group_change() {
 		index_expands[idx].Hide();
 	}
 	
+	focus_row = -1;
+	focus_col = -1;
+	
 	par_group_id = invalid_entity_id;
 	
 	auto app = parent->app;
@@ -98,7 +128,7 @@ void ParameterCtrl::par_group_change() {
 	if(!is_valid(par_group_id))
 		return;
 	
-	auto par_range = parent->model->by_scope<Reg_Type::parameter>(par_group_id);
+	auto par_range = parent->model->get_scope(par_group_id)->by_type<Reg_Type::parameter>();
 	s64  par_count = par_range.size();
 	
 	if(!par_count) return;
@@ -318,7 +348,7 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 
 	}
 	
-	auto par_range = model->by_scope<Reg_Type::parameter>(par_group_id);
+	auto par_range = model->get_scope(par_group_id)->by_type<Reg_Type::parameter>();
 	s64  par_count = par_range.size();
 	
 	bool empty = false;
@@ -603,7 +633,7 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 		// NOTE: We have to put it on the event queue instead of doing it immediately, because
 		// otherwise we may end up deleting the parameter editor Ctrl inside one of its
 		// callbacks, which can cause a crash.
-		SetTimeCallback(0, [this]() {
+		PostCallback([this]() {
 			parent->reload(true);
 			parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
 		});
@@ -624,19 +654,12 @@ ParameterCtrl::get_selected_parameter() {
 	result.id = invalid_entity_id;
 	
 	int row = parameter_view.GetCursor();
-	if(row < 0 || row >= listed_pars.size()) return std::move(result);
+	if(focus_row < 0 || focus_col < 0) return std::move(result);
 	
 	// TODO: This is hacky... Do we want to switch to GridCtrl for parameter editing instead?
-	// Also doesn't work for OptimizationWindow right now, because the event then happens after
-	// the ctrl loses focus.
-	int col_count = listed_pars[0].size();
-	for(int col = 0; col < col_count; ++col) {
-		if(parameter_controls[row][col].HasFocus() || col_count == 1) {
-			result = listed_pars[row][col];
-			set_locks(result);
-			break;
-		}
-	}
+	
+	result = listed_pars[focus_row][focus_col];
+	set_locks(result);
 	
 	return std::move(result);
 }
