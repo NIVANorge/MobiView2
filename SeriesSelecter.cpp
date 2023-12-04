@@ -32,6 +32,7 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	if(type == Var_Id::Type::state_var) {
 		tree_tab.Add(var_tree.SizePos(), "By compartment");//IconImg47::Compartment(), "Comp.");
 		tree_tab.Add(quant_tree.SizePos(), "By quantity"); //IconImg47::Quantity(), "Quant.");
+		tree_tab.Add(quick_tree.SizePos(), "Quick select");
 		//show_fluxes.SetData(true);
 		search_bar.WhenAction << THISBACK(search_change);
 		tree_tab.WhenSet << THISBACK(search_change);
@@ -44,6 +45,39 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 		search_bar.Hide();
 	}
 	//show_fluxes.WhenAction << [this]() { show_fluxes_changed(); }
+	
+	quick_tree.WhenBar << THISBACK(context_menu);
+}
+
+void
+SeriesSelecter::context_menu(Bar &bar) {
+	bar.Add("Add new", THISBACK(add_new_quick_select));
+}
+
+void
+SeriesSelecter::add_new_quick_select() {
+	
+	// TODO: Add a different one per sub-tree depending on where clicked, instead?
+	
+	//parent->log("Clicked");
+	auto data_set = parent->data_set;
+	if(!data_set) return;
+	std::vector<Var_Id> sel;
+	
+	// TODO: This doesn't work, because we are on the wrong tab :(
+	//  Do we need to cache the sel every time there is a click?
+	get_selected(sel);
+	if(sel.empty()) return;
+	// TODO: Prompt for the name?
+	auto name = parent->app->vars[sel[0]]->name;
+	auto quick_id = data_set->quick_selects.create_internal(&data_set->top_scope, "", name, Decl_Type::quick_select);
+	auto quick = data_set->quick_selects[quick_id];
+	Quick_Select qsel;
+	qsel.name = name;
+	for(auto var_id : sel)
+		qsel.series_names.push_back(parent->app->vars[var_id]->name); // TODO: Or serialize?
+	quick->selects.emplace_back(std::move(qsel));
+	//TODO: Need to refresh the tree view.
 }
 
 void
@@ -51,8 +85,6 @@ SeriesSelecter::clean() {
 	var_tree.Clear();
 	quant_tree.Clear();
 	quick_tree.Clear();
-	if(tree_tab.GetCount() > 2) // Ugh, bad way to hard code it.
-		tree_tab.Remove(2);
 	nodes.Clear();
 }
 
@@ -381,21 +413,21 @@ SeriesSelecter::build(Model_Application *app) {
 					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, true);
 			}
 			
-			// TODO: Maybe have a separate tree per quick_select (then they need to be named in
-			// the data_set).
-			bool found = false;
 			for(auto select_id : parent->data_set->quick_selects) {
 				auto quick_select = parent->data_set->quick_selects[select_id];
+				
+				nodes.Create(select_id, quick_select->name.c_str());
+				Image *img = &IconImg47::Compartment();
+				int nodeid = quick_tree.Add(0, *img, nodes.Top());
+				quick_tree.SetNode(nodeid, quick_tree.GetNode(nodeid).CanSelect(false));
+				
 				for(int idx = 0; idx < quick_select->selects.size(); ++idx) {
-					found = true;
 					auto &select = quick_select->selects[idx];
 					nodes.Create(select_id, select.name, idx);
-					Image *img = &IconImg47::Property();
-					quick_tree.Add(0, *img, nodes.Top());
+					img = &IconImg47::Property();
+					quick_tree.Add(nodeid, *img, nodes.Top());
 				}
 			}
-			if(found)
-				tree_tab.Add(quick_tree.SizePos(), "Quick select");
 			
 			
 		} else {

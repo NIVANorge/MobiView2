@@ -709,48 +709,48 @@ void MobiView2::build_interface() {
 	
 	try {
 	
-	par_group_selecter.Set(0, model->model_name.data());
-	par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
-	
-	// Hmm, this is a bit cumbersome. See similar note in model_application.cpp
-	for(int idx = -1; idx < model->modules.count(); ++idx) {
-		Entity_Id module_id = invalid_entity_id;
-		int id = 0;
+		par_group_selecter.Set(0, model->model_name.data());
+		par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 		
-		if(idx >= 0) {
-			module_id = { Reg_Type::module, (s16)idx };
+		// Hmm, this is a bit cumbersome. See similar note in model_application.cpp
+		for(int idx = -1; idx < model->modules.count(); ++idx) {
+			Entity_Id module_id = invalid_entity_id;
+			int id = 0;
 			
-			auto mod = model->modules[module_id];
-			auto temp = model->module_templates[mod->template_id];
-			
-			String name = Format("%s v. %d.%d.%d", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
-			id = par_group_selecter.Add(0, Null, name, false);
-			par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
+			if(idx >= 0) {
+				module_id = { Reg_Type::module, (s16)idx };
+				
+				auto mod = model->modules[module_id];
+				auto temp = model->module_templates[mod->template_id];
+				
+				String name = Format("%s v. %d.%d.%d", mod->full_name.data(), temp->version.major, temp->version.minor, temp->version.revision);
+				id = par_group_selecter.Add(0, Null, name, false);
+				par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
+			}
+			for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
+				auto par_group = model->par_groups[group_id];
+				par_group_nodes.Create(group_id, par_group->name.data());
+				par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
+			}
 		}
-		for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
-			auto par_group = model->par_groups[group_id];
-			par_group_nodes.Create(group_id, par_group->name.data());
-			par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
-		}
-	}
-	par_group_selecter.OpenDeep(0, true);
+		par_group_selecter.OpenDeep(0, true);
+		
+		result_selecter.build(app);
+		input_selecter.build(app);
 	
-	result_selecter.build(app);
-	input_selecter.build(app);
-
-	params.build_index_set_selecters(app);
-	plotter.build_index_set_selecters(app);
-	
-	plotter.build_time_intervals_ctrl();
-	
-	plotter.plot_change();
-	
-	if(model_chart_window.IsOpen())
-		model_chart_window.rebuild();
-	if(structure_window.IsOpen())
-		structure_window.refresh_text();
-	if(info_window.IsOpen())
-		info_window.refresh_text();
+		params.build_index_set_selecters(app);
+		plotter.build_index_set_selecters(app);
+		
+		plotter.build_time_intervals_ctrl();
+		
+		plotter.plot_change();
+		
+		if(model_chart_window.IsOpen())
+			model_chart_window.rebuild();
+		if(structure_window.IsOpen())
+			structure_window.refresh_text();
+		if(info_window.IsOpen())
+			info_window.refresh_text();
 	
 	} catch(int) {
 	}
@@ -764,11 +764,10 @@ void MobiView2::closing_checks() {
 	if(!close) return;
 	
 	store_settings();
+	Close();
 	
 	// NOTE: necessary to cleanly free the memory used by the LLVM jit.
 	delete_model();
-	
-	Close();
 }
 
 void MobiView2::save_baseline() {

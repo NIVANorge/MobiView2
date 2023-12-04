@@ -37,6 +37,9 @@ public:
 	void set_selection(const std::vector<Var_Id> &sel);
 	void search_change();
 	
+	void context_menu(Bar &bar);
+	void add_new_quick_select();
+	
 private:
 	MobiView2 *parent;
 	Array<Entity_Node> nodes;
