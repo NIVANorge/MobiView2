@@ -384,6 +384,10 @@ void MobiView2::reload(bool recompile_only) {
 		try {
 			clean_interface();
 			app->save_to_data_set();
+			
+			if(baseline) delete baseline;
+			baseline = nullptr;
+			
 			delete app;
 			app = new Model_Application(model);
 			app->build_from_data_set(data_set);

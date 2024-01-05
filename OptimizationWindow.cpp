@@ -1372,7 +1372,7 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 			}
 			
 			ValueArray index_arr = target_json["Indexes"];
-			if(!IsNull(index_arr) && (index_arr.GetCount() >= model->index_sets.count())) {
+			if(!IsNull(index_arr)) {
 			
 				for(int idx = 0; idx < index_arr.GetCount(); ++idx) {
 					Value idx_val = index_arr[idx];
@@ -1384,6 +1384,8 @@ void OptimizationWindow::read_from_json_string(const String &json) {
 					Value val = idx_val["Index"];
 					if(!IsNull(val))
 						index = Index_T { index_set, (s32)val };
+					
+					//PromptOK(Format("Index set name: %s   %d", idx_set_name_val, (int)val));
 					
 					if(is_valid(index))
 						target.indexes.set_index(index);

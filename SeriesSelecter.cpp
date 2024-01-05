@@ -251,6 +251,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	//TODO: allow regular aggregate
 	if(
 		    var->type == State_Var::Type::regular_aggregate
+		||  var->type == State_Var::Type::parameter_aggregate
 		||  var->type == State_Var::Type::external_computation
 		||  var->type == State_Var::Type::step_resolution // These are handled separately.
 		|| !var->is_valid())
