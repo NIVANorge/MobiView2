@@ -137,7 +137,7 @@ SeriesSelecter::get_selected(std::vector<Var_Id> &push_to) {
 		Upp::Ctrl *ctrl = ~tree->GetNode(idx).ctrl;
 		if(!ctrl) continue;
 		if(tab == 2) { // TODO: Bad way to hard code it. Should be encoded with the node instead
-			auto node = reinterpret_cast<Entity_Node *>(ctrl);
+			auto node = static_cast<Entity_Node *>(ctrl);
 			
 			auto quick_select = parent->data_set->quick_selects[node->entity_id];
 			auto &select = quick_select->selects[node->select_idx];
@@ -148,16 +148,45 @@ SeriesSelecter::get_selected(std::vector<Var_Id> &push_to) {
 				// TODO: Else log warning?
 			}
 		} else {
-			push_to.push_back(reinterpret_cast<Entity_Node *>(ctrl)->var_id);
+			push_to.push_back(static_cast<Entity_Node *>(ctrl)->var_id);
 		}
 	}
 }
+
+/*         Begin working on making reloads better when quick_select is active.
+void
+SeriesSelecter::get_selected_quick_selects(std::vector<std::pair<std::string, std::string>> &push_to) {
+	
+	if(!parent->data_set) return;
+	
+	int tab = tree_tab.GetData();
+	if(tab != 2) return; // TODO: Bad hard coding.
+	
+	TreeCtrl *tree = current_tree();
+	Vector<int> selected = tree->GetSel();
+	for(int idx : selected) {
+		Upp::Ctrl *ctrl = ~tree->GetNode(idx).ctrl;
+		if(!ctrl) continue;
+		auto node = static_cast<Entity_Node *>(ctrl);
+		auto quick_select = parent->data_set->quick_selects[node->entity_id];
+		
+		push_to.push_back({parent->data_set->serialize(node->entity_id), node->GetText().ToStd()});
+	}
+}
+
+void
+SeriesSelecter::set_selected_quick_selects(std::vector<std::pair<std::string, std::string>> &selects) {
+	
+	for(auto &sel : selects) {
+	}	
+}
+*/
 
 void
 recursive_select(TreeCtrl &tree, int node, const std::vector<Var_Id> &select) {
 	Upp::Ctrl *ctrl = ~tree.GetNode(node).ctrl;
 	if(ctrl) {
-		Var_Id var_id = reinterpret_cast<Entity_Node *>(ctrl)->var_id;
+		Var_Id var_id = static_cast<Entity_Node *>(ctrl)->var_id;
 		if(std::find(select.begin(), select.end(), var_id) != select.end())
 			tree.SelectOne(node, true);
 	}

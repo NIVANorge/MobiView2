@@ -833,7 +833,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 	}
 	
 	// NOTE: this should theoretically never happen
-	if(setup.selected_indexes.empty()) {
+	if(setup.selected_indexes.empty() && app->model->index_sets.count() > 0) {
 		SetTitle("No indexes were selected");
 		return;
 	}
