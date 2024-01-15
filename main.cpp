@@ -481,8 +481,13 @@ void MobiView2::load() {
 
 	if(!changed_model && !previous_data.IsEmpty() && FileExists(previous_data))
 		data_sel.PreSelect(previous_data);
-	else
-		data_sel.ActiveDir(GetFileFolder(model_file.data()));
+	else {
+		auto previous_for_model = settings_json["Last data"][model_file.data()];
+		if(!IsNull(previous_for_model) && FileExists(previous_for_model.ToString())) {
+			data_sel.PreSelect(previous_for_model);
+		} else
+			data_sel.ActiveDir(GetFileFolder(model_file.data()));
+	}
 	data_sel.ExecuteOpen();
 	std::string new_data_file = data_sel.Get().ToStd();
 	
@@ -635,31 +640,6 @@ void MobiView2::store_settings(bool store_favorites) {
 		("Model file", String(model_file))
 		("Data file", String(data_file));
 	
-	/*
-	Json Favorites;
-	
-	String DllFileName = GetFileName(DllFile.data());
-	
-	for(const auto &K : Eq.GetKeys())
-	{
-		if(K != DllFileName || !OverwriteFavorites || !ModelDll.IsLoaded())
-			Favorites(K.ToString(), Eq[K]);
-	}
-	
-	if(OverwriteFavorites && ModelDll.IsLoaded()) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
-	{
-		JsonArray FavForCurrent;
-		for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
-		{
-			if(EquationSelecter.Get(Row, 1)) //I.e. if it was favorited
-				FavForCurrent << EquationSelecter.Get(Row, 0);
-		}
-		Favorites(DllFileName, FavForCurrent);
-	}
-	
-	SettingsJson("Favorite equations", Favorites);
-	*/
-	
 	JsonArray window_dim;
 	window_dim << GetSize().cx << GetSize().cy;
 	settings_json("Window dimensions", window_dim);
@@ -685,6 +665,25 @@ void MobiView2::store_settings(bool store_favorites) {
 	settings_json("Plot view dimensions", plot_view_dim);
 	
 	// TODO: Store resizes of other windows here too.
+	
+	// Just write out the last selected data files again
+	Json file_map;
+	
+	bool found_current = false;
+	ValueMap file_map_before = existing_settings["Last data"];
+	if(!IsNull(file_map_before)) {
+		for(auto &k : file_map_before.GetKeys()) {
+			auto modname = k.ToString();
+			if(modname == model_file.data()) {
+				found_current = true;
+				file_map(modname, data_file.data());
+			} else
+				file_map(modname, file_map_before[k]);
+		}
+	}
+	if(!found_current)
+		file_map(model_file.data(), data_file.data());
+	settings_json("Last data", file_map);
 	
 	SaveFile("settings.json", settings_json.ToString());
 }
@@ -718,12 +717,17 @@ void MobiView2::build_interface() {
 		
 		// Hmm, this is a bit cumbersome. See similar note in model_application.cpp
 		for(int idx = -1; idx < model->modules.count(); ++idx) {
-			Entity_Id module_id = invalid_entity_id;
-			int id = 0;
 			
-			if(idx >= 0) {
-				module_id = { Reg_Type::module, (s16)idx };
+			int id = 0; // The node id of the module or model.
+			
+			Entity_Id module_id = idx >= 0 ? Entity_Id { Reg_Type::module, (s16)idx } : invalid_entity_id;
 				
+			// Don't display modules that don't have par_groups in the par_group_selecter
+			auto iter = model->get_scope(module_id)->by_type<Reg_Type::par_group>();
+			if(iter.size() == 0)
+				continue;
+			
+			if(is_valid(module_id)) {
 				auto mod = model->modules[module_id];
 				auto temp = model->module_templates[mod->template_id];
 				
@@ -731,7 +735,8 @@ void MobiView2::build_interface() {
 				id = par_group_selecter.Add(0, Null, name, false);
 				par_group_selecter.SetNode(id, par_group_selecter.GetNode(id).CanSelect(false));
 			}
-			for(auto group_id : model->get_scope(module_id)->by_type<Reg_Type::par_group>()) {
+			
+			for(auto group_id : iter) {
 				auto par_group = model->par_groups[group_id];
 				par_group_nodes.Create(group_id, par_group->name.data());
 				par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
