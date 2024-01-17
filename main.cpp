@@ -669,6 +669,7 @@ void MobiView2::store_settings(bool store_favorites) {
 	// Just write out the last selected data files again
 	Json file_map;
 	
+	// Hmm, should we index this on the file name part of the model only, not the entire path?
 	bool found_current = false;
 	ValueMap file_map_before = existing_settings["Last data"];
 	if(!IsNull(file_map_before)) {

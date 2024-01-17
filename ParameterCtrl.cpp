@@ -635,7 +635,7 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 		// callbacks, which can cause a crash.
 		PostCallback([this]() {
 			parent->reload(true);
-			parent->log("Model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
+			parent->log("The model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
 		});
 	}
 }
