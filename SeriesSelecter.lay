@@ -1,5 +1,6 @@
-LAYOUT(SeriesSelecterLayout, 128, 96)
+LAYOUT(SeriesSelecterLayout, 204, 96)
 	ITEM(Upp::TabCtrl, tree_tab, HSizePosZ(0, 0).VSizePosZ(0, 20))
 	ITEM(Upp::EditString, search_bar, LeftPosZ(0, 124).BottomPosZ(1, 19))
+	ITEM(Upp::Option, option_show_fluxes, SetLabel(t_("Show fluxes")).LeftPosZ(128, 72).BottomPosZ(4, 16))
 END_LAYOUT
 

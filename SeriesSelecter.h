@@ -18,7 +18,6 @@ public:
 	Entity_Node(Var_Id var_id, const Upp::String &name) : var_id(var_id) { SetText(name); }
 	Entity_Node(Entity_Id entity_id, const Upp::String &name, int select_idx = -1) : entity_id(entity_id), select_idx(select_idx) { SetText(name); }
 	
-	
 	Var_Id var_id = invalid_var;
 	Entity_Id entity_id = invalid_entity_id;
 	int select_idx = -1; // for quick_select
@@ -36,6 +35,7 @@ public:
 	void get_selected(std::vector<Var_Id> &push_to);
 	void set_selection(const std::vector<Var_Id> &sel);
 	void search_change();
+	void show_flux_change();
 	
 	void context_menu(Bar &bar);
 	void add_new_quick_select();

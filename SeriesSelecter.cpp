@@ -30,21 +30,24 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	quick_tree.HighlightCtrl(true);
 	
 	if(type == Var_Id::Type::state_var) {
+		option_show_fluxes.SetData(true);
+		option_show_fluxes.WhenAction << THISBACK(show_flux_change);
+	} else
+		option_show_fluxes.Hide();
+	
+	if(type == Var_Id::Type::state_var) {
 		tree_tab.Add(var_tree.SizePos(), "By compartment");//IconImg47::Compartment(), "Comp.");
 		tree_tab.Add(quant_tree.SizePos(), "By quantity"); //IconImg47::Quantity(), "Quant.");
 		tree_tab.Add(quick_tree.SizePos(), "Quick select");
-		//show_fluxes.SetData(true);
 		search_bar.WhenAction << THISBACK(search_change);
 		tree_tab.WhenSet << THISBACK(search_change);
 	} else {
 		tree_tab.Disable();
 		tree_tab.Hide();
 		Add(var_tree.HSizePosZ(0, 0).VSizePosZ(25, 20));
-		//show_fluxes.Hide();
 		search_bar.Disable();
 		search_bar.Hide();
 	}
-	//show_fluxes.WhenAction << [this]() { show_fluxes_changed(); }
 	
 	quick_tree.WhenBar << THISBACK(context_menu);
 }
@@ -124,6 +127,15 @@ SeriesSelecter::search_change() {
 		//parent->log(Format("%s matches %s : %d", node_name.c_str(), match.c_str(), matches));
 		tree->Open(nodeidx, matches);
 	}
+}
+
+void
+SeriesSelecter::show_flux_change() {
+	// Annoying that we can't hide/show individual rows.
+	// TODO: Would be nice to retain what variables were selected and reselect them.
+	if(!parent->model_is_loaded()) return;
+	clean();
+	build(parent->app);
 }
 
 void
@@ -269,13 +281,17 @@ make_branch(TreeCtrl &tree, const Var_Location &loc, Model_Application *app, Var
 
 void
 add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Model_Application *app, Var_Id var_id,
-	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool by_quantity = false, int n_comp = 0) {
+	int root, std::unordered_map<Var_Location, int, Var_Location_Hash> &loc_to_node, int pass_type, bool show_fluxes = false, bool by_quantity = false, int n_comp = 0) {
 
 	bool is_input = (var_id.type == Var_Id::Type::series) || (var_id.type == Var_Id::Type::additional_series);
 	auto var = app->vars[var_id];
 	
 	// TODO: Make this behaviour configurable: Or maybe escape it in dev mode always?
 	if(!var->store_series) return;
+	
+	if(!show_fluxes && 
+		(var->is_flux() || var->type == State_Var::Type::in_flux_aggregate || var->type == State_Var::Type::connection_aggregate))
+		return;
 	
 	//TODO: allow regular aggregate
 	if(
@@ -416,12 +432,14 @@ void
 SeriesSelecter::build(Model_Application *app) {
 	std::unordered_map<Var_Location, int, Var_Location_Hash> loc_to_node;
 	
+	bool show_flux = option_show_fluxes.Get();
+	
 	try {
 		if(type == Var_Id::Type::state_var) {
 			for(int n_comp = 1; n_comp < max_var_loc_components; ++n_comp) {
 				for(int pass = 0; pass < 4; ++pass) {
 					for(Var_Id var_id : app->vars.all_state_vars())
-						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, false, n_comp);
+						add_series_node(parent, var_tree, nodes, app, var_id, 0, loc_to_node, pass, show_flux, false, n_comp);
 				}
 			}
 			for(Var_Id var_id : app->vars.all_state_vars()) {
@@ -440,7 +458,7 @@ SeriesSelecter::build(Model_Application *app) {
 			
 			for(int pass = 0; pass < 4; ++pass) {
 				for(Var_Id var_id : app->vars.all_state_vars())
-					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, true);
+					add_series_node(parent, quant_tree, nodes, app, var_id, 0, loc_to_node, pass, show_flux, true);
 			}
 			
 			for(auto select_id : parent->data_set->quick_selects) {
