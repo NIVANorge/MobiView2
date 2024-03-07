@@ -242,7 +242,7 @@ public :
 	double get_max() { return mmax; }
 	double get_min() { return mmin; }
 	
-	virtual double x(s64 id) { return (double)id + 0.5; }
+	virtual double x(s64 id) { return (double)id; }
 	virtual double y(s64 id) { return data[id]->y(ts); }
 	virtual s64 GetCount() const { return (s64)data.size(); }
 	

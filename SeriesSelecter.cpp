@@ -50,6 +50,29 @@ SeriesSelecter::SeriesSelecter(MobiView2 *parent, String root, Var_Id::Type type
 	}
 	
 	quick_tree.WhenBar << THISBACK(context_menu);
+	
+	open_close.WhenAction << [this]() {
+		auto tree = current_tree();
+		
+		bool closed = !tree->IsOpen(0);
+		int count = tree->GetChildCount(0);
+		if(!closed && count > 0) {
+			closed = true;
+			for(int idx = 0; idx < count; ++idx) {
+				if(tree->IsOpen(tree->GetChild(0, idx))) {
+					closed = false;
+					break;
+				}
+			}
+		}
+		
+		if(closed) {
+			tree->OpenDeep(0);
+		} else {
+			tree->CloseDeep(0);
+			tree->Open(0);
+		}	
+	};
 }
 
 void

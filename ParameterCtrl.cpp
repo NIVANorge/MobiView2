@@ -17,7 +17,7 @@ ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
 	parameter_view.AddColumn("Unit");
 	parameter_view.AddColumn("Description");
 	
-	parameter_view.ColumnWidths("20 12 10 10 10 38");
+	parameter_view.ColumnWidths("30 14 8 8 12 36");
 	
 	// TODO: This doesn't fire when only the col and not the row is changed, but there is no
 	// easy solution except changing parameter_view to be a GridCtrl, which would mean we have
@@ -425,9 +425,9 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 			parameter_view.ColumnWidths(ss.str().data());
 		} else {
 			if(is_valid(exp_row))
-				parameter_view.ColumnWidths("30 10 8 8 8 12 32");
+				parameter_view.ColumnWidths("30 14 8 8 8 10 30");
 			else
-				parameter_view.ColumnWidths("30 10 8 8 12 40");
+				parameter_view.ColumnWidths("30 14 8 8 12 36");
 		}
 	}
 	

@@ -1,5 +1,5 @@
-
 LAYOUT(ModelInfoLayout, 604, 484)
 	ITEM(MyRichView, info_box, HSizePosZ(4, 4).VSizePosZ(44, 4))
 	ITEM(Upp::Label, overview_label, SetLabel(t_("\001[2 This is info provided for individual modules in the loaded model. For general documentation on MobiView and file formats, go to [^https://github.com/NIVANorge/Mobius2^ https://github.com/NIVANorge/Mobius2] and the Documentation folder]")).LeftPosZ(4, 596).TopPosZ(-8, 52))
 END_LAYOUT
+

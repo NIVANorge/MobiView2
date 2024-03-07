@@ -351,6 +351,8 @@ void MobiView2::reload(bool recompile_only) {
 		if(!close) return;
 	}
 	
+	bool model_was_already_run = (app->data.results.time_steps > 0);
+	
 	// We serialize the selected setup by names since all the ids could have changed when we
 	// recompile.
 	
@@ -420,7 +422,7 @@ void MobiView2::reload(bool recompile_only) {
 	
 	log("The model was reloaded.");
 	
-	if(!recompile_only)
+	if(!recompile_only && model_was_already_run)
 		run_model();
 }
 

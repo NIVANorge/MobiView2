@@ -175,8 +175,9 @@ PlotCtrl::index_selection_change(Entity_Id id, bool replot) {
 			if(index.index < c)
 				list.Select(index.index);
 		}
-		// TODO: We should maybe also eject it from selected_indexes if it is not within bounds.
 	}
+	
+	get_plot_setup(main_plot.setup); // Have to do this to make the setup reflect the new state in case it changed.
 	
 	index_callback_lock = false;
 	

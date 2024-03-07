@@ -613,15 +613,16 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 			plot->was_auto_resized = false;
 			double ymin = std::min(0.0, plot->profile.get_min());
 			double ymax = plot->profile.get_max();
-			plot->SetXYMin(0.0, ymin);
+			plot->SetXYMin(-0.5, ymin);
 			int count = plot->profile.GetCount();
 			plot->SetRange((double)count, ymax - ymin);
 			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 			int units = std::max(1, count / preferred_max_grid);
 			plot->SetMajorUnits((double)units);
-			plot->SetMinUnits(0.5);
+			plot->SetMinUnits(0.0);
 			plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
 				int idx = (int)d;
+				// Not going to work when we set different widths...
 				if(d >= 0 && d < count && (idx < plot->labels.size())) s = plot->labels[idx];
 			};
 		} else if (mode == Plot_Mode::profile2D && plot->profile2D_is_timed) {
@@ -1149,7 +1150,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					plot_ctrl->push_play.Show();
 					plot_ctrl->push_rewind.Show();
 				}
-			} else if (!profile2D_is_timed) {
+			} else if (plot_ctrl && !profile2D_is_timed) {
 				plot_ctrl->time_step_slider.Hide();
 				plot_ctrl->time_step_edit.Hide();
 				plot_ctrl->push_play.Hide();

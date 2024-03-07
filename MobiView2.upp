@@ -55,6 +55,8 @@ file
 	ParameterCtrl.lay,
 	PlotCtrl.lay,
 	AdditionalPlotView.lay,
+	C:\Data\Mobius2\src\resolve_identifier.cpp,
+	C:\Data\Mobius2\src\resolve_identifier.h,
 	ModelInfoWindow.lay,
 	StructureView.lay,
 	SearchWindow.lay,
