@@ -235,14 +235,20 @@ public :
 	void set_ts(s64 _ts) { ts = _ts; }
 	void clear() {
 		data.clear();
+		x_values.clear();
 		ts = 0;
 		mmin = std::numeric_limits<double>::infinity();
 		mmax = -mmin;
 	}
 	double get_max() { return mmax; }
 	double get_min() { return mmin; }
+	void set_x_values(std::vector<double> &x_values) { this->x_values = x_values; }
+	bool has_x_values() { return !x_values.empty(); }
 	
-	virtual double x(s64 id) { return (double)id; }
+	virtual double x(s64 id) { 
+		if(!x_values.empty()) return x_values[id]+0.5;
+		return (double)id;
+	}
 	virtual double y(s64 id) { return data[id]->y(ts); }
 	virtual s64 GetCount() const { return (s64)data.size(); }
 	
@@ -250,6 +256,7 @@ private:
 	s64 ts;
 	double mmin, mmax;
 	std::vector<Upp::DataSource *> data;
+	std::vector<double> x_values;
 };
 
 class Table_Data_Profile2D : public Upp::TableData {
@@ -258,7 +265,6 @@ public:
 	Table_Data_Profile2D() {
 		inter = TableInterpolate::NO;
 		areas = true;
-		// TODO: Figure out what to do with Y since we reverse it.
 	}
 	
 	void add(Upp::DataSource *val) {
@@ -273,8 +279,14 @@ public:
 	void clear() { sources.clear(); }
 	s64 count() { return sources.size(); }
 	
+	void set_y_values(std::vector<double> &y_values) { this->y_values = y_values; }
+	bool has_y_values() { return !y_values.empty(); }
+	
 	virtual double x(int id) { return sources[0]->x((s64)id); }
-	virtual double y(int id) { return (double)id; }
+	virtual double y(int id) {
+		if(!y_values.empty()) return -y_values[count() - id - 1];	
+		return (double)id;
+	}
 	virtual double data(int id) {
 		s64 yy = (s64)id / (s64)(lenxAxis-1);
 		s64 xx = ((s64)id) % ((s64)lenxAxis-1);
@@ -283,6 +295,7 @@ public:
 	
 private:
 	std::vector<Upp::DataSource *> sources;
+	std::vector<double>            y_values;
 };
 
 class Table_Data_Profile2DTimed : public Upp::TableData {

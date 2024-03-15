@@ -613,18 +613,34 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 			plot->was_auto_resized = false;
 			double ymin = std::min(0.0, plot->profile.get_min());
 			double ymax = plot->profile.get_max();
-			plot->SetXYMin(-0.5, ymin);
+			
 			int count = plot->profile.GetCount();
-			plot->SetRange((double)count, ymax - ymin);
+			plot->SetRange(Null, ymax - ymin);
+			
+			// For some reason, the behaviour of this is different depending on whether or not
+			// you set the units before or after the min and range.....
+			bool has_x_values = plot->profile.has_x_values();
+			if(!has_x_values) {
+				plot->SetXYMin(-0.5, ymin);
+				plot->SetRange((double)count, Null);
+				plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
+					int idx = (int)std::floor(d);
+					if(idx >= -1 && idx <= count-1 && (idx < plot->labels.size())) s = plot->labels[idx+1];
+					else s = "";
+				};
+			}
+			
 			int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
 			int units = std::max(1, count / preferred_max_grid);
 			plot->SetMajorUnits((double)units);
 			plot->SetMinUnits(0.0);
-			plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
-				int idx = (int)d;
-				// Not going to work when we set different widths...
-				if(d >= 0 && d < count && (idx < plot->labels.size())) s = plot->labels[idx];
-			};
+			
+			if(has_x_values) {
+				plot->SetXYMin(0, ymin);
+				double x_max = plot->profile.x(count-1);
+				plot->SetRange(x_max+0.5, Null);
+			}
+			
 		} else if (mode == Plot_Mode::profile2D && plot->profile2D_is_timed) {
 			plot->ZoomToFitNonLinked(true, true, 0, 0);
 			plot->was_auto_resized = false;
@@ -673,16 +689,27 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 				plot->SetSurfMinZ(minz);
 				plot->SetSurfMaxZ(maxz);
 				
-				int count = plot->profile2D.count();
-				int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
-				int units = std::max(1, count / preferred_max_grid);
-				plot->SetMinUnits(Null, 0.5);
-				plot->SetMajorUnits(Null, units);
-				plot->cbModifFormatY <<
-				[plot](String &s, int i, double d) {
-					int idx = (int)d;
-					if(d >= 0 && d < plot->labels.size()) s = plot->labels[idx]; // NOTE: We display them from top to bottom
-				};
+				bool has_y_values = plot->profile2D.has_y_values();
+				if(has_y_values) {
+					// This is very hacky, but it is because we have to put the data at
+					// negative y values to be able to put them from top to bottom without messing up the
+					// plotting algorithms.
+					plot->cbModifFormatY <<
+					[](String &s, int i, double d) {
+						s = FormatDouble(-d);
+					};
+				} else {
+					int count = plot->profile2D.count();
+					int preferred_max_grid = 15;  //TODO: Dynamic size-based ?
+					int units = std::max(1, count / preferred_max_grid);
+					plot->SetMinUnits(Null, 0.5);
+					plot->SetMajorUnits(Null, units);
+					plot->cbModifFormatY <<
+					[plot](String &s, int i, double d) {
+						int idx = (int)d;
+						if(d >= 0 && d < plot->labels.size()) s = plot->labels[idx]; // NOTE: We display them from top to bottom
+					};
+				}
 			} else {
 				// Set the minimum of the y range to be 0 unless the minimum is already below 0
 				double y_range = plot->GetYRange();
@@ -1167,12 +1194,36 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				double darken = 0.4;
 				Color border_color((int)(((double)color.GetR())*darken), (int)(((double)color.GetG())*darken), (int)(((double)color.GetB())*darken));
 				AddSeries(profile).Legend(profile_legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(color).Stroke(1.0, border_color).Units(profile_unit);
+				
+				// TODO: The display will be misleading if there are gaps in the selected
+				// indexes..
+				// TODO: We can't have per-bar different bar width in the current ScatterDraw api :(
+				// Maybe we can fix it ourselves or request it from the library authors.
+				if(app->index_data.has_position_map(setup.selected_indexes[profile_set_idx][0].index_set)) {
+					std::vector<double> x_positions;
+					x_positions.push_back(0.0);
+					for(auto index : setup.selected_indexes[profile_set_idx])
+						x_positions.push_back(app->index_data.get_position(index));
+					profile.set_x_values(x_positions);
+				}
+				
+				
 			} else if (mode == Plot_Mode::profile2D && !profile2D_is_timed) {
 				int idx = 0;
 				for(auto &series : series_data)
 					profile2D.add(&series);
 				AddSurf(profile2D);
 				SurfRainbow(BLUE_WHITE_RED);   // TODO: Make this selectable
+				
+				// TODO: Factor out some code
+				if(app->index_data.has_position_map(setup.selected_indexes[profile_set_idx][0].index_set)) {
+					std::vector<double> y_positions;
+					y_positions.push_back(0.0);
+					for(auto index : setup.selected_indexes[profile_set_idx])
+						y_positions.push_back(app->index_data.get_position(index));
+					profile2D.set_y_values(y_positions);
+				}
+				
 			} else if ((mode == Plot_Mode::profile2D) && profile2D_is_timed) {
 				int dimy = setup.selected_indexes[profile_set_idx].size();
 				int dimx = setup.selected_indexes[profile_set_idx2].size();
