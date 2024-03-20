@@ -356,6 +356,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	bool flux_to   = false;
 	bool connection_agg = false;
 	bool in_flux_agg = false;
+	bool in_flux_out = false;
 	
 	Var_Location loc = var->loc1;
 	
@@ -375,6 +376,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 		auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 		loc = app->vars[var2->in_flux_to]->loc1;
 		in_flux_agg = true;
+		in_flux_out = var2->is_out;
 	}
 	
 	if(var->is_flux() && !is_located(loc)) {
@@ -410,12 +412,15 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	if(connection_agg) {
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
 		auto conn = app->model->connections[var2->connection];
-		if(var2->is_source)
+		if(var2->is_out)
 			name = "to connection (" + conn->name + ")";
 		else
 			name = "from connection (" + conn->name + ")";
 	} else if(in_flux_agg) {
-		name = "total in (excluding connections)";
+		if(in_flux_out)
+			name = "total out (excluding connections)";
+		else
+			name = "total in (excluding connections)";
 	} else if(is_input) {
 		name = var->name;
 	} else if(diss_conc) {
@@ -436,9 +441,9 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 	Image *img = nullptr;
 	if(connection_agg) {
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
-		img = var2->is_source ? &IconImg47::ConnectionFlux() : &IconImg47::ConnectionFluxTo();
+		img = var2->is_out ? &IconImg47::ConnectionFlux() : &IconImg47::ConnectionFluxTo();
 	} else if(in_flux_agg) {
-		img = &IconImg47::ConnectionFluxTo();
+		img = in_flux_out ? &IconImg47::ConnectionFlux() : &IconImg47::ConnectionFluxTo();
 	} else if(var->is_flux()) {
 		img = flux_to ? &IconImg47::FluxTo() : &IconImg47::Flux();
 	} else  {

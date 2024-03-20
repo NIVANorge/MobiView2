@@ -284,7 +284,7 @@ public:
 	
 	virtual double x(int id) { return sources[0]->x((s64)id); }
 	virtual double y(int id) {
-		if(!y_values.empty()) return -y_values[count() - id - 1];	
+		if(!y_values.empty()) return -y_values[y_values.size() - id - 1];	
 		return (double)id;
 	}
 	virtual double data(int id) {
