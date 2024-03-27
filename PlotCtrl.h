@@ -279,12 +279,20 @@ public:
 	void clear() { sources.clear(); }
 	s64 count() { return sources.size(); }
 	
-	void set_y_values(std::vector<double> &y_values) { this->y_values = y_values; }
+	void set_y_values(std::vector<double> &y_values_in) {
+		y_values.resize(y_values_in.size());
+		//log_print("Got y values:\n");
+		for(int id = 0; id < y_values.size(); ++id) {
+			y_values[id] = -y_values_in[(int)y_values.size() - id - 1];
+			//log_print(y_values[id], " ");
+		}
+		//log_print("\n");
+	}
 	bool has_y_values() { return !y_values.empty(); }
 	
 	virtual double x(int id) { return sources[0]->x((s64)id); }
 	virtual double y(int id) {
-		if(!y_values.empty()) return -y_values[y_values.size() - id - 1];	
+		if(!y_values.empty()) return y_values[id];	
 		return (double)id;
 	}
 	virtual double data(int id) {

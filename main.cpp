@@ -484,7 +484,7 @@ void MobiView2::load() {
 	if(!changed_model && !previous_data.IsEmpty() && FileExists(previous_data))
 		data_sel.PreSelect(previous_data);
 	else {
-		auto previous_for_model = settings_json["Last data"][model_file.data()];
+		auto previous_for_model = settings_json["Last data"][model_file.c_str()];
 		if(!IsNull(previous_for_model) && FileExists(previous_for_model.ToString())) {
 			data_sel.PreSelect(previous_for_model);
 		} else

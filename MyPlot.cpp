@@ -1216,9 +1216,16 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				SurfRainbow(BLUE_WHITE_RED);   // TODO: Make this selectable
 				
 				// TODO: Factor out some code
-				if(app->index_data.has_position_map(setup.selected_indexes[profile_set_idx][0].index_set)) {
+				// TODO: Some kind of warning if the indexes are not contiguous?
+				auto first = setup.selected_indexes[profile_set_idx][0];
+				if(app->index_data.has_position_map(first.index_set)) {
 					std::vector<double> y_positions;
-					y_positions.push_back(0.0);
+					if(first.index == 0)
+						y_positions.push_back(0.0);
+					else {
+						first.index--;
+						y_positions.push_back(app->index_data.get_position(first));
+					}
 					for(auto index : setup.selected_indexes[profile_set_idx])
 						y_positions.push_back(app->index_data.get_position(index));
 					profile2D.set_y_values(y_positions);
@@ -1325,12 +1332,12 @@ serialize_plot_setup(Model_Application *app, Json &json_data, Plot_Setup &setup)
 		
 	JsonArray sel_results;
 	for(Var_Id var_id : setup.selected_results)
-		sel_results << app->serialize(var_id).data();
+		sel_results << app->serialize(var_id).c_str();
 	json_data("sel_results", sel_results);
 	
 	JsonArray sel_series;
 	for(Var_Id var_id : setup.selected_series)
-		sel_series << app->serialize(var_id).data();
+		sel_series << app->serialize(var_id).c_str();
 	json_data("sel_series", sel_series);
 	
 	Json index_sets;
@@ -1344,7 +1351,7 @@ serialize_plot_setup(Model_Application *app, Json &json_data, Plot_Setup &setup)
 			if(!is_valid(index)) continue;
 			indexes << index.index;
 		}
-		index_sets(model->serialize(index_set).data(), indexes);
+		index_sets(model->serialize(index_set).c_str(), indexes);
 	}
 	json_data("index_sets", index_sets);
 
