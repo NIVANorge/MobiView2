@@ -555,6 +555,11 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 	
 	plot->SetMinUnits(0, 0);
 	
+	if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic && mode != Plot_Mode::profile2D)
+		plot->SetLogY(true);
+	else
+		plot->SetLogY(false);
+	
 	if(plot->GetCount() > 0
 		|| (mode == Plot_Mode::profile2D &&
 			((!plot->profile2D_is_timed && plot->profile2D.count() > 0) ||
@@ -751,11 +756,7 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 			plot->SetRange(Null, plot->GetYRange() * 1.15);
 		
 		if(mode != Plot_Mode::profile2D) {
-			if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic) {
-				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
-					s = FormatDoubleExp(pow(10., d), 2);
-				};
-			} else {
+			if(plot->setup.y_axis_mode != Y_Axis_Mode::logarithmic) {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
 					s = FormatDouble(d, 4);
 				};

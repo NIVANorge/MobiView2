@@ -542,3 +542,17 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 	
 	plot_change();
 }
+
+
+
+double
+Agg_Data_Source::y(s64 id) {
+	double yval = get_actual_y(id);
+	
+	if(y_axis_mode == Y_Axis_Mode::normalized)
+		return yval / max;
+	//else if(y_axis_mode == Y_Axis_Mode::logarithmic)   // This is now automatic.
+	//	return std::log10(yval);
+	
+	return yval;
+}

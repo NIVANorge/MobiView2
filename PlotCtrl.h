@@ -129,15 +129,15 @@ public :
 		return agg_y[id];
 	}
 		
-	virtual double y(s64 id) {
+	virtual double y(s64 id);/* {
 		double yval = get_actual_y(id);
-		if(y_axis_mode == Y_Axis_Mode::regular)
-			return yval;
+		
 		if(y_axis_mode == Y_Axis_Mode::normalized)
 			return yval / max;
-		else
+		else if(y_axis_mode == Y_Axis_Mode::logarithmic)
 			return std::log10(yval);
-	}
+		return yval;
+	}*/
 	
 	virtual double x(s64 id) {
 		if(aggregation_period == Aggregation_Period::none)
