@@ -544,7 +544,7 @@ void PlotCtrl::set_plot_setup(Plot_Setup &ps) {
 }
 
 
-
+/*
 double
 Agg_Data_Source::y(s64 id) {
 	double yval = get_actual_y(id);
@@ -556,3 +556,4 @@ Agg_Data_Source::y(s64 id) {
 	
 	return yval;
 }
+*/

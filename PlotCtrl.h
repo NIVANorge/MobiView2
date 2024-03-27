@@ -129,15 +129,15 @@ public :
 		return agg_y[id];
 	}
 		
-	virtual double y(s64 id);/* {
+	virtual double y(s64 id) {
 		double yval = get_actual_y(id);
 		
 		if(y_axis_mode == Y_Axis_Mode::normalized)
 			return yval / max;
-		else if(y_axis_mode == Y_Axis_Mode::logarithmic)
-			return std::log10(yval);
+		//else if(y_axis_mode == Y_Axis_Mode::logarithmic) // This is now automatic
+		//	return std::log10(yval);
 		return yval;
-	}*/
+	}
 	
 	virtual double x(s64 id) {
 		if(aggregation_period == Aggregation_Period::none)
@@ -265,6 +265,7 @@ public:
 	Table_Data_Profile2D() {
 		inter = TableInterpolate::NO;
 		areas = true;
+		rowMajor = true;
 	}
 	
 	void add(Upp::DataSource *val) {
@@ -276,7 +277,7 @@ public:
 		this->lenyAxis = sources.size()+1;
 		this->lendata = (lenxAxis-1)*(lenyAxis-1);
 	}
-	void clear() { sources.clear(); }
+	void clear() { sources.clear(); y_values.clear(); }
 	s64 count() { return sources.size(); }
 	
 	void set_y_values(std::vector<double> &y_values_in) {
@@ -295,7 +296,7 @@ public:
 		if(!y_values.empty()) return y_values[id];	
 		return (double)id;
 	}
-	virtual double data(int id) {
+	virtual double zdata(int id) {
 		s64 yy = (s64)id / (s64)(lenxAxis-1);
 		s64 xx = ((s64)id) % ((s64)lenxAxis-1);
 		return sources[yy]->y(xx);
@@ -312,6 +313,7 @@ public:
 	Table_Data_Profile2DTimed() : ts(0) {
 		inter = TableInterpolate::NO;
 		areas = true;
+		rowMajor = true;
 		clear();
 	}
 	void clear() { sources.clear(); min = std::numeric_limits<double>::infinity(); max = -min; set_size(0, 0); }
@@ -338,7 +340,7 @@ public:
 	
 	virtual double x(int id) { return (double)id; }
 	virtual double y(int id) { return (double)id; }
-	virtual double data(int id) {
+	virtual double zdata(int id) {
 		return sources[id]->y(ts);
 	}
 	
@@ -354,6 +356,7 @@ public :
 	Table_Data_Owns_XYZ(s64 dim_x, s64 dim_y) {
 		inter = TableInterpolate::NO;
 		areas = true;
+		rowMajor = true;
 		xx.resize(dim_x);
 		yy.resize(dim_y);
 		lenxAxis = dim_x;
@@ -364,7 +367,7 @@ public :
 	
 	virtual double x(int id) { return xx[id]; }
 	virtual double y(int id) { return yy[id]; }
-	virtual double data(int id) { return zz[id]; }
+	virtual double zdata(int id) { return zz[id]; }
 	
 	double &set_x(s64 idx) { return xx[idx]; }
 	double &set_y(s64 idx) { return yy[idx]; }

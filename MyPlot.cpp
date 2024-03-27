@@ -555,6 +555,7 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 	
 	plot->SetMinUnits(0, 0);
 	
+	
 	if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic && mode != Plot_Mode::profile2D)
 		plot->SetLogY(true);
 	else
