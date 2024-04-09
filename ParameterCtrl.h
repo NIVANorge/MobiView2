@@ -63,4 +63,30 @@ private :
 	Entity_Id expanded_col = invalid_entity_id;
 };
 
+class
+ParameterMapCtrl : public WithParameterMapEditLayout<Upp::TopWindow> {
+	typedef ParameterMapCtrl CLASSNAME;
+	
+	ParameterMapCtrl(MobiView2 *parent);
+	
+	void clean();
+	void refresh();
+	void select_par(Entity_Id par_id);
+	void add_pushed();
+	void remove_pushed();
+	void value_update(int row, double value);
+	
+private :
+	MobiView2 *parent;
+	
+	Entity_Id current_par = invalid_entity_id;
+	Indexes   current_indexes;
+	
+	Upp::Array<Upp::EditDoubleNotNull> row_ctrls;
+	std::vector<int>              data_index;
+	
+	void propagate_edit();
+};
+
+
 #endif

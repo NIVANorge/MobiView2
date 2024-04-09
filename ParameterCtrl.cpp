@@ -453,6 +453,10 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 		par_data.id = par_id;
 		auto par = model->parameters[par_id];
 		
+		auto edit_form = app->get_parameter_edit_form(par_id);
+		bool can_edit = (edit_form == Model_Application::Edit_Form::direct);
+		// TODO: Make system for editing if they are on map form (Needs separate view)
+		
 		for(s32 idx_row = 0; idx_row < row_count; ++idx_row) {
 		
 			if(!values_only) {
@@ -593,8 +597,12 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 					}
 				}
 				
-				if(!values_only)
-					parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), parameter_controls[row][col]);
+				if(!values_only) {
+					auto &ctrl = parameter_controls[row][col];
+					parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), ctrl);
+					if(!can_edit)
+						ctrl.Disable();
+				}
 			}
 			
 			parameter_view.SetMap(row, row_data);
@@ -629,7 +637,7 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	
 	// TODO: Do we really want to do this here? Ideally it should be a part of Mobius2 itself
 	// so that it also happens if done through other APIs.
-	if(std::find(app->baked_parameters.begin(), app->baked_parameters.end(), par_data.id) != app->baked_parameters.end()) {
+	if(app->is_baked_parameter(par_data.id)) {
 		// NOTE: We have to put it on the event queue instead of doing it immediately, because
 		// otherwise we may end up deleting the parameter editor Ctrl inside one of its
 		// callbacks, which can cause a crash.
@@ -689,4 +697,141 @@ ParameterCtrl::get_row_parameters() {
 	}
 	
 	return std::move(result);
+}
+
+
+
+ParameterMapCtrl::ParameterMapCtrl(MobiView2 *parent) {
+	CtrlLayout(*this);
+	this->parent = parent;
+	
+	push_add.SetImage(IconImg8::Add());
+	push_add.WhenAction = THISBACK(add_pushed);
+	
+	push_remove.SetImage(IconImg8::Remove());
+	push_remove.WhenAction = THISBACK(remove_pushed);
+	
+	map_view.AddColumn("Position"); //TODO: Could call the index column after the index set.
+	map_view.AddColumn("Value");
+}
+
+void
+ParameterMapCtrl::clean() {
+	map_view.Clear();
+	row_ctrls.clear();
+	data_index.clear();
+	current_par = invalid_entity_id;
+}
+
+void
+ParameterMapCtrl::select_par(Entity_Id par_id) {
+	current_par = map_id(parent->model, parent->data_set, par_id);
+	refresh();
+}
+
+bool
+match_initial(Indexes &a, Indexes &b) {
+	if(a.lookup_ordered || b.lookup_ordered || a.indexes.size() != b.indexes.size())
+		fatal_error(Mobius_Error::internal, "Unimplemented form for indexes using match_initial");
+
+	for(int idxidx = 0; idxidx < (int)a.indexes.size()-1; ++idxidx) {
+		if(a.indexes[idxidx] != b.indexes[idxidx]) return false;
+	}
+	return true;
+}
+
+void
+ParameterMapCtrl::refresh() {
+	clean();
+	
+	if(!parent->model_is_loaded()) return;
+	
+	auto data_set = parent->data_set;
+
+	auto pardata = data_set->parameters[current_par];
+	
+	if(!pardata->is_on_map_form) {
+		PromptOK("Something went wrong, this parameter is not on map form!");
+		return;
+	}
+	
+	// TODO Find the Indexes of current ParameterCtrl setup (ignoring Locks and Expands).
+	// They must be mapped over to Data_Set indexes!!
+	// Write them to this->current_indexes
+	//   hmm, may not need to have current_indexes be a class mamber, could be local.
+	
+	int data_idx = 0;
+	int row_idx = 0;
+	for(auto &entry : pardata->parmap_data) {
+		if(match_initial(entry.indexes, current_indexes)) {
+			
+			// TODO Have to display either last index or position depending on if the last index set
+			// has a position map.
+			
+			// TODO: Position must also be editable!
+			//   This is very annoying if it can be regular indexes, not just a double pos
+			//   value. :( :( :(
+			
+			map_view.Add(entry.pos, entry.value);
+			
+			row_ctrls.Create<EditDoubleNotNull>();
+			auto &ctrl = row_ctrls.Top();
+			//ctrl.SetData(entry.value);
+			map_view.SetCtrl(row_idx, 1, ctrl);
+			ctrl.WhenAction << [this, row_idx]() {
+				EditDoubleNotNull &ctrl = row_ctrls[row_idx];
+				Value val = ctrl.GetData();
+				if(IsNull(val)) return;
+				value_update(row_idx, (double)val);
+			};
+			
+			data_index.push_back(data_idx);
+			
+			++row_idx;
+		}
+			
+		++data_idx;
+	}
+}
+
+void
+ParameterMapCtrl::add_pushed() {
+	if(!parent->model_is_loaded()) return;
+	
+	auto data_set = parent->data_set;
+	// TODO!
+	
+	propagate_edit();
+}
+
+void
+ParameterMapCtrl::remove_pushed() {
+	if(!parent->model_is_loaded()) return;
+	
+	auto data_set = parent->data_set;
+	// TODO!
+	
+	propagate_edit();
+}
+
+void
+ParameterMapCtrl::value_update(int row, double value) {
+	if(!parent->model_is_loaded()) return;
+	if(!is_valid(current_par)) return;
+	
+	auto data_set = parent->data_set;
+	data_set->parameters[current_par]->parmap_data[data_index[row]].value = value;
+	
+	propagate_edit();
+}
+
+void
+ParameterMapCtrl::propagate_edit() {
+	
+	parent->data_set->parameters[current_par]->unpack_parameter_map(parent->data_set);
+	
+	// TODO!
+	//   Need to write data for this parameter back to the model application,
+	
+	parent->params.refresh_parameter_view(true);
 }

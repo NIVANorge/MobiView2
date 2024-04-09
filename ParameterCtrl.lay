@@ -2,3 +2,9 @@ LAYOUT(ParameterCtrlLayout, 652, 192)
 	ITEM(Upp::ArrayCtrl, parameter_view, HSizePosZ(0, 0).VSizePosZ(68, 0))
 END_LAYOUT
 
+LAYOUT(ParameterMapEditLayout, 204, 256)
+	ITEM(Upp::ArrayCtrl, map_view, HSizePosZ(4, 4).VSizePosZ(4, 32))
+	ITEM(Upp::Button, push_add, SetLabel(t_("Add")).LeftPosZ(4, 72).BottomPosZ(4, 24))
+	ITEM(Upp::Button, push_remove, SetLabel(t_("Remove")).LeftPosZ(80, 72).BottomPosZ(4, 24))
+END_LAYOUT
+
