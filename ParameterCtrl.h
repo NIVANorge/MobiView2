@@ -16,6 +16,38 @@ struct Model_Application;
 #include "common_types.h"
 #include "support/parameter_editing.h"
 
+class
+ParameterMapCtrl : public WithParameterMapEditLayout<Upp::TopWindow> {
+
+public :
+	typedef ParameterMapCtrl CLASSNAME;
+	
+	ParameterMapCtrl(MobiView2 *parent);
+	
+	void clean(bool clean_par = false);
+	void refresh();
+	void select_par(Indexed_Parameter &par);
+	void add_pushed();
+	void remove_pushed();
+	void pos_update(int row, double value);
+	void value_update(int row, double value);
+	
+private :
+	MobiView2 *parent;
+	
+	Entity_Id current_par = invalid_entity_id;
+	Entity_Id current_par_app = invalid_entity_id;
+	Indexes   current_indexes;
+	
+	Upp::Array<Upp::EditDoubleNotNull> pos_ctrls;
+	Upp::Array<Upp::EditDoubleNotNull> value_ctrls;
+	std::vector<int>                   data_index;
+	
+	void propagate_edit();
+	void show_at_row(int row_idx, int data_idx, Parmap_Entry &entry);
+};
+
+
 
 class ParameterCtrl : public WithParameterCtrlLayout<Upp::ParentCtrl> {
 	
@@ -52,6 +84,8 @@ private :
 	
 	void switch_expanded(Entity_Id id, bool on, bool force=false);
 	
+	void set_single_parameter(Upp::ValueMap &row_data, Indexed_Parameter &par_data, Upp::Id &value_column, int row, int col, bool show_additional, bool values_only, bool can_edit, bool map_form);
+	
 	Entity_Id par_group_id = invalid_entity_id;
 	std::vector<Entity_Id> index_sets;
 	std::vector<std::vector<Indexed_Parameter>> listed_pars;
@@ -61,31 +95,8 @@ private :
 	
 	Entity_Id expanded_row = invalid_entity_id;
 	Entity_Id expanded_col = invalid_entity_id;
-};
-
-class
-ParameterMapCtrl : public WithParameterMapEditLayout<Upp::TopWindow> {
-	typedef ParameterMapCtrl CLASSNAME;
 	
-	ParameterMapCtrl(MobiView2 *parent);
-	
-	void clean();
-	void refresh();
-	void select_par(Entity_Id par_id);
-	void add_pushed();
-	void remove_pushed();
-	void value_update(int row, double value);
-	
-private :
-	MobiView2 *parent;
-	
-	Entity_Id current_par = invalid_entity_id;
-	Indexes   current_indexes;
-	
-	Upp::Array<Upp::EditDoubleNotNull> row_ctrls;
-	std::vector<int>              data_index;
-	
-	void propagate_edit();
+	ParameterMapCtrl map_edit;
 };
 
 

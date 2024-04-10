@@ -7,7 +7,7 @@ using namespace Upp;
 #define IMAGEFILE <MobiView2/images.iml>
 #include <Draw/iml.h>
 
-ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent) {
+ParameterCtrl::ParameterCtrl(MobiView2 *parent) : parent(parent), map_edit(parent) {
 	CtrlLayout(*this);
 	
 	parameter_view.AddColumn("Name");
@@ -60,6 +60,8 @@ void ParameterCtrl::clean() {
 	
 	focus_row = -1;
 	focus_col = -1;
+	
+	map_edit.clean();
 }
 
 
@@ -307,7 +309,134 @@ void ParameterCtrl::expand_index_set_clicked(Entity_Id id) {
 	refresh_parameter_view(false);
 }
 
-void ParameterCtrl::refresh_parameter_view(bool values_only) {
+void
+ParameterCtrl::set_single_parameter(ValueMap &row_data, Indexed_Parameter &par_data, Id &value_column, int row, int col, bool show_additional, bool values_only, bool can_edit, bool map_form) {
+	
+	if(!values_only)
+		listed_pars[row][col] = par_data;
+	
+	s64 offset = parent->app->parameter_structure.get_offset(par_data.id, par_data.indexes);		
+	Parameter_Value val = *parent->app->data.parameters.get_value(offset);
+	
+	auto par = parent->model->parameters[par_data.id];
+	
+	if(map_form) {
+		
+		if(par->decl_type != Decl_Type::par_real) {
+			fatal_error(Mobius_Error::internal, "Unsupported parameter type for map form");
+		}
+			
+		if(!values_only) {
+			parameter_controls[row].Create<Button>();
+			auto &ctrl = parameter_controls[row][col];
+			static_cast<Button &>(ctrl).SetImage(IconImg8::Edit());
+			ctrl.WhenAction = [this, row, col]() {
+				map_edit.select_par(listed_pars[row][col]);
+				if(!map_edit.IsOpen())
+					map_edit.Open();
+			};
+			parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), ctrl);
+		}
+		
+		static_cast<Button &>(parameter_controls[row][col]).SetLabel(FormatDouble(val.val_real));
+		
+		return;
+	}
+	
+	
+	if(par->decl_type == Decl_Type::par_real) {
+		row_data.Set(value_column, val.val_real);
+		if(show_additional) {
+			row_data.Set("__min", par->min_val.val_real);
+			row_data.Set("__max", par->max_val.val_real);
+		}
+		
+		if(!values_only) {
+			parameter_controls[row].Create<EditDoubleNotNull>();
+			parameter_controls[row][col].WhenAction = [row, col, this]() {
+				EditDoubleNotNull *value_field = (EditDoubleNotNull *)&parameter_controls[row][col];
+				if(IsNull(*value_field)) return;
+				Parameter_Value val;
+				val.val_real = (double)*value_field;
+				parameter_edit(listed_pars[row][col], parent->app, val);
+			};
+		}
+	} else if(par->decl_type == Decl_Type::par_int) {
+		row_data.Set(value_column, val.val_integer);
+		if(show_additional) {
+			row_data.Set("__min", par->min_val.val_integer);
+			row_data.Set("__max", par->max_val.val_integer);
+		}
+		
+		if(!values_only) {
+			parameter_controls[row].Create<EditInt64NotNullSpin>();
+			parameter_controls[row][col].WhenAction = [row, col, this]() {
+				EditInt64NotNullSpin *value_field = (EditInt64NotNullSpin *)&parameter_controls[row][col];
+				if(IsNull(*value_field)) return;
+				Parameter_Value val;
+				val.val_integer = (int64)*value_field;
+				parameter_edit(listed_pars[row][col], parent->app, val);
+			};
+		}
+	} else if(par->decl_type == Decl_Type::par_bool) {
+		row_data.Set(value_column, (int)val.val_boolean);
+
+		if(!values_only) {
+			parameter_controls[row].Create<Option>();
+			parameter_controls[row][col].WhenAction = [row, col, this]() {
+				Option *value_field = (Option *)&parameter_controls[row][col];
+				Parameter_Value val;
+				val.val_boolean = (bool)value_field->Get();
+				parameter_edit(listed_pars[row][col], parent->app, val);
+			};
+		}
+	} else if(par->decl_type == Decl_Type::par_datetime) {
+		Time tm = convert_time(val.val_datetime);
+		row_data.Set(value_column, tm);
+		
+		if(!values_only) {
+			parameter_controls[row].Create<EditTimeNotNull>();
+			parameter_controls[row][col].WhenAction = [row, col, this]() {
+				EditTimeNotNull *value_field = (EditTimeNotNull *)&parameter_controls[row][col];
+				Time tm = value_field->GetData();
+				if(IsNull(tm)) return;
+				Parameter_Value val;
+				val.val_datetime = convert_time(tm);
+				parameter_edit(listed_pars[row][col], parent->app, val);
+			};
+		}
+	} else if(par->decl_type == Decl_Type::par_enum) {
+		row_data.Set(value_column, val.val_integer);
+		
+		if(!values_only) {
+			parameter_controls[row].Create<DropList>();
+			DropList *enum_list = (DropList *)&parameter_controls[row][col];
+			
+			int64 key = 0;
+			for(auto &name : par->enum_values)
+				enum_list->Add(key++, name.data());
+			enum_list->GoBegin();
+			
+			parameter_controls[row][col].WhenAction = [row, col, this]() {
+				DropList *value_field = (DropList *)&parameter_controls[row][col];
+				Parameter_Value val;
+				val.val_integer = (int64)value_field->GetKey(value_field->GetIndex());
+				parameter_edit(listed_pars[row][col], parent->app, val);
+			};
+		}
+	}
+	
+	if(!values_only) {
+		auto &ctrl = parameter_controls[row][col];
+		parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), ctrl);
+		if(!can_edit)
+			ctrl.Disable();
+	}
+}
+
+
+void
+ParameterCtrl::refresh_parameter_view(bool values_only) {
 	
 	if(!values_only) {
 		parameter_view.Clear();
@@ -455,7 +584,7 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 		
 		auto edit_form = app->get_parameter_edit_form(par_id);
 		bool can_edit = (edit_form == Model_Application::Edit_Form::direct);
-		// TODO: Make system for editing if they are on map form (Needs separate view)
+		bool map_form = (edit_form == Model_Application::Edit_Form::map);
 		
 		for(s32 idx_row = 0; idx_row < row_count; ++idx_row) {
 		
@@ -509,100 +638,8 @@ void ParameterCtrl::refresh_parameter_view(bool values_only) {
 						value_column = Id(app->index_data.get_index_name(par_data.indexes, col_idx).data());
 				}
 				
-				if(!values_only)
-					listed_pars[row][col] = par_data;
+				set_single_parameter(row_data, par_data, value_column, row, col, show_additional, values_only, can_edit, map_form);
 
-				s64 offset = parent->app->parameter_structure.get_offset(par_id, par_data.indexes);		
-				Parameter_Value val = *parent->app->data.parameters.get_value(offset);
-				
-				if(par->decl_type == Decl_Type::par_real) {
-					row_data.Set(value_column, val.val_real);
-					if(show_additional) {
-						row_data.Set("__min", par->min_val.val_real);
-						row_data.Set("__max", par->max_val.val_real);
-					}
-					
-					if(!values_only) {
-						parameter_controls[row].Create<EditDoubleNotNull>();
-						parameter_controls[row][col].WhenAction = [row, col, this]() {
-							EditDoubleNotNull *value_field = (EditDoubleNotNull *)&parameter_controls[row][col];
-							if(IsNull(*value_field)) return;
-							Parameter_Value val;
-							val.val_real = (double)*value_field;
-							parameter_edit(listed_pars[row][col], parent->app, val);
-						};
-					}
-				} else if(par->decl_type == Decl_Type::par_int) {
-					row_data.Set(value_column, val.val_integer);
-					if(show_additional) {
-						row_data.Set("__min", par->min_val.val_integer);
-						row_data.Set("__max", par->max_val.val_integer);
-					}
-					
-					if(!values_only) {
-						parameter_controls[row].Create<EditInt64NotNullSpin>();
-						parameter_controls[row][col].WhenAction = [row, col, this]() {
-							EditInt64NotNullSpin *value_field = (EditInt64NotNullSpin *)&parameter_controls[row][col];
-							if(IsNull(*value_field)) return;
-							Parameter_Value val;
-							val.val_integer = (int64)*value_field;
-							parameter_edit(listed_pars[row][col], parent->app, val);
-						};
-					}
-				} else if(par->decl_type == Decl_Type::par_bool) {
-					row_data.Set(value_column, (int)val.val_boolean);
-
-					if(!values_only) {
-						parameter_controls[row].Create<Option>();
-						parameter_controls[row][col].WhenAction = [row, col, this]() {
-							Option *value_field = (Option *)&parameter_controls[row][col];
-							Parameter_Value val;
-							val.val_boolean = (bool)value_field->Get();
-							parameter_edit(listed_pars[row][col], parent->app, val);
-						};
-					}
-				} else if(par->decl_type == Decl_Type::par_datetime) {
-					Time tm = convert_time(val.val_datetime);
-					row_data.Set(value_column, tm);
-					
-					if(!values_only) {
-						parameter_controls[row].Create<EditTimeNotNull>();
-						parameter_controls[row][col].WhenAction = [row, col, this]() {
-							EditTimeNotNull *value_field = (EditTimeNotNull *)&parameter_controls[row][col];
-							Time tm = value_field->GetData();
-							if(IsNull(tm)) return;
-							Parameter_Value val;
-							val.val_datetime = convert_time(tm);
-							parameter_edit(listed_pars[row][col], parent->app, val);
-						};
-					}
-				} else if(par->decl_type == Decl_Type::par_enum) {
-					row_data.Set(value_column, val.val_integer);
-					
-					if(!values_only) {
-						parameter_controls[row].Create<DropList>();
-						DropList *enum_list = (DropList *)&parameter_controls[row][col];
-						
-						int64 key = 0;
-						for(auto &name : par->enum_values)
-							enum_list->Add(key++, name.data());
-						enum_list->GoBegin();
-						
-						parameter_controls[row][col].WhenAction = [row, col, this]() {
-							DropList *value_field = (DropList *)&parameter_controls[row][col];
-							Parameter_Value val;
-							val.val_integer = (int64)value_field->GetKey(value_field->GetIndex());
-							parameter_edit(listed_pars[row][col], parent->app, val);
-						};
-					}
-				}
-				
-				if(!values_only) {
-					auto &ctrl = parameter_controls[row][col];
-					parameter_view.SetCtrl(row, parameter_view.GetPos(value_column), ctrl);
-					if(!can_edit)
-						ctrl.Disable();
-				}
 			}
 			
 			parameter_view.SetMap(row, row_data);
@@ -701,9 +738,9 @@ ParameterCtrl::get_row_parameters() {
 
 
 
-ParameterMapCtrl::ParameterMapCtrl(MobiView2 *parent) {
+ParameterMapCtrl::ParameterMapCtrl(MobiView2 *parent) : parent(parent) {
 	CtrlLayout(*this);
-	this->parent = parent;
+	Sizeable().Zoomable();
 	
 	push_add.SetImage(IconImg8::Add());
 	push_add.WhenAction = THISBACK(add_pushed);
@@ -716,22 +753,37 @@ ParameterMapCtrl::ParameterMapCtrl(MobiView2 *parent) {
 }
 
 void
-ParameterMapCtrl::clean() {
+ParameterMapCtrl::clean(bool clean_par) {
 	map_view.Clear();
-	row_ctrls.clear();
+	value_ctrls.Clear();
+	pos_ctrls.Clear();
 	data_index.clear();
-	current_par = invalid_entity_id;
+	if(clean_par) {
+		current_par = invalid_entity_id;
+		current_par_app = invalid_entity_id;
+	}
 }
 
 void
-ParameterMapCtrl::select_par(Entity_Id par_id) {
-	current_par = map_id(parent->model, parent->data_set, par_id);
+ParameterMapCtrl::select_par(Indexed_Parameter &par) {
+	current_par_app = par.id;
+	
+	current_indexes.clear();
+	// Map the indexes over to something that works for the data_set
+	auto &index_sets = parent->app->parameter_structure.get_index_sets(par.id);
+	for(auto set_id : index_sets) {
+		auto index = par.indexes.get_index(parent->app->index_data, set_id);
+		index.index_set = map_id(parent->model, parent->data_set, set_id);
+		current_indexes.add_index(index);
+	}
+	
+	current_par = map_id(parent->model, parent->data_set, current_par_app);
 	refresh();
 }
 
 bool
 match_initial(Indexes &a, Indexes &b) {
-	if(a.lookup_ordered || b.lookup_ordered || a.indexes.size() != b.indexes.size())
+	if(!a.lookup_ordered || !b.lookup_ordered || a.indexes.size() != b.indexes.size())
 		fatal_error(Mobius_Error::internal, "Unimplemented form for indexes using match_initial");
 
 	for(int idxidx = 0; idxidx < (int)a.indexes.size()-1; ++idxidx) {
@@ -741,10 +793,43 @@ match_initial(Indexes &a, Indexes &b) {
 }
 
 void
+ParameterMapCtrl::show_at_row(int row_idx, int data_idx, Parmap_Entry &entry) {
+	
+	map_view.Insert(row_idx, {entry.pos, entry.value} );
+			
+	// TODO: This must also work if it is not positional but index-based.
+	pos_ctrls.Insert(row_idx);
+	auto &posctrl = pos_ctrls[row_idx];
+	map_view.SetCtrl(row_idx, 0, posctrl);
+	posctrl.WhenAction << [this, row_idx]() {
+		EditDoubleNotNull &ctrl = pos_ctrls[row_idx];
+		Value val = ctrl.GetData();
+		if(IsNull(val)) return;
+		pos_update(row_idx, (double)val);
+	};
+	
+	value_ctrls.Insert(row_idx);
+	auto &ctrl = value_ctrls[row_idx];
+	//ctrl.SetData(entry.value);
+	map_view.SetCtrl(row_idx, 1, ctrl);
+	ctrl.WhenAction << [this, row_idx]() {
+		EditDoubleNotNull &ctrl = value_ctrls[row_idx];
+		Value val = ctrl.GetData();
+		if(IsNull(val)) return;
+		value_update(row_idx, (double)val);
+	};
+	
+	data_index.insert(data_index.begin()+row_idx, data_idx);
+	
+	map_view.SetLineColor(row_idx, Color(255, 255, 255));
+}
+
+void
 ParameterMapCtrl::refresh() {
-	clean();
+	clean(false);
 	
 	if(!parent->model_is_loaded()) return;
+	if(!is_valid(current_par)) return;
 	
 	auto data_set = parent->data_set;
 
@@ -755,37 +840,14 @@ ParameterMapCtrl::refresh() {
 		return;
 	}
 	
-	// TODO Find the Indexes of current ParameterCtrl setup (ignoring Locks and Expands).
-	// They must be mapped over to Data_Set indexes!!
-	// Write them to this->current_indexes
-	//   hmm, may not need to have current_indexes be a class mamber, could be local.
+	auto &index_sets = parent->app->parameter_structure.get_index_sets(current_par_app);
 	
 	int data_idx = 0;
 	int row_idx = 0;
 	for(auto &entry : pardata->parmap_data) {
 		if(match_initial(entry.indexes, current_indexes)) {
 			
-			// TODO Have to display either last index or position depending on if the last index set
-			// has a position map.
-			
-			// TODO: Position must also be editable!
-			//   This is very annoying if it can be regular indexes, not just a double pos
-			//   value. :( :( :(
-			
-			map_view.Add(entry.pos, entry.value);
-			
-			row_ctrls.Create<EditDoubleNotNull>();
-			auto &ctrl = row_ctrls.Top();
-			//ctrl.SetData(entry.value);
-			map_view.SetCtrl(row_idx, 1, ctrl);
-			ctrl.WhenAction << [this, row_idx]() {
-				EditDoubleNotNull &ctrl = row_ctrls[row_idx];
-				Value val = ctrl.GetData();
-				if(IsNull(val)) return;
-				value_update(row_idx, (double)val);
-			};
-			
-			data_index.push_back(data_idx);
+			show_at_row(row_idx, data_idx, entry);
 			
 			++row_idx;
 		}
@@ -797,9 +859,30 @@ ParameterMapCtrl::refresh() {
 void
 ParameterMapCtrl::add_pushed() {
 	if(!parent->model_is_loaded()) return;
+	if(!is_valid(current_par)) return;
 	
 	auto data_set = parent->data_set;
-	// TODO!
+	int row = map_view.GetCursor();
+	
+	auto &parmap = data_set->parameters[current_par]->parmap_data;
+	
+	Parmap_Entry entry;
+	int dataidx;
+	if(row == -1) {
+		row = map_view.GetCount();
+		dataidx = data_index.back()+1;
+		entry = parmap[data_index.back()];
+	} else {
+		dataidx = data_index[row];
+		entry = parmap[dataidx];
+	}
+	parmap.insert(parmap.begin() + dataidx, entry);
+	
+	show_at_row(row, dataidx, entry);
+	
+	// Have to update the data indexes of the ones behind since we inserted an element
+	for(int idx = row+1; idx < data_index.size(); ++idx)
+		data_index[idx]++;
 	
 	propagate_edit();
 }
@@ -807,11 +890,59 @@ ParameterMapCtrl::add_pushed() {
 void
 ParameterMapCtrl::remove_pushed() {
 	if(!parent->model_is_loaded()) return;
+	if(!is_valid(current_par)) return;
 	
 	auto data_set = parent->data_set;
-	// TODO!
+	
+	if(map_view.GetCount() == 1) return;  // Not allowed to empty it.
+	
+	int row = map_view.GetCursor();
+	if(row < 0) return;
+	
+	auto &parmap = data_set->parameters[current_par]->parmap_data;
+	
+	map_view.Remove(row);
+	pos_ctrls.Remove(row);
+	value_ctrls.Remove(row);
+	parmap.erase(parmap.begin()+data_index[row]);
+	data_index.erase(data_index.begin() + row);
+	for(int r = row; r < data_index.size(); ++r)
+		data_index[r]--;
 	
 	propagate_edit();
+}
+
+void
+ParameterMapCtrl::pos_update(int row, double pos) {
+	if(!parent->model_is_loaded()) return;
+	if(!is_valid(current_par)) return;
+	
+	auto data_set = parent->data_set;
+	auto &entry = data_set->parameters[current_par]->parmap_data[data_index[row]];
+
+	try {
+		// Replace the last index based on position.
+		auto idx_set = entry.indexes.indexes.back().index_set;
+		Token token;
+		token.type = Token_Type::real;
+		token.val_double = pos;
+		
+		int idxpos = (int)entry.indexes.indexes.size()-1;
+		data_set->index_data.find_index(idx_set, &token, entry.indexes);
+		
+		// Want to erase the old one after so that it doesn't happen if there was an error.
+		entry.indexes.indexes.erase(entry.indexes.indexes.begin()+idxpos);
+		
+		entry.pos = pos;
+		propagate_edit();
+		
+		map_view.SetLineColor(row, Color(255, 255, 255));
+	} catch(int) {
+		//TODO: We should stop it from printing the error at all.
+		// index_data.find_index should have optional error reporting
+		global_error_stream.str("");
+		map_view.SetLineColor(row, Color(205, 92, 92));
+	}
 }
 
 void
@@ -828,10 +959,12 @@ ParameterMapCtrl::value_update(int row, double value) {
 void
 ParameterMapCtrl::propagate_edit() {
 	
-	parent->data_set->parameters[current_par]->unpack_parameter_map(parent->data_set);
+	auto par_data = parent->data_set->parameters[current_par];
 	
-	// TODO!
-	//   Need to write data for this parameter back to the model application,
+	par_data->unpack_parameter_map(parent->data_set);
 	
+	read_single_parameter_data(parent->app, current_par_app, par_data);
+	
+	parent->params.changed_since_last_save = true;
 	parent->params.refresh_parameter_view(true);
 }

@@ -1,12 +1,6 @@
 #ifndef _MobiView2_Util_h_
 #define _MobiView2_Util_h_
 
-/*
-inline Upp::String
-str(const String_View &str) {
-	return Upp::String(str.data, str.data+str.count);
-}
-*/
 
 inline Upp::Time
 convert_time(const Date_Time &dt) {
