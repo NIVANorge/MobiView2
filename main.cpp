@@ -360,9 +360,10 @@ void MobiView2::reload(bool recompile_only) {
 	
 	String plot_setup_data;
 	Vector<String> additional_setup_data;
-	
+
+#if CATCH_ERRORS
 	try {   // Note this should really not give an error, but could if we messed up the serialization code.
-		
+#endif
 		// Selected parameter group.
 		auto par_group_id = get_selected_par_group();
 		if(is_valid(par_group_id))
@@ -372,10 +373,11 @@ void MobiView2::reload(bool recompile_only) {
 		plot_setup_data = serialize_plot_setup(app, plotter.main_plot.setup);
 		
 		additional_setup_data = additional_plots.serialize_setups();
-		
+#if CATCH_ERRORS
 	} catch(int) {
 		log_warnings_and_errors();
 	}
+#endif
 	
 	bool resized = plotter.main_plot.was_auto_resized;
 	
@@ -383,7 +385,9 @@ void MobiView2::reload(bool recompile_only) {
 	if(!recompile_only) {
 		success = do_the_load();
 	} else {
+		#if CATCH_ERRORS
 		try {
+		#endif
 			clean_interface();
 			app->save_to_data_set();
 			
@@ -395,10 +399,12 @@ void MobiView2::reload(bool recompile_only) {
 			app->build_from_data_set(data_set);
 			app->compile(true);
 			build_interface();
+		#if CATCH_ERRORS
 		} catch(int) {
 			delete_model();
 			success = false;
 		}
+		#endif
 		log_warnings_and_errors();
 		//store_settings(false);
 	}
@@ -440,13 +446,17 @@ void MobiView2::load() {
 	String previous_data  = settings_json["Data file"];
 	
 	std::string mobius_base_path;
+#if CATCH_ERRORS
 	try {
+#endif
 		mobius_config = load_config();
 		mobius_base_path = mobius_config.mobius_base_path;
+#if CATCH_ERRORS
 	} catch(int) {
 		log_warnings_and_errors();
 		return;
 	}
+#endif
 	
 	FileSel model_sel;
 
@@ -598,7 +608,9 @@ void MobiView2::run_model() {
 		return;
 	}
 	
+#if CATCH_ERRORS
 	try {
+#endif
 		s64 timeout = stat_settings.ms_timeout.GetData();
 		bool check_for_nan = stat_settings.check_for_nan.GetData();
 		
@@ -617,9 +629,10 @@ void MobiView2::run_model() {
 				log(Format("Result allocation size was %dMB", ((s64)app->data.results.alloc_size() / (1024*1024)) ));
 		} else
 			fatal_error("Model run failed to finish.");
-	} catch(int) {
-		
+#if CATCH_ERRORS
+	} catch(int) {	
 	}
+#endif
 	log_warnings_and_errors();
 	
 	result_selecter.Enable();
@@ -713,8 +726,9 @@ void MobiView2::build_interface() {
 		return;
 	}
 	
+	#if CATCH_ERRORS
 	try {
-	
+	#endif
 		par_group_selecter.Set(0, model->model_name.data());
 		par_group_selecter.SetNode(0, par_group_selecter.GetNode(0).CanSelect(false)); //Have to reset this every time one changes the name of the node apparently.
 		
@@ -763,9 +777,10 @@ void MobiView2::build_interface() {
 			structure_window.refresh_text();
 		if(info_window.IsOpen())
 			info_window.refresh_text();
-	
+	#if CATCH_ERRORS
 	} catch(int) {
 	}
+	#endif
 	log_warnings_and_errors();
 }
 

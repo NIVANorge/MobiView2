@@ -427,12 +427,7 @@ add_series_node(MobiView2 *window, TreeCtrl &tree, Array<Entity_Node> &nodes, Mo
 		name = "concentration";
 	} else if(var->is_flux()) {
 		// NOTE: we don't want to use the generated name here, only the name of the base flux.
-		// TODO: Should have a get_base_flux function since that is needed in internal Mobius2
-		// code also.
-		auto var2 = var;
-		while(var2->type == State_Var::Type::dissolved_flux)
-			var2 = app->vars[as<State_Var::Type::dissolved_flux>(var2)->flux_of_medium];
-		
+		auto var2 = app->vars[app->find_base_flux(var_id)];
 		name = var2->name;
 		//TODO: (other) aggregate fluxes!
 	} else
@@ -462,7 +457,9 @@ SeriesSelecter::build(Model_Application *app) {
 	
 	bool show_flux = option_show_fluxes.Get();
 	
+#if CATCH_ERRORS
 	try {
+#endif
 		if(type == Var_Id::Type::state_var) {
 			for(int n_comp = 1; n_comp < max_var_loc_components; ++n_comp) {
 				for(int pass = 0; pass < 4; ++pass) {
@@ -520,8 +517,9 @@ SeriesSelecter::build(Model_Application *app) {
 			for(Var_Id var_id : app->vars.all_additional_series())
 				add_series_node(parent, var_tree, nodes, app, var_id, additional_id, loc_to_node, 2);
 		}
-		
+#if CATCH_ERRORS
 	} catch (int) {}
+#endif
 	parent->log_warnings_and_errors();
 	
 	var_tree.OpenDeep(0, true);
