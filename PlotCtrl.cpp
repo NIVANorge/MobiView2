@@ -26,7 +26,7 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	plot_major_mode.Add((int)Plot_Mode::stacked_share, "Stacked share");
 	plot_major_mode.Add((int)Plot_Mode::histogram, "Histogram");
 	plot_major_mode.Add((int)Plot_Mode::profile, "Profile");
-	plot_major_mode.Add((int)Plot_Mode::profile2D, "Profile 2D");
+	plot_major_mode.Add((int)Plot_Mode::profile2D, "Heatmap");
 	plot_major_mode.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
 	plot_major_mode.Add((int)Plot_Mode::residuals, "Residuals");
 	plot_major_mode.Add((int)Plot_Mode::residuals_histogram, "Residuals histogram");
@@ -73,6 +73,14 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	pivot_month.GoBegin();
 	pivot_month.WhenAction << THISBACK(plot_change);
 	pivot_month.Disable();
+	
+	show_legend.SetData(1);
+	show_legend.WhenAction << [this]() {
+		bool show = show_legend.GetData();
+		main_plot.ShowLegend(show);
+		main_plot.Refresh();
+	};
+	show_legend.Enable();
 }
 
 void
@@ -208,6 +216,7 @@ PlotCtrl::plot_change() {
 	push_play.Hide();
 	push_rewind.Hide();
 	pivot_month.Disable();
+	show_legend.Disable();
 	
 	if (mode == Plot_Mode::regular || mode == Plot_Mode::stacked || mode == Plot_Mode::stacked_share || mode == Plot_Mode::compare_baseline) {
 		scatter_inputs.Enable();
@@ -237,6 +246,9 @@ PlotCtrl::plot_change() {
 			pivot_month.Enable();
 	} else
 		aggregation.Disable();
+	
+	if(mode != Plot_Mode::profile2D)
+		show_legend.Enable();
 	
 	// TODO: All this stuff is really only needed if the active index sets changed.
 	int active_idx = 0;

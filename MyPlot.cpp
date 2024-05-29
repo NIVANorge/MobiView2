@@ -495,9 +495,12 @@ compute_smallest_step_resolution(Aggregation_Period interval_type, Time_Step_Siz
 
 inline void
 grid_time_stamp_format(int res_type, Date_Time ref_date, double seconds_since_ref, String &str) {
-	static const char *month_names[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-	//NOTE: Adding 0.5 helps a bit with avoiding flickering when panning, but is not perfect (TODO)
+	//static const char *month_names[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 	
+	// Testing shorter month names since they some times overlap
+	static const char *month_names[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	
+	//NOTE: Adding 0.5 helps a bit with avoiding flickering when panning, but is not perfect (TODO)
 	Date_Time d2 = ref_date;
 	if(seconds_since_ref >= 0.0)
 		d2.seconds_since_epoch += (s64)(seconds_since_ref + 0.5);
@@ -1112,7 +1115,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				return;
 			}
 			if(mode == Plot_Mode::profile2D && (series_count != 1 || (n_multi_index != 1 && n_multi_index != 2))) {
-				SetTitle("In profile2D mode you can only have one timeseries selected, and one or two index sets must have multiple indexes selected");
+				SetTitle("In heatmap mode you can only have one timeseries selected, and one or two index sets must have multiple indexes selected");
 				return;
 			}
 			Var_Id var_id;
