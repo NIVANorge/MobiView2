@@ -1,7 +1,7 @@
 #include "StarOption.h"
 
 #define IMAGECLASS StarImg
-#define IMAGEFILE "MobiView/star.iml"
+#define IMAGEFILE "MobiView2/star.iml"
 #include <Draw/iml.h>
 
 

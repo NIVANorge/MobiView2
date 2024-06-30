@@ -3,17 +3,18 @@
 
 using namespace Upp;
 
-#include "support/graph_visualisation.h"
-#include <graphviz/gvc.h>
+//#include "support/graph_visualisation.h"
+//#include <graphviz/gvc.h>
 
 // TODO: This is a hack. For some reason, we don't get this with the libs we use. Should
 // rebuild them?
-Agdesc_t 	Agdirected = { 1, 0, 0, 1 };
+//Agdesc_t 	Agdirected = { 1, 0, 0, 1 };
 
 
 void
 ModelGraph::rebuild_image(Model_Application *app, int type) {
 	
+	/*
 	if(!app) {
 		image = Image();
 		return;
@@ -45,7 +46,8 @@ ModelGraph::rebuild_image(Model_Application *app, int type) {
 	gvFreeLayout(gvc, g);
 
 	agclose(g);
-#endif	
+#endif
+*/
 	Refresh();
 }
 

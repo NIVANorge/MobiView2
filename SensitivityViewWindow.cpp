@@ -3,7 +3,7 @@
 
 // NOTE: For the run icon
 #define IMAGECLASS IconImg3
-#define IMAGEFILE <MobiView/images.iml>
+#define IMAGEFILE <MobiView2/images.iml>
 #include <Draw/iml.h>
 
 StatPlotCtrl::StatPlotCtrl() {

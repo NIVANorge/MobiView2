@@ -12,7 +12,7 @@
 */
 
 #define IMAGECLASS IconImg4
-#define IMAGEFILE <MobiView/images.iml>
+#define IMAGEFILE <MobiView2/images.iml>
 #include <Draw/iml.h>
 
 using namespace Upp;

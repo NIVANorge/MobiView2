@@ -5,7 +5,7 @@
 #include <plugin/md/Markdown.h>
 
 #define IMAGECLASS LogoImg
-#define IMAGEFILE <MobiView/logos.iml>
+#define IMAGEFILE <MobiView2/logos.iml>
 #include <Draw/iml.h>
 
 
