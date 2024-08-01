@@ -1,6 +1,8 @@
 #ifndef _MobiView2_MobiView2_h
 #define _MobiView2_MobiView2_h
 
+#include <corecrt.h>
+
 #include <CtrlLib/CtrlLib.h>
 
 
