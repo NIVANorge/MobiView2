@@ -741,7 +741,7 @@ void MobiView2::build_interface() {
 			Entity_Id module_id = idx >= 0 ? Entity_Id { Reg_Type::module, (s16)idx } : invalid_entity_id;
 				
 			// Don't display modules that don't have par_groups in the par_group_selecter
-			auto iter = model->get_scope(module_id)->by_type<Reg_Type::par_group>();
+			auto iter = model->get_scope(module_id)->by_type(Reg_Type::par_group);
 			if(iter.size() == 0)
 				continue;
 			

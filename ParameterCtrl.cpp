@@ -130,7 +130,7 @@ void ParameterCtrl::par_group_change() {
 	if(!is_valid(par_group_id))
 		return;
 	
-	auto par_range = parent->model->get_scope(par_group_id)->by_type<Reg_Type::parameter>();
+	auto par_range = parent->model->get_scope(par_group_id)->by_type(Reg_Type::parameter);
 	s64  par_count = par_range.size();
 	
 	if(!par_count) return;
@@ -477,7 +477,7 @@ ParameterCtrl::refresh_parameter_view(bool values_only) {
 
 	}
 	
-	auto par_range = model->get_scope(par_group_id)->by_type<Reg_Type::parameter>();
+	auto par_range = model->get_scope(par_group_id)->by_type(Reg_Type::parameter);
 	s64  par_count = par_range.size();
 	
 	bool empty = false;
