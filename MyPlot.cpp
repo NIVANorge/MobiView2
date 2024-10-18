@@ -634,7 +634,7 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 				plot->SetRange((double)count, Null);
 				plot->cbModifFormatX << [count, plot](String &s, int i, double d) {
 					int idx = (int)std::floor(d);
-					if(idx >= -1 && idx <= count-1 && (idx+1 < plot->labels.size())) 
+					if(idx >= -1 && idx <= count-1 && (idx+1 < plot->labels.size()))
 						s = plot->labels[idx+1];
 					else s = "";
 				};
