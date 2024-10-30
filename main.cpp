@@ -270,11 +270,14 @@ bool MobiView2::do_the_load() {
 #if CATCH_ERRORS
 	try {
 #endif
-		model = load_model(model_file.data(), &mobius_config);
-		app = new Model_Application(model);
-			
 		data_set = new Data_Set;
-		data_set->read_from_file(data_file.data());
+		data_set->read_from_file(data_file.c_str());
+		
+		Model_Options options;
+		data_set->get_model_options(options);
+		
+		model = load_model(model_file.data(), &mobius_config, &options);
+		app = new Model_Application(model);
 		
 		app->build_from_data_set(data_set);
 		app->compile(true);
@@ -756,6 +759,7 @@ void MobiView2::build_interface() {
 			
 			for(auto group_id : iter) {
 				auto par_group = model->par_groups[group_id];
+				if(par_group->decl_type == Decl_Type::option_group) continue;
 				par_group_nodes.Create(group_id, par_group->name.data());
 				par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
 			}
