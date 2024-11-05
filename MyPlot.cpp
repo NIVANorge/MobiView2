@@ -885,7 +885,11 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			multi_index = true;
 	}
 	
-	ShowLegend(true);
+	bool show_l = true;
+	if(plot_ctrl) {
+		show_l = plot_ctrl->show_legend.GetData();
+	}
+	ShowLegend(show_l);
 	
 	plot_info->Clear();
 	

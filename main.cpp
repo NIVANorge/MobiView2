@@ -628,13 +628,17 @@ void MobiView2::run_model() {
 		log_box.finish_progress_bar();
 		
 		if(finished) {
-			log(Format("Model run finished.\nDuration: %g ms.", ms ));
+			if(ms > 5000) {
+				log(Format("Model run finished.\nDuration: %g s.", ms/1000));
+			} else {
+				log(Format("Model run finished.\nDuration: %g ms.", ms));
+			}
 			if(mobius_developer_mode)
 				log(Format("Result allocation size was %dMB", ((s64)app->data.results.alloc_size() / (1024*1024)) ));
 		} else
 			fatal_error("Model run failed to finish.");
 #if CATCH_ERRORS
-	} catch(int) {	
+	} catch(int) {
 	}
 #endif
 	log_warnings_and_errors();
