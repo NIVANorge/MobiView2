@@ -266,6 +266,11 @@ bool MobiView2::do_the_load() {
 		calib_end.SetData(Null);
 	}
 	
+	if(!config_is_loaded)
+		load_config();
+	if(!config_is_loaded)
+		return false;
+	
 	bool success = true;
 #if CATCH_ERRORS
 	try {
@@ -426,7 +431,7 @@ void MobiView2::reload(bool recompile_only) {
 	
 	if(selected_group != "") {
 		auto group_id = model->deserialize(selected_group, Reg_Type::par_group);
-		if(is_valid(group_id))	
+		if(is_valid(group_id))
 			select_par_group(group_id);
 	}
 	
@@ -434,6 +439,20 @@ void MobiView2::reload(bool recompile_only) {
 	
 	if(!recompile_only && model_was_already_run)
 		run_model();
+}
+
+void MobiView2::load_config() {
+	#if CATCH_ERRORS
+		try {
+	#endif
+			mobius_config = ::load_config();
+			config_is_loaded = true;
+	#if CATCH_ERRORS
+		} catch(int) {
+			log_warnings_and_errors();
+			return;
+		}
+	#endif
 }
 
 void MobiView2::load() {
@@ -449,18 +468,12 @@ void MobiView2::load() {
 	String previous_model = settings_json["Model file"];
 	String previous_data  = settings_json["Data file"];
 	
-	std::string mobius_base_path;
-#if CATCH_ERRORS
-	try {
-#endif
-		mobius_config = load_config();
-		mobius_base_path = mobius_config.mobius_base_path;
-#if CATCH_ERRORS
-	} catch(int) {
-		log_warnings_and_errors();
+	if(!config_is_loaded)
+		load_config();
+	if(!config_is_loaded)
 		return;
-	}
-#endif
+		
+	std::string &mobius_base_path = mobius_config.mobius_base_path;
 	
 	FileSel model_sel;
 
@@ -615,6 +628,12 @@ void MobiView2::run_model() {
 #if CATCH_ERRORS
 	try {
 #endif
+		
+		// This is to avoid it updating the plot during long model runs.
+		// Although it was a bit cool to see the progress, it is bug prone since
+		// it is working with arrays that are potentially not of expected size.
+		plotter.main_plot.clean(false);
+
 		s64 timeout = stat_settings.ms_timeout.GetData();
 		bool check_for_nan = stat_settings.check_for_nan.GetData();
 		
@@ -633,8 +652,15 @@ void MobiView2::run_model() {
 			} else {
 				log(Format("Model run finished.\nDuration: %g ms.", ms));
 			}
-			if(mobius_developer_mode)
-				log(Format("Result allocation size was %dMB", ((s64)app->data.results.alloc_size() / (1024*1024)) ));
+			if(mobius_developer_mode) {
+				s64 kb = ((s64)app->data.results.alloc_size() / (1024*1024));
+				s64 mb = kb/1024;
+				
+				if(mb >= 5)
+					log(Format("Result allocation size was %dMB", mb));
+				else
+					log(Format("Result allocation size was %dkB", kb));
+			}
 		} else
 			fatal_error("Model run failed to finish.");
 #if CATCH_ERRORS
@@ -720,6 +746,7 @@ void MobiView2::clean_interface() {
 	input_selecter.clean();
 	plot_info.Clear();
 	
+	search_window.clean();
 	params.clean();
 	plotter.clean();
 	additional_plots.clean();
@@ -841,6 +868,7 @@ void MobiView2::open_stat_settings() {
 void MobiView2::open_search_window() {
 	if(search_window.IsOpen()) return;
 	search_window.Open();
+	search_window.search_field.SetFocus();
 }
 
 void MobiView2::open_sensitivity_window() {

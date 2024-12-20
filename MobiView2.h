@@ -81,6 +81,8 @@ public:
 	ModelChartView        model_chart_window;
 	
 	Mobius_Config      mobius_config;
+	bool config_is_loaded = false;
+	
 	Mobius_Model      *model = nullptr;
 	Data_Set          *data_set = nullptr;
 	Model_Application *app = nullptr;
@@ -97,6 +99,7 @@ public:
 	void log(Upp::String msg, bool error = false);
 	void log_warnings_and_errors();
 	
+	void load_config();
 	void load();
 	void reload(bool recompile_only = false);
 	void save_parameters();

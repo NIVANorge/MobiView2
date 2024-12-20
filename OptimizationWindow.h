@@ -66,8 +66,8 @@ public:
 	void read_from_json_string(const Upp::String &json);
 	Upp::String write_to_json_string();
 	
-	void symbol_edited(int row);
-	void expr_edited(int row);
+	void symbol_edited(int idx);
+	void expr_edited(int idx);
 	void err_sym_edited(int row);
 	void weight_edited(int row);
 	void stat_edited(int row);

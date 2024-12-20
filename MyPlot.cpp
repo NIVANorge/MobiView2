@@ -732,11 +732,22 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 			}
 			
 			if(!plot->was_auto_resized) {
-				plot->ZoomToFitNonLinked(true, false, 0, 0);
-				plot->was_auto_resized = true;
+				
+				bool empty = true;
+				for(auto &data : plot->series_data) {
+					if(!data.is_empty()) {
+						empty = false;
+						break;
+					}
+				}
+				
+				if(!empty) {
+					plot->ZoomToFitNonLinked(true, false, 0, 0);
+					plot->was_auto_resized = true;
+				}
 			}
 			
-			// TODO: This is still bug prone!!
+			// TODO: This is still bug prone (flickering)!
 			// Position of x grid lines
 			plot->SetGridLinesX << [plot, input_start, res_type](Vector<double> &vec){
 				double x_min = plot->GetXMin();
@@ -990,7 +1001,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			Time_Series_Stats stats;
 			compute_time_series_stats(&stats, &parent->stat_settings.settings, data, offset, gof_offset, gof_ts);
 			
-			series_data.Create<Mobius_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
+			series_data.Create<Mobius_Series_Data_Source>(data, offset, gof_ts, x_data.data(), input_start, gof_start, app->time_step_size);
 			
 			String unit = var->unit.to_utf8();
 			String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";

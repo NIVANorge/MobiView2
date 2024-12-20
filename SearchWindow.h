@@ -20,6 +20,7 @@ public:
 	
 	MobiView2 *parent;
 	
+	void clean();
 	void find();
 	void select_item();
 	

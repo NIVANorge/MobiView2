@@ -66,7 +66,12 @@ Plot_Setup  deserialize_plot_setup(Model_Application *app, Upp::String &data);
 
 class Mobius_Data_Source : public Upp::DataSource {
 public :
-	Mobius_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
+	virtual bool is_empty() { return false; }
+};
+
+class Mobius_Series_Data_Source : public Mobius_Data_Source {
+public :
+	Mobius_Series_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size)
 		: data(data), offset(offset), x_data(x_data), steps(steps) {
 		
@@ -77,13 +82,25 @@ public :
 	virtual double y(s64 id) { return *data->get_value(offset, y_offset + id); }
 	virtual double x(s64 id) { return x_data[x_offset + id]; }
 	virtual s64 GetCount() const { return steps; }
+	
+	virtual bool is_empty() {
+		s64 count = GetCount();
+		bool some = false;
+		for(s64 i = 0; i < count; ++i) {
+			if(std::isfinite(y(i))) {
+				some = true;
+				break;
+			}
+		}
+		return some;
+	}
 private :
 	Data_Storage<double, Var_Id> *data;
 	s64 offset, x_offset, y_offset, steps;
 	double *x_data;
 };
 
-class Residual_Data_Source : public Upp::DataSource {
+class Residual_Data_Source : public Mobius_Data_Source {
 	
 public:
 	Residual_Data_Source(Data_Storage<double, Var_Id> *data_sim, Data_Storage<double, Var_Id> *data_obs, s64 offset_sim, s64 offset_obs, s64 steps, double *x_data,
@@ -98,18 +115,18 @@ public:
 	virtual s64 GetCount() const { return obs.GetCount(); }
 	
 private:
-	Mobius_Data_Source sim;
-	Mobius_Data_Source obs;
+	Mobius_Series_Data_Source sim;
+	Mobius_Series_Data_Source obs;
 };
 
-class Agg_Data_Source : public Upp::DataSource {
+class Agg_Data_Source : public Mobius_Data_Source {
 	
 public :
 	Agg_Data_Source(Data_Storage<double, Var_Id> *data, s64 offset, s64 steps, double *x_data,
 		Date_Time ref_x_start, Date_Time start, Time_Step_Size ts_size, Plot_Setup *setup, bool always_copy_y = false)
 		: y_axis_mode(setup->y_axis_mode), aggregation_period(setup->aggregation_period) {
 		
-		source = new Mobius_Data_Source(data, offset, steps, x_data, ref_x_start, start, ts_size);
+		source = new Mobius_Series_Data_Source(data, offset, steps, x_data, ref_x_start, start, ts_size);
 		copied_y = always_copy_y;
 		build(ref_x_start, start, setup, steps, ts_size);
 	}
@@ -186,7 +203,7 @@ private :
 	std::vector<double> agg_y;
 };
 
-class Data_Source_Line : public Upp::DataSource {
+class Data_Source_Line : public Mobius_Data_Source {
 
 public:
 	Data_Source_Line(double x0, double y0, double x1, double y1)
@@ -199,7 +216,7 @@ private:
 	double xx[2], yy[2];
 };
 
-class Data_Source_Owns_XY : public Upp::DataSource {
+class Data_Source_Owns_XY : public Mobius_Data_Source {
 	
 public:
 	Data_Source_Owns_XY(std::vector<double> *xx, std::vector<double> *yy) :
@@ -217,12 +234,12 @@ private:
 	std::vector<double> xx, yy;
 };
 
-class Data_Source_Profile : public Upp::DataSource {
+class Data_Source_Profile : public Mobius_Data_Source {
 	
 public :
 	Data_Source_Profile() : ts(0) { clear(); }
 	
-	void add(Upp::DataSource *val) {
+	void add(Mobius_Data_Source *val) {
 		data.push_back(val);
 		for(s64 ts = 0; ts < val->GetCount(); ++ts) {
 			double v = val->y(ts);
@@ -245,7 +262,7 @@ public :
 	void set_x_values(std::vector<double> &x_values) { this->x_values = x_values; }
 	bool has_x_values() { return !x_values.empty(); }
 	
-	virtual double x(s64 id) { 
+	virtual double x(s64 id) {
 		if(!x_values.empty()) return x_values[id]+0.5;
 		return (double)id;
 	}
@@ -293,7 +310,7 @@ public:
 	
 	virtual double x(int id) { return sources[0]->x((s64)id); }
 	virtual double y(int id) {
-		if(!y_values.empty()) return y_values[id];	
+		if(!y_values.empty()) return y_values[id];
 		return (double)id;
 	}
 	virtual double zdata(int id) {
@@ -468,10 +485,10 @@ public:
 	MyRichView *plot_info = nullptr;
 	MobiView2  *parent;
 	PlotCtrl   *plot_ctrl = nullptr;
-	
+
 	bool was_auto_resized = false;
 	
-	Upp::Array<Upp::DataSource> series_data;
+	Upp::Array<Mobius_Data_Source> series_data;
 	std::vector<double>         x_data;
 	MyDataStackedY              data_stacked;
 	Upp::Histogram              histogram;

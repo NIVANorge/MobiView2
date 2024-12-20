@@ -63,6 +63,9 @@ OptimizationWindow::OptimizationWindow(MobiView2 *parent) : parent(parent) {
 	target_setup.target_view.AddColumn(Id("__weight"), "Weight");
 	target_setup.target_view.AddColumn(Id("__start"), "Start");
 	target_setup.target_view.AddColumn(Id("__end"), "End");
+	target_setup.target_view.AddColumn(Id("__idx"), "Index");
+	
+	target_setup.target_view.HeaderObject().HideTab(9);
 	
 	target_setup.edit_timeout.SetData(-1);
 	
@@ -213,7 +216,7 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 		
 		parameter.symbol = sym.ToStd();
 		parameters.push_back(std::move(parameter));
-		//int row = parameters.size()-1;
+		
 		int idx = parameters.size()-1;
 		int row = par_setup.parameter_view.GetCount();
 		
@@ -229,8 +232,8 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 		par_setup.parameter_view.SetCtrl(row, 5, edit_sym_ctrls.Top());
 		par_setup.parameter_view.SetCtrl(row, 6, edit_expr_ctrls.Top());
 		
-		edit_sym_ctrls.Top().WhenAction <<  [this, row](){ symbol_edited(row); };
-		edit_expr_ctrls.Top().WhenAction << [this, row](){ expr_edited(row); };
+		edit_sym_ctrls.Top().WhenAction <<  [this, idx](){ symbol_edited(idx); };
+		edit_expr_ctrls.Top().WhenAction << [this, idx](){ expr_edited(idx); };
 	}
 	else
 		par_setup.parameter_view.Set(overwrite_row, 1, index_str);
@@ -238,13 +241,13 @@ bool OptimizationWindow::add_single_parameter(Indexed_Parameter parameter, bool 
 	return true;
 }
 
-void OptimizationWindow::symbol_edited(int row) {
-	int idx = par_setup.parameter_view.Get(row, "__idx");
+void OptimizationWindow::symbol_edited(int idx) {
+	int row = par_setup.parameter_view.Find(idx, "__idx");
 	parameters[idx].symbol = par_setup.parameter_view.Get(row, "__sym").ToStd();
 }
 
-void OptimizationWindow::expr_edited(int row) {
-	int idx = par_setup.parameter_view.Get(row, "__idx");
+void OptimizationWindow::expr_edited(int idx) {
+	int row = par_setup.parameter_view.Find(idx, "__idx");
 	parameters[idx].expr = par_setup.parameter_view.Get(row, "__expr").ToStd();
 }
 
@@ -270,14 +273,14 @@ void OptimizationWindow::remove_parameter_clicked() {
 	if(sel_row < 0) return;
 	
 	//int idx = par_setup.parameter_view.Get(sel_row, "__idx");
-	
-	par_setup.parameter_view.Remove(sel_row);
-	//parameters.erase(parameters.begin()+idx);    // NOTE: We can't do this, because then we
-	// invalidate the indexes that are stored in the row for the rest of them...
 	edit_min_ctrls.Remove(sel_row);
 	edit_max_ctrls.Remove(sel_row);
 	edit_sym_ctrls.Remove(sel_row);
 	edit_expr_ctrls.Remove(sel_row);
+	par_setup.parameter_view.Remove(sel_row);
+	//parameters.erase(parameters.begin()+idx);    // NOTE: We can't do this, because then we
+	// invalidate the indexes that are stored in the row for the rest of them...
+	
 }
 
 void OptimizationWindow::clear_parameters_clicked() {
@@ -333,13 +336,16 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 		#undef SET_LOG_LIKELIHOOD
 	}
 	
+	static int idx = 0; // Note: unlike for parameters, this one is only a unique id of the row.
+	int idx0 = idx;
+	
 	target_setup.target_view.Add(var_sim->name.data(), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight,
-		convert_time(target.start), convert_time(target.end));
+		convert_time(target.start), convert_time(target.end), idx);
 	
 	int row = target_setup.target_view.GetCount()-1;
 	int col = target_setup.target_view.GetPos(Id("__targetstat"));
 	target_setup.target_view.SetCtrl(row, col, sel_stat);
-	sel_stat.WhenAction << [this, row]() { stat_edited(row); };
+	sel_stat.WhenAction << [this, idx0]() { stat_edited(idx); };
 
 	if(target.stat_type >= 0 && target.stat_type <= (int)LL_Type::end)
 		sel_stat.SetData(target.stat_type);
@@ -350,29 +356,32 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	EditField &err_ctrl = target_err_ctrls.Top();
 	col     = target_setup.target_view.GetPos(Id("__errparam"));
 	target_setup.target_view.SetCtrl(row, col, err_ctrl);
-	err_ctrl.WhenAction << [this, row](){ err_sym_edited(row); };
+	err_ctrl.WhenAction << [this, idx0](){ err_sym_edited(idx); };
 	
 	target_weight_ctrls.Create<EditDoubleNotNull>();
 	EditDoubleNotNull &edit_wt = target_weight_ctrls.Top();
 	edit_wt.Min(0.0);
 	col     = target_setup.target_view.GetPos(Id("__weight"));
 	target_setup.target_view.SetCtrl(row, col, edit_wt);
-	edit_wt.WhenAction << [this, row](){ weight_edited(row); };
+	edit_wt.WhenAction << [this, idx0](){ weight_edited(idx); };
 	
 	target_start_ctrls.Create<EditTimeNotNull>();
 	EditTimeNotNull &edit_start = target_start_ctrls.Top();
 	col = target_setup.target_view.GetPos(Id("__start"));
 	target_setup.target_view.SetCtrl(row, col, edit_start);
-	edit_start.WhenAction << [this, row](){ start_edited(row); };
+	edit_start.WhenAction << [this, idx0](){ start_edited(idx); };
 	
 	target_end_ctrls.Create<EditTimeNotNull>();
 	EditTimeNotNull &edit_end = target_end_ctrls.Top();
 	col = target_setup.target_view.GetPos(Id("__end"));
 	target_setup.target_view.SetCtrl(row, col, edit_end);
-	edit_end.WhenAction << [this, row](){ end_edited(row); };
+	edit_end.WhenAction << [this, idx0](){ end_edited(idx); };
+	
+	++idx;
 }
 
-void OptimizationWindow::stat_edited(int row) {
+void OptimizationWindow::stat_edited(int idx) {
+	int row = target_setup.target_view.Find(idx, "__idx");
 	targets[row].stat_type = (int)target_stat_ctrls[row].GetData();
 	//PromptOK(Format("Set stat to %d", targets[row].stat_type));
 }
@@ -381,15 +390,18 @@ void OptimizationWindow::err_sym_edited(int row) {
 	// NOTE: we don't update the stored err params here, instead we do it right before the run.
 }
 
-void OptimizationWindow::weight_edited(int row) {
+void OptimizationWindow::weight_edited(int idx) {
+	int row = target_setup.target_view.Find(idx, "__idx");
 	targets[row].weight = (double)target_setup.target_view.Get(row, "__weight");
 }
 
-void OptimizationWindow::start_edited(int row) {
+void OptimizationWindow::start_edited(int idx) {
+	int row = target_setup.target_view.Find(idx, "__idx");
 	targets[row].start = convert_time((Time)target_setup.target_view.Get(row, "__start"));
 }
 
-void OptimizationWindow::end_edited(int row) {
+void OptimizationWindow::end_edited(int idx) {
+	int row = target_setup.target_view.Find(idx, "__idx");
 	targets[row].end   = convert_time((Time)target_setup.target_view.Get(row, "__end"));
 }
 

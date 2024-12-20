@@ -10,7 +10,14 @@ SearchWindow::SearchWindow(MobiView2 *parent) : parent(parent) {
 	result_field.AddColumn("Module");
 	result_field.AddColumn("Group");
 	
-	result_field.WhenSel = THISBACK(select_item);
+	// WhenSel doesn't respond if it is already selected.
+	//result_field.WhenSel = THISBACK(select_item);
+	result_field.WhenLeftClick = THISBACK(select_item);
+}
+
+void SearchWindow::clean() {
+	search_field.Clear();
+	result_field.Clear();
 }
 
 void SearchWindow::find() {
@@ -35,6 +42,9 @@ void SearchWindow::find() {
 		}
 		for(auto group_id : parent->model->get_scope(module_id)->by_type(Reg_Type::par_group)) {
 			auto group = parent->model->par_groups[group_id];
+			
+			if(group->decl_type == Decl_Type::option_group) continue;
+			
 			for(auto par_id : parent->model->get_scope(group_id)->by_type(Reg_Type::parameter)) {
 				auto par = parent->model->parameters[par_id];
 				std::string par_name = par->name;
