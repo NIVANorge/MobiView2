@@ -337,15 +337,15 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	}
 	
 	static int idx = 0; // Note: unlike for parameters, this one is only a unique id of the row.
-	int idx0 = idx;
+	int idx0 = idx++;
 	
 	target_setup.target_view.Add(var_sim->name.data(), sim_index_str, obs_name, obs_index_str, target.stat_type, "", target.weight,
-		convert_time(target.start), convert_time(target.end), idx);
+		convert_time(target.start), convert_time(target.end), idx0);
 	
 	int row = target_setup.target_view.GetCount()-1;
 	int col = target_setup.target_view.GetPos(Id("__targetstat"));
 	target_setup.target_view.SetCtrl(row, col, sel_stat);
-	sel_stat.WhenAction << [this, idx0]() { stat_edited(idx); };
+	sel_stat.WhenAction << [this, idx0]() { stat_edited(idx0); };
 
 	if(target.stat_type >= 0 && target.stat_type <= (int)LL_Type::end)
 		sel_stat.SetData(target.stat_type);
@@ -356,28 +356,26 @@ void OptimizationWindow::add_optimization_target(Optimization_Target &target) {
 	EditField &err_ctrl = target_err_ctrls.Top();
 	col     = target_setup.target_view.GetPos(Id("__errparam"));
 	target_setup.target_view.SetCtrl(row, col, err_ctrl);
-	err_ctrl.WhenAction << [this, idx0](){ err_sym_edited(idx); };
+	err_ctrl.WhenAction << [this, idx0](){ err_sym_edited(idx0); };
 	
 	target_weight_ctrls.Create<EditDoubleNotNull>();
 	EditDoubleNotNull &edit_wt = target_weight_ctrls.Top();
 	edit_wt.Min(0.0);
 	col     = target_setup.target_view.GetPos(Id("__weight"));
 	target_setup.target_view.SetCtrl(row, col, edit_wt);
-	edit_wt.WhenAction << [this, idx0](){ weight_edited(idx); };
+	edit_wt.WhenAction << [this, idx0](){ weight_edited(idx0); };
 	
 	target_start_ctrls.Create<EditTimeNotNull>();
 	EditTimeNotNull &edit_start = target_start_ctrls.Top();
 	col = target_setup.target_view.GetPos(Id("__start"));
 	target_setup.target_view.SetCtrl(row, col, edit_start);
-	edit_start.WhenAction << [this, idx0](){ start_edited(idx); };
+	edit_start.WhenAction << [this, idx0](){ start_edited(idx0); };
 	
 	target_end_ctrls.Create<EditTimeNotNull>();
 	EditTimeNotNull &edit_end = target_end_ctrls.Top();
 	col = target_setup.target_view.GetPos(Id("__end"));
 	target_setup.target_view.SetCtrl(row, col, edit_end);
-	edit_end.WhenAction << [this, idx0](){ end_edited(idx); };
-	
-	++idx;
+	edit_end.WhenAction << [this, idx0](){ end_edited(idx0); };
 }
 
 void OptimizationWindow::stat_edited(int idx) {
