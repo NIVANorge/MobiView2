@@ -13,6 +13,7 @@
 
 std::stringstream global_error_stream;
 std::stringstream global_log_stream;
+bool allow_logging = true;
 
 
 using namespace Upp;

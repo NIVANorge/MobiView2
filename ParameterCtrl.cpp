@@ -217,7 +217,7 @@ void ParameterCtrl::list_change(Entity_Id id) {
 		int existing_sel = list.GetIndex();
 		if(existing_sel < 0) existing_sel = 0;
 		else if(existing_sel >= count) existing_sel = count-1;
-		if(!list.GetCount()) existing_sel = -1; 
+		if(!list.GetCount()) existing_sel = -1;
 		
 		auto index_set = parent->model->index_sets[id2];
 		if(id != id2 && is_valid(index_set->sub_indexed_to) && app->index_data.can_be_sub_indexed_to(id, index_set->sub_indexed_to)) {
@@ -315,7 +315,7 @@ ParameterCtrl::set_single_parameter(ValueMap &row_data, Indexed_Parameter &par_d
 	if(!values_only)
 		listed_pars[row][col] = par_data;
 	
-	s64 offset = parent->app->parameter_structure.get_offset(par_data.id, par_data.indexes);		
+	s64 offset = parent->app->parameter_structure.get_offset(par_data.id, par_data.indexes);
 	Parameter_Value val = *parent->app->data.parameters.get_value(offset);
 	
 	auto par = parent->model->parameters[par_data.id];
@@ -485,7 +485,7 @@ ParameterCtrl::refresh_parameter_view(bool values_only) {
 	//NOTE: We don't store info about the parameter being locked now, since that has to be
 	//overridden later anyway (the lock status when the look-up happens can have changed since the table was
 	//constructed.
-	Indexed_Parameter par_data(parent->model);	
+	Indexed_Parameter par_data(parent->model);
 	for(auto id : index_sets) {
 		int sel = index_lists[id.id].GetIndex();
 		if(sel < 0 || !index_lists[id.id].GetCount())
@@ -921,6 +921,8 @@ ParameterMapCtrl::pos_update(int row, double pos) {
 	auto &entry = data_set->parameters[current_par]->parmap_data[data_index[row]];
 
 	try {
+		// TODO: Doesn't work correctly if there is not position map. But it also doesn't given an error!
+		
 		// Replace the last index based on position.
 		auto idx_set = entry.indexes.indexes.back().index_set;
 		Token token;
