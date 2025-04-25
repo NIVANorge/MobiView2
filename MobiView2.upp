@@ -69,6 +69,7 @@ file
 	C:\Data\Mobius2\src\index_data.cpp,
 	C:\Data\Mobius2\src\external_computations.cpp,
 	C:\Data\Mobius2\src\ast.cpp,
+	C:\Data\Mobius2\src\model_specific\nivafjord_jetmix.cpp,
 	C:\Data\Mobius2\src\ast.h,
 	C:\Data\Mobius2\src\common_types.h,
 	C:\Data\Mobius2\src\data_set.cpp,

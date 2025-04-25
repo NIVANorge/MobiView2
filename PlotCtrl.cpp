@@ -22,12 +22,13 @@ PlotCtrl::PlotCtrl(MobiView2 *parent) : parent(parent) {
 	time_step_edit.WhenAction << THISBACK(time_step_edit_event);
 	
 	plot_major_mode.Add((int)Plot_Mode::regular, "Regular");
+	plot_major_mode.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
 	plot_major_mode.Add((int)Plot_Mode::stacked, "Stacked");
 	plot_major_mode.Add((int)Plot_Mode::stacked_share, "Stacked share");
 	plot_major_mode.Add((int)Plot_Mode::histogram, "Histogram");
 	plot_major_mode.Add((int)Plot_Mode::profile, "Profile");
 	plot_major_mode.Add((int)Plot_Mode::profile2D, "Heatmap");
-	plot_major_mode.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
+	plot_major_mode.Add((int)Plot_Mode::baseline2D, "Heatmap bl. diff");
 	plot_major_mode.Add((int)Plot_Mode::residuals, "Residuals");
 	plot_major_mode.Add((int)Plot_Mode::residuals_histogram, "Residuals histogram");
 	plot_major_mode.Add((int)Plot_Mode::qq, "Quantile-Quantile");
@@ -231,7 +232,7 @@ PlotCtrl::plot_change() {
 		push_play.Show();
 		push_rewind.Show();
 		time_intervals.Enable();
-	} else if (mode == Plot_Mode::profile2D)
+	} else if (mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D)
 		time_intervals.Enable();
 	
 	if(time_intervals.IsEnabled()) {
@@ -247,7 +248,7 @@ PlotCtrl::plot_change() {
 	} else
 		aggregation.Disable();
 	
-	if(mode != Plot_Mode::profile2D)
+	if(mode != Plot_Mode::profile2D && mode != Plot_Mode::baseline2D)
 		show_legend.Enable();
 	
 	// TODO: All this stuff is really only needed if the active index sets changed.

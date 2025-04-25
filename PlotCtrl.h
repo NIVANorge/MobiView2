@@ -10,21 +10,22 @@
 #include "support/aggregate.h"
 #include "model_application.h"
 
-//NOTE: This has to match up to the aggregation selector. It should also match the override
-//modes in the AdditionalPlotView
+// NOTE: This has to match up to the aggregation selector. It should also match the override
+// modes in the AdditionalPlotView
 enum class Plot_Mode {
 	regular = 0,
+	compare_baseline,
 	stacked,
 	stacked_share,
 	histogram,
 	profile,
 	profile2D,
-	compare_baseline,
+	baseline2D,
 	residuals,
 	residuals_histogram,
 	qq,
 	
-	none = 100, // Only used to signify a non-override
+	none = 100, // Used to signify a non-override in additional plot view
 };
 
 //NOTE: This has to match up to the y axis mode selector.
@@ -38,7 +39,8 @@ enum class Y_Axis_Mode {
 inline bool is_linkable(Plot_Mode mode) {
 	return (mode==Plot_Mode::regular || mode==Plot_Mode::stacked
 		|| mode==Plot_Mode::stacked_share || mode==Plot_Mode::profile2D
-		|| mode==Plot_Mode::compare_baseline || mode==Plot_Mode::residuals);
+		|| mode==Plot_Mode::baseline2D || mode==Plot_Mode::compare_baseline
+		|| mode==Plot_Mode::residuals);
 }
 
 struct Plot_Setup {
@@ -110,7 +112,7 @@ public:
 		obs(data_obs, offset_obs, steps, x_data, ref_x_start, start, ts_size)
 	{}
 	
-	virtual double y(s64 id) { return obs.y(id) - sim.y(id); }
+	virtual double y(s64 id) { return sim.y(id) - obs.y(id); }
 	virtual double x(s64 id) { return obs.x(id); }
 	virtual s64 GetCount() const { return obs.GetCount(); }
 	

@@ -44,12 +44,13 @@ AdditionalPlotView::AdditionalPlotView(MobiView2 *parent) : parent(parent) {
 	
 	override_list.Add((int)Plot_Mode::none, "(none)");
 	override_list.Add((int)Plot_Mode::regular, "Regular");
+	override_list.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
 	override_list.Add((int)Plot_Mode::stacked, "Stacked");
 	override_list.Add((int)Plot_Mode::stacked_share, "Stacked share");
 	override_list.Add((int)Plot_Mode::histogram, "Histogram");
 	override_list.Add((int)Plot_Mode::profile, "Profile");
-	override_list.Add((int)Plot_Mode::profile2D, "Profile 2D");
-	override_list.Add((int)Plot_Mode::compare_baseline, "Compare baseline");
+	override_list.Add((int)Plot_Mode::profile2D, "Heatmap");
+	override_list.Add((int)Plot_Mode::baseline2D, "Heatmap baseline diff");
 	override_list.Add((int)Plot_Mode::residuals, "Residuals");
 	override_list.Add((int)Plot_Mode::residuals_histogram, "Residual histogram");
 	override_list.Add((int)Plot_Mode::qq, "QQ");

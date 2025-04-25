@@ -32,7 +32,8 @@ MyPlot::MyPlot() {
 	SetRainbowPalettePos({50, 10});
 }
 
-void MyPlot::clean(bool full_clean) {
+void
+MyPlot::clean(bool full_clean) {
 	//TODO
 	RemoveAllSeries();
 	RemoveSurf();
@@ -59,7 +60,8 @@ void MyPlot::clean(bool full_clean) {
 		was_auto_resized = false;
 }
 
-void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) {
+void
+MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) {
 	x_data.resize(steps);
 	Expanded_Date_Time dt(start, ts_size);
 	for(s64 step = 0; step < steps; ++step) {
@@ -68,7 +70,8 @@ void MyPlot::compute_x_data(Date_Time start, s64 steps, Time_Step_Size ts_size) 
 	}
 }
 
-void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color, String &legend, String &unit) {
+void
+format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color, String &legend, String &unit) {
 	
 	draw->Legend(legend).Units(unit);
 	
@@ -100,7 +103,8 @@ void format_plot(MyPlot *draw, Var_Id::Type type, DataSource *data, Color &color
 	}
 }
 
-bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, Indexes &indexes,
+bool
+add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_Id var_id, Indexes &indexes,
 	s64 ts, Date_Time ref_x_start, Date_Time start, double *x_data, s64 gof_offset, s64 gof_ts, Color &color, bool stacked,
 	const String &legend_prefix, bool always_copy_y) {
 	
@@ -129,20 +133,6 @@ bool add_single_plot(MyPlot *draw, Model_Data *md, Model_Application *app, Var_I
 	String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit_str + "]";
 	if(!IsNull(legend_prefix))
 		legend = legend_prefix + legend;
-	
-	// Don't plot a nonexisting series. TODO: This didn't work as intended Have to start scan at
-	// between ref start and start?
-	// Also can be annoying for the user if they click a series and nothing happens. Better if
-	// it was just blank, but that is bugged.
-	/*bool found = false;
-	for(s64 t = 0; t < ts; ++t) {
-		if(std::isfinite(*data->get_value(offset, t))) {
-			found = true;
-			break;
-		}
-	}
-	if(!found) return true;
-	*/
 	
 	draw->series_data.Create<Agg_Data_Source>(data, offset, ts, x_data, ref_x_start, start, app->time_step_size, &draw->setup, always_copy_y);
 	if(stacked) {
@@ -559,13 +549,13 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 	plot->SetMinUnits(0, 0);
 	
 	
-	if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic && mode != Plot_Mode::profile2D)
+	if(plot->setup.y_axis_mode == Y_Axis_Mode::logarithmic && mode != Plot_Mode::profile2D && mode != Plot_Mode::baseline2D)
 		plot->SetLogY(true);
 	else
 		plot->SetLogY(false);
 	
 	if(plot->GetCount() > 0
-		|| (mode == Plot_Mode::profile2D &&
+		|| ((mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D) &&
 			((!plot->profile2D_is_timed && plot->profile2D.count() > 0) ||
 			(plot->profile2D_is_timed && plot->profile2Dt.count() > 0))
 			)) {
@@ -651,7 +641,7 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 				plot->SetRange(x_max+0.5, Null);
 			}
 			
-		} else if (mode == Plot_Mode::profile2D && plot->profile2D_is_timed) {
+		} else if ((mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D)&& plot->profile2D_is_timed) {
 			plot->ZoomToFitNonLinked(true, true, 0, 0);
 			plot->was_auto_resized = false;
 			plot->SetSurfMinZ(plot->profile2Dt.get_min());
@@ -680,10 +670,9 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 			plot->ZoomToFitNonLinked(false, true, 0, 0);
 			
 			int res_type = compute_smallest_step_resolution(plot->setup.aggregation_period, ts_size);
-			if(mode == Plot_Mode::profile2D) {
-				//plot->ZoomToFitZ();
+			if(mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D) {
 				
-				TableData *data = plot->profile2D_is_timed ? static_cast<TableData *>(&plot->profile2Dt) : static_cast<TableData *>(&plot->profile2D);
+				auto *data = &plot->profile2D;
 				double minz = data->MinZ();
 				double maxz = data->MaxZ();
 				
@@ -694,7 +683,9 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 				else {  // maxz > 0.0 && minz < 0.0*/
 					double absmax = std::max(std::abs(maxz), std::abs(minz));
 					maxz = absmax;
-					minz = std::max(-0.5*absmax, minz);
+					//minz = -absmax; //std::max(-0.5*absmax, minz);
+					if(absmax / std::abs(minz) < 4.0)
+						minz = -absmax;
 				}
 				plot->SetSurfMinZ(minz);
 				plot->SetSurfMaxZ(maxz);
@@ -768,10 +759,10 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 		
 		// Extend the Y range a bit more to avoid the legend obscuring the plot in the most
 		// common cases (and to have a nice margin).
-		if(plot->GetShowLegend() && mode != Plot_Mode::profile && mode != Plot_Mode::profile2D)
+		if(plot->GetShowLegend() && mode != Plot_Mode::profile && mode != Plot_Mode::profile2D && mode != Plot_Mode::baseline2D)
 			plot->SetRange(Null, plot->GetYRange() * 1.15);
 		
-		if(mode != Plot_Mode::profile2D) {
+		if(mode != Plot_Mode::profile2D && mode != Plot_Mode::baseline2D) {
 			if(plot->setup.y_axis_mode != Y_Axis_Mode::logarithmic) {
 				plot->cbModifFormatYGridUnits << [](String &s, int i, double d) {
 					s = FormatDouble(d, 4);
@@ -786,7 +777,7 @@ format_axes(MyPlot *plot, Plot_Mode mode, int n_bins_histogram, Date_Time input_
 	
 	bool allow_scroll_x = !(mode == Plot_Mode::profile || mode == Plot_Mode::histogram
 		|| mode == Plot_Mode::residuals_histogram);
-	bool allow_scroll_y = (mode == Plot_Mode::qq) || (mode == Plot_Mode::profile2D && plot->profile2D_is_timed);
+	bool allow_scroll_y = (mode == Plot_Mode::qq) || ( (mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D) && plot->profile2D_is_timed);
 	plot->SetMouseHandling(allow_scroll_x, allow_scroll_y);
 }
 
@@ -1006,7 +997,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 			String unit = var->unit.to_utf8();
 			String legend = String(var->name) + " " + make_index_string(data->structure, indexes, var_id) + "[" + unit + "]";
 			
-			Color &color = colors.next();
+			Color color = colors.next();
 			n_bins_histogram = add_histogram(this, &series_data.Top(), stats.min, stats.max, stats.data_points, legend, unit, color);
 			display_statistics(plot_info, &parent->stat_settings.display_settings, &stats, color, legend);
 			
@@ -1057,14 +1048,15 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				// Hmm, this will make a trend of the aggregated data. Should we do it that way?
 				compute_trend_stats(&series_data.Top(), x_mean, y_mean, x_var, xy_covar);
 				
-				double slope_days = (xy_covar / x_var)*86400;  // TODO: Ideally scale it to the time step unit, but it is a bit tricky.
+				// TODO: Ideally scale it to the time step unit, but it is a bit tricky.
+				double slope_days = (xy_covar / x_var)*86400;
 				auto trend_legend = Format("Trend line. Slope: %g (%s day⁻¹)", slope_days, unit);
 				add_trend_line(this, xy_covar, x_var, y_mean, x_mean, first_x, last_x, trend_legend);
 				
 				add_line(this, first_x, residual_stats.min_error, first_x, residual_stats.max_error, Red(), Null);
 				add_line(this, last_x,  residual_stats.min_error, last_x,  residual_stats.max_error, Red(), Null);
 			} else if(mode == Plot_Mode::residuals_histogram) {
-				//TODO : Could actually allow aggrecation for this now
+				//TODO : Could actually allow aggregation for this now
 				series_data.Create<Residual_Data_Source>(data_sim, data_obs, offset_sim, offset_obs, gof_ts, x_data.data(),
 					input_start, gof_start, app->time_step_size);
 
@@ -1082,7 +1074,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 					yy[pt] = 0.5 * (std::erf((high-mean) / (std::sqrt(2.0)*std_dev)) - std::erf((low-mean) / (std::sqrt(2.0)*std_dev)));
 				}
 				series_data.Create<Data_Source_Owns_XY>(&xx, &yy);
-				Color &color = colors.next();
+				Color color = colors.next();
 				AddSeries(series_data.Top()).Legend("Normal distr.").MarkColor(color).Stroke(0.0, color).Dash("");
 
 			} else if(mode == Plot_Mode::qq) {
@@ -1106,7 +1098,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 
 				add_line(this, min, min, max, max, Red(), Null);
 			}
-		} else if (mode == Plot_Mode::profile || mode == Plot_Mode::profile2D) {
+		} else if (mode == Plot_Mode::profile || mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D) {
 			
 			int profile_set_idx;
 			int profile_set_idx2;
@@ -1130,10 +1122,20 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				SetTitle("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected");
 				return;
 			}
-			if(mode == Plot_Mode::profile2D && (series_count != 1 || (n_multi_index != 1 && n_multi_index != 2))) {
+			if((mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D)
+				&& (series_count != 1 || (n_multi_index != 1 && n_multi_index != 2))) {
 				SetTitle("In heatmap mode you can only have one timeseries selected, and one or two index sets must have multiple indexes selected");
 				return;
 			}
+			if(mode == Plot_Mode::baseline2D && !parent->baseline) {
+				SetTitle("A baseline comparison can only be displayed if the baseline has been saved (using a button in the toolbar)");
+				return;
+			}
+			if(mode == Plot_Mode::baseline2D && this->profile2D_is_timed) {
+				SetTitle("Baseline heatmaps are currently only implemented for heatmaps along one index axis");
+				return;
+			}
+			
 			Var_Id var_id;
 			s64 steps;
 			Date_Time start;
@@ -1145,10 +1147,26 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				var_id = setup.selected_series[0];
 				steps = input_ts;
 				start = input_start;
+				
+				if(mode == Plot_Mode::baseline2D) {
+					SetTitle("Baseline mode only works for model result series.");
+					return;
+				}
 			}
 
 			auto *data = &app->data.get_storage(var_id.type);
 			auto var = app->vars[var_id];
+			
+			Model_Data *baseline = nullptr;
+			if(mode == Plot_Mode::baseline2D) {
+				baseline = parent->baseline;
+				s64 baseline_ts = baseline->results.time_steps;
+				Date_Time baseline_start = baseline->results.start_date;
+				if(baseline_ts != steps || baseline_start != start) {
+					SetTitle("Can only compare against a baseline that was run for the same time interval as the current one.");
+					return;
+				}
+			}
 			
 			profile_unit   = var->unit.to_utf8();
 			profile_legend = String(var->name) + "[" + profile_unit + "]";
@@ -1160,10 +1178,17 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				indexes.set_index(index, true);
 				labels << String(app->index_data.get_index_name(indexes, index));
 				
+
 				if(!profile2D_is_timed) {
-					if(!app->index_data.are_in_bounds(indexes)) continue; //TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
+					//TODO: should maybe only trim off the ones on the beginning or end, not the ones inside..
+					if(!app->index_data.are_in_bounds(indexes)) continue;
 					s64 offset = data->structure->get_offset(var_id, indexes);
-					series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+					if(baseline) {
+						series_data.Create<Agg_Data_Source>(data, &baseline->get_storage(var_id.type),
+							offset, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+					} else {
+						series_data.Create<Agg_Data_Source>(data, offset, steps, x_data.data(), input_start, start, app->time_step_size, &setup);
+					}
 				} else {
 
 					for(Index_T &index2 : setup.selected_indexes[profile_set_idx2]) {
@@ -1229,7 +1254,7 @@ void MyPlot::build_plot(bool caused_by_run, Plot_Mode override_mode) {
 				}
 				
 				
-			} else if (mode == Plot_Mode::profile2D && !profile2D_is_timed) {
+			} else if ((mode == Plot_Mode::profile2D || mode == Plot_Mode::baseline2D) && !profile2D_is_timed) {
 				int idx = 0;
 				for(auto &series : series_data)
 					profile2D.add(&series);
