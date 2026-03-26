@@ -1027,7 +1027,7 @@ void OptimizationWindow::run_clicked(int run_type)
 	
 	Optim_Callback callback = nullptr;
 	if(run_setup.option_show_progress.Get() && run_type == 0) {
-		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score) {
+		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score, std::vector<double>& erroneous_pars) {
 			if((n_evals % update_step) == 0) {
 				//GUILock lock;
 				run_setup.progress_label.SetText(Format("Current evaluations: %d, timeouts: %d, best score: %g (initial: %g)", n_evals, n_timeouts, best_score, initial_score));
@@ -1035,6 +1035,9 @@ void OptimizationWindow::run_clicked(int run_type)
 					parent->additional_plots.build_all(true);
 			
 				parent->ProcessEvents();
+				
+				// TODO: Seems like we lost the update where it stores an ill-formed parameter
+				// set and displays it. Reimplement when time for it
 			}
 		};
 	}
