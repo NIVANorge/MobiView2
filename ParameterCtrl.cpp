@@ -878,13 +878,16 @@ ParameterMapCtrl::add_pushed() {
 	}
 	parmap.insert(parmap.begin() + dataidx, entry);
 	
+	/*
 	show_at_row(row, dataidx, entry);
 	
 	// Have to update the data indexes of the ones behind since we inserted an element
 	for(int idx = row+1; idx < data_index.size(); ++idx)
 		data_index[idx]++;
-	
+	*/
 	propagate_edit();
+	
+	refresh();
 }
 
 void
@@ -901,15 +904,19 @@ ParameterMapCtrl::remove_pushed() {
 	
 	auto &parmap = data_set->parameters[current_par]->parmap_data;
 	
+	/*
 	map_view.Remove(row);
 	pos_ctrls.Remove(row);
 	value_ctrls.Remove(row);
+	*/
 	parmap.erase(parmap.begin()+data_index[row]);
-	data_index.erase(data_index.begin() + row);
+	//data_index.erase(data_index.begin() + row);
+	/*
 	for(int r = row; r < data_index.size(); ++r)
 		data_index[r]--;
-	
+	*/
 	propagate_edit();
+	refresh();
 }
 
 void
