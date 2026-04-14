@@ -1026,6 +1026,7 @@ void OptimizationWindow::run_clicked(int run_type)
 	//s64 *step_ptr = &update_step;
 	
 	Optim_Callback callback = nullptr;
+
 	if(run_setup.option_show_progress.Get() && run_type == 0) {
 		callback = [&update_step, this](int n_evals, int n_timeouts, double initial_score, double best_score, std::vector<double>& erroneous_pars) {
 			if((n_evals % update_step) == 0) {
@@ -1035,9 +1036,6 @@ void OptimizationWindow::run_clicked(int run_type)
 					parent->additional_plots.build_all(true);
 			
 				parent->ProcessEvents();
-				
-				// TODO: Seems like we lost the update where it stores an ill-formed parameter
-				// set and displays it. Reimplement when time for it
 			}
 		};
 	}
@@ -1094,6 +1092,12 @@ void OptimizationWindow::run_clicked(int run_type)
 					(double)ms*1e-3, opt_model.best_score, opt_model.initial_score));
 			} else
 				parent->log("The optimizer was unable to find a better result using the given number of function evaluations");
+			
+			if(!opt_model.erroneous_pars.empty()) {
+				auto errstr = opt_model.report_erroneous(app);
+				parent->log(Format("Here is an example of a parameter set that caused the model to time out:\n%s",
+					errstr));
+			}
 			
 		} else if (run_type == 1 || run_type == 2) {
 			int n_walkers   = mcmc_setup.edit_walkers.GetData();
