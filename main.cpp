@@ -338,7 +338,7 @@ MobiView2::get_selected_par_group() {
 	return par_group_id;
 }
 
-void MobiView2::reload(bool recompile_only) {
+void MobiView2::reload(bool recompile_only, bool reload_model) {
 	if(!model_is_loaded()) {
 		if(data_file.empty() || model_file.empty())
 			log("Not able to reload when there is nothing loaded to begin with.", true);
@@ -404,6 +404,17 @@ void MobiView2::reload(bool recompile_only) {
 			if(baseline) delete baseline;
 			baseline = nullptr;
 			
+			if(reload_model) {
+				if(model) delete model;
+				model = nullptr;
+				Model_Options options;
+				if(data_set) {
+					data_set->get_model_options(options);
+					model = load_model(model_file.c_str(), &mobius_config, &options);
+				} else {
+					PromptOK("Unexpected error: reload of model when no data set was loaded.");
+				}
+			}
 			delete app;
 			app = new Model_Application(model);
 			app->build_from_data_set(data_set);
@@ -654,10 +665,13 @@ void MobiView2::run_model() {
 				log(Format("Model run finished.\nDuration: %g ms.", ms));
 			}
 			if(mobius_developer_mode) {
-				s64 kb = ((s64)app->data.results.alloc_size() / (1024*1024));
+				s64 kb = ((s64)app->data.results.alloc_size() / (1024));
 				s64 mb = kb/1024;
+				double gb = (double)kb/(1024.0*1024.0);
 				
-				if(mb >= 5)
+				if(gb >= 2.0)
+					log(Format("Result allocation size was %.1fGB", gb));
+				else if(mb >= 5)
 					log(Format("Result allocation size was %dMB", mb));
 				else
 					log(Format("Result allocation size was %dkB", kb));
@@ -791,7 +805,7 @@ void MobiView2::build_interface() {
 			
 			for(auto group_id : iter) {
 				auto par_group = model->par_groups[group_id];
-				if(par_group->decl_type == Decl_Type::option_group) continue;
+				//if(par_group->decl_type == Decl_Type::option_group) continue;
 				par_group_nodes.Create(group_id, par_group->name.data());
 				par_group_selecter.Add(id, Null, par_group_nodes.Top(), false);
 			}

@@ -101,7 +101,7 @@ public:
 	
 	void load_config();
 	void load();
-	void reload(bool recompile_only = false);
+	void reload(bool recompile_only = false, bool reload_model = false);
 	void save_parameters();
 	void save_parameters_as();
 	void run_model();

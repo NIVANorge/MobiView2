@@ -674,12 +674,16 @@ ParameterCtrl::parameter_edit(Indexed_Parameter par_data, Model_Application *app
 	
 	// TODO: Do we really want to do this here? Ideally it should be a part of Mobius2 itself
 	// so that it also happens if done through other APIs.
-	if(app->is_baked_parameter(par_data.id)) {
+	if(
+		app->is_baked_parameter(par_data.id) ||
+		app->is_option_parameter(par_data.id)
+	) {
+		bool reload_model = app->is_option_parameter(par_data.id);
 		// NOTE: We have to put it on the event queue instead of doing it immediately, because
 		// otherwise we may end up deleting the parameter editor Ctrl inside one of its
 		// callbacks, which can cause a crash.
-		PostCallback([this]() {
-			parent->reload(true);
+		PostCallback([this, reload_model]() {
+			parent->reload(true, reload_model);
 			parent->log("The model was recompiled due to a change in a constant parameter."); // Is there a better name than "constant parameter"?
 		});
 	}
