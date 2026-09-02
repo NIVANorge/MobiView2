@@ -319,6 +319,10 @@ void set_date_grid_line_positions_x(double x_min, double x_range, Vector<double>
 	s64 first = input_start.seconds_since_epoch + (s64)x_min;
 	s64 last  = first + sec_range;
 	
+	// Just safeguard to not make it try to display too large dates.
+	if (sec_range > 15768000000)
+		return;
+	
 	//NOTE: res_type denotes the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
 	//4=months, 5=years
 
